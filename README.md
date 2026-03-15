@@ -1,26 +1,45 @@
 # Conduit
 
-A multi-agent Terminal User Interface (TUI) for orchestrating AI coding assistants. Run Claude Code and Codex CLI side-by-side with tab-based session management.
+Conduit is a keyboard-first interface for running coding agents inside git-backed workspaces. It ships as a Ratatui TUI and an optional local web UI, with support for Codex CLI, Claude Code, Gemini CLI, and OpenCode.
 
-## Features
+## What You Get
 
-- **Multi-Agent Support** - Seamlessly switch between Claude Code and Codex CLI
-- **Tab-Based Sessions** - Run multiple concurrent agent sessions (up to 10 tabs)
-- **Real-Time Streaming** - Watch agent responses as they're generated
-- **Token Usage Tracking** - Monitor input/output tokens and estimated costs
-- **Session Persistence** - Resume previous sessions with their full context
-- **Rich Terminal UI** - Markdown rendering, syntax highlighting, and animations
+- Multi-agent sessions with up to 10 concurrent tabs
+- Git-backed workspaces using either `worktree` or full `checkout` mode
+- Session persistence, history restore, and external session import
+- Provider and model selection with Codex `gpt-5.4` as the default
+- Build/Plan mode for Claude, Codex, and Gemini
+- Raw events view for inspecting agent traffic
+- Token usage, context tracking, and cost estimates in the status bar
+- Built-in themes plus VS Code theme migration
+- A local web app served by the same binary
 
-## Installation
+## Install
 
-### Prerequisites
+### Requirements
 
-- Rust 1.70+ (for building from source)
-- At least one supported agent installed:
-  - [Claude Code](https://github.com/anthropics/claude-code) (`claude` binary)
-  - [Codex CLI](https://github.com/openai/codex) (`codex` binary)
+- `git` on your `PATH`
+- At least one supported agent CLI on your `PATH`:
+  - [Codex CLI](https://github.com/openai/codex) as `codex`
+  - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) as `claude`
+  - [Gemini CLI](https://github.com/google-gemini/gemini-cli) as `gemini`
+  - [OpenCode](https://opencode.ai/) as `opencode`
 
-### Build from Source
+On first launch, Conduit checks for `git` and at least one agent binary, then prompts for tool paths if they are missing.
+
+### Quick Install
+
+```bash
+curl -fsSL https://getconduit.sh/install | sh
+```
+
+### Homebrew
+
+```bash
+brew install conduit-cli/tap/conduit
+```
+
+### Build From Source
 
 ```bash
 git clone https://github.com/conduit-cli/conduit.git
@@ -28,170 +47,106 @@ cd conduit
 cargo build --release
 ```
 
-The binary will be available at `target/release/conduit`.
+The binary will be at `target/release/conduit`.
 
 ## Usage
 
+### Start The TUI
+
 ```bash
-# Start the TUI
 conduit
+```
 
-# Debug keyboard input (useful for troubleshooting keybindings)
+### Start The Web UI
+
+```bash
+conduit serve --host 127.0.0.1 --port 3000
+```
+
+The local web app is served from the same binary and defaults to `http://127.0.0.1:3000`.
+
+### Utility Commands
+
+```bash
+# Inspect how your terminal reports keys
 conduit debug-keys
+
+# Convert a VS Code theme into Conduit's TOML theme format
+conduit migrate-theme path/to/theme.json --palette
 ```
 
-### Keyboard Shortcuts
+## Common Workflows
 
-| Shortcut                     | Action                             |
-| ---------------------------- | ---------------------------------- |
-| `Ctrl+N`                     | New project (opens project picker) |
-| `Alt+Shift+W`                | Close current tab                  |
-| `Tab` / `Shift+Tab`          | Switch to next/previous tab        |
-| `Alt+1-9`                    | Jump to specific tab               |
-| `Alt+Shift+F`†               | Fork current session               |
-| `/fork` (slash menu)         | Fork current session               |
-| `Enter`                      | Submit prompt                      |
-| `Shift+Enter` or `Alt+Enter` | Add newline in input               |
-| `Ctrl+C`                     | Interrupt agent                    |
-| `Ctrl+Q`                     | Quit                               |
-| `Ctrl+T`                     | Toggle sidebar                     |
-| `Ctrl+G`                     | Toggle view mode (Chat/Raw Events) |
-| `Ctrl+O`                     | Show model selector                |
-| `Ctrl+\`                     | Toggle Build/Plan mode\*           |
-| `Alt+I`                      | Import session                     |
-| `?` or `:help`               | Show help                          |
+- Add a repository, then create a workspace from the sidebar or project picker
+- Open multiple tabs against different workspaces or providers
+- Fork or hand off the current session into a new workspace and tab
+- Resume saved sessions or import external sessions from Claude, Codex, and OpenCode
+- Inspect chat output in the normal view or switch to Raw Events for protocol-level debugging
 
-\* **Note on `Ctrl+\`**: Terminal emulators vary in how they report this key combination. Some terminals send it as `Ctrl+4`. Use `conduit debug-keys` to verify how your terminal reports this shortcut. If it doesn't work, you can customize the keybinding in your config.
-† **Note on `Alt+Shift+F`**: Some terminals don't emit distinct Alt+Shift combos. Use `conduit debug-keys` to verify how your terminal reports this shortcut and override the keybinding in your config if needed.
+## Providers
 
-## Architecture
+| Provider | Default Model | Notes |
+| --- | --- | --- |
+| Codex CLI | `gpt-5.4` | Default provider for new sessions |
+| Claude Code | `opus` | Supports Build/Plan mode |
+| Gemini CLI | `gemini-2.5-pro` | Supports Build/Plan mode |
+| OpenCode | `default` | Dynamic model list, no Plan-mode toggle |
 
-```
-src/
-├── main.rs              # Entry point
-├── lib.rs               # Library exports
-├── agent/               # Agent integration layer
-│   ├── runner.rs        # AgentRunner trait
-│   ├── events.rs        # Unified event types
-│   ├── stream.rs        # JSONL stream parser
-│   ├── claude.rs        # Claude Code implementation
-│   ├── codex.rs         # Codex CLI implementation
-│   ├── models.rs        # Model registry and pricing
-│   ├── session.rs       # Session metadata
-│   └── history.rs       # History loading utilities
-├── config/              # Configuration
-│   ├── settings.rs      # App settings and pricing
-│   ├── keys.rs          # Keybinding types and parsing
-│   └── default_keys.rs  # Default keybindings
-├── data/                # Data persistence
-│   ├── database.rs      # SQLite database
-│   ├── repository.rs    # Data access layer
-│   └── workspace.rs     # Workspace management
-├── session/             # Session management
-│   ├── cache.rs         # Session caching
-│   └── import.rs        # Session import from agents
-├── git/                 # Git integration
-│   ├── pr.rs            # PR operations
-│   └── worktree.rs      # Worktree utilities
-├── util/                # Utilities
-│   ├── paths.rs         # Path helpers
-│   └── names.rs         # Name generation
-└── ui/                  # Terminal UI
-    ├── app.rs           # Main event loop
-    ├── action.rs        # Action definitions
-    ├── events.rs        # Input mode handling
-    ├── tab_manager.rs   # Tab orchestration
-    ├── session.rs       # Per-tab state
-    └── components/      # UI components
-        ├── chat_view.rs
-        ├── input_box.rs
-        ├── sidebar.rs
-        ├── status_bar.rs
-        ├── tab_bar.rs
-        └── ...
-```
+Session import currently discovers Claude, Codex, and OpenCode sessions. Gemini session discovery is not implemented yet.
 
-## Supported Agents
+## Workspaces And Sessions
 
-### Claude Code
+Conduit is built around git-backed workspaces. By default it creates git worktrees, but repositories can also use full checkout workspaces. Workspace defaults such as mode, branch cleanup, and remote-delete prompts are configurable in `~/.conduit/config.toml`.
 
-Spawns the `claude` binary in headless mode with streaming JSON output:
+Sessions are stored locally and can be resumed later. The UI also exposes queue editing, model switching, provider filtering, workspace archiving, PR actions, and file viewing from chat output.
 
-- Real-time event streaming
-- Tool execution (Read, Edit, Write, Bash, Glob, Grep)
-- Session resumption
+## Common Shortcuts
 
-### Codex CLI
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl+N` | New project |
+| `Ctrl+P` | Command palette |
+| `Ctrl+O` | Model selector |
+| `Ctrl+G` | Toggle Chat / Raw Events |
+| `Alt+1..9` | Jump to tab |
+| `Alt+Tab` / `Alt+Shift+Tab` | Next / previous tab |
+| `Alt+Shift+F` | Fork session |
+| `Alt+Shift+H` | Handoff session |
+| `Alt+I` | Import session |
+| `Ctrl+4` | Toggle Build / Plan mode |
+| `Enter` | Submit prompt |
+| `Shift+Enter` or `Alt+Enter` | Insert newline |
+| `Ctrl+Q` | Quit |
 
-Spawns the `codex` binary with structured JSON output:
-
-- Full automation mode
-- Session persistence
-- Event-based communication
+Many terminals report `Ctrl+\` as `Ctrl+4`. Use `conduit debug-keys` if a shortcut does not behave as expected.
 
 ## Configuration
 
-Default settings in `src/config/settings.rs`:
+Conduit loads configuration from `~/.conduit/config.toml`. The bundled example covers:
 
-| Setting          | Default     |
-| ---------------- | ----------- |
-| Default agent    | Claude Code |
-| Max tabs         | 10          |
-| Show token usage | Yes         |
-| Show cost        | Yes         |
+- default provider and model
+- enabled providers
+- tool paths
+- queue and steering behavior
+- workspace defaults
+- theme selection
+- web status refresh settings
+- keybinding overrides
 
-### Pricing (Claude Sonnet)
+The current default configuration starts new sessions on Codex, enables token and cost display, uses `worktree` mode for workspaces, and keeps provider selection open to all installed agents.
 
-- Input tokens: $3.00 / 1M tokens
-- Output tokens: $15.00 / 1M tokens
+## UI Notes
 
-## Website
+The status bar tracks token usage, context usage, and a cost estimate. That estimate is currently based on configurable Claude pricing defaults, so treat it as an approximation rather than provider-specific billing data.
 
-The landing page at [getconduit.sh](https://getconduit.sh) is built with Astro.
+Conduit also includes a Raw Events view for session debugging and a local web app with repository, workspace, session, queue, onboarding, model, theme, and UI state endpoints behind the `serve` command.
 
-### Development
+## Repository Layout
 
-```bash
-cd website
-npm install
-npm run dev
-```
-
-The dev server runs at http://localhost:4321
-
-### Build
-
-```bash
-cd website
-npm run build
-```
-
-Output is in `website/dist/`.
-
-### Deploy
-
-The site is static and can be deployed to any hosting provider:
-
-**GitHub Pages:**
-
-```bash
-cd website
-npm run build
-# Push dist/ to gh-pages branch or configure GitHub Actions
-```
-
-**Netlify/Vercel:**
-
-- Connect repo and set build command to `cd website && npm run build`
-- Set publish directory to `website/dist`
-
-**Manual:**
-
-```bash
-cd website
-npm run build
-# Upload contents of dist/ to your server
-```
+- `src/` contains the TUI, agent runners, workspace logic, persistence, and the local web server
+- `src/web/` contains the Axum-backed web UI and API
+- `website/` contains the separate Astro marketing site for `getconduit.sh`
+- `docs/` contains the mdBook documentation
 
 ## License
 
