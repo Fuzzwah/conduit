@@ -6,8 +6,8 @@ use axum::{
 };
 
 use crate::web::handlers::{
-    bootstrap, external_sessions, models, onboarding, queue, repositories, sessions, themes,
-    ui_state, workspaces,
+    bootstrap, external_sessions, models, onboarding, queue, repositories, sessions, settings,
+    themes, ui_state, workspaces,
 };
 use crate::web::state::WebAppState;
 
@@ -117,6 +117,16 @@ pub fn api_routes() -> Router<WebAppState> {
         .route("/themes", get(themes::list_available_themes))
         .route("/themes/current", get(themes::get_current_theme))
         .route("/themes/current", post(themes::set_current_theme))
+        // Settings routes
+        .route("/settings", get(settings::get_settings))
+        .route(
+            "/config/providers",
+            get(settings::get_providers).patch(settings::set_providers),
+        )
+        .route(
+            "/config/workspace-defaults",
+            get(settings::get_workspace_defaults).patch(settings::set_workspace_defaults),
+        )
         // UI state routes
         .route("/ui/state", get(ui_state::get_ui_state))
         .route("/ui/state", post(ui_state::update_ui_state))

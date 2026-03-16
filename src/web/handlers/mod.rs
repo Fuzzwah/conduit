@@ -7,6 +7,7 @@ pub mod onboarding;
 pub mod queue;
 pub mod repositories;
 pub mod sessions;
+pub mod settings;
 pub mod themes;
 pub mod ui_state;
 pub mod workspaces;

@@ -26,6 +26,7 @@ interface LayoutProps {
   onToggleSidebar: () => void;
   isBootstrapping?: boolean;
   onImportSession?: () => void;
+  onOpenSettings?: () => void;
   // File viewer tabs
   fileViewerTabs?: FileViewerTab[];
   activeFileViewerId?: string | null;
@@ -55,6 +56,7 @@ export function Layout({
   onToggleSidebar,
   isBootstrapping = false,
   onImportSession,
+  onOpenSettings,
   fileViewerTabs = [],
   activeFileViewerId,
   onSelectFileViewer,
@@ -130,6 +132,7 @@ export function Layout({
           isSidebarOpen={isSidebarOpen}
           onToggleSidebar={onToggleSidebar}
           onImportSession={onImportSession}
+          onOpenSettings={onOpenSettings}
         />
         <SessionTabs
           sessions={sessions}

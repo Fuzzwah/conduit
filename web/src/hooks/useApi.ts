@@ -44,6 +44,9 @@ export const queryKeys = {
     ['external-sessions', agentType ?? 'all'] as const,
   onboardingBaseDir: ['onboarding', 'base-dir'] as const,
   onboardingProjects: ['onboarding', 'projects'] as const,
+  settings: ['settings'] as const,
+  providers: ['config', 'providers'] as const,
+  workspaceDefaults: ['config', 'workspace-defaults'] as const,
   uiState: ['ui', 'state'] as const,
   bootstrap: ['bootstrap'] as const,
 };
@@ -548,6 +551,53 @@ export function useSessionEventsFromApi(
     queryFn: () => api.getSessionEvents(id!, options?.query),
     enabled: (options?.enabled ?? true) && !!id,
     staleTime: options?.staleTime ?? 5000,
+  });
+}
+
+// Settings
+export function useSettings() {
+  return useQuery({
+    queryKey: queryKeys.settings,
+    queryFn: api.getSettings,
+    staleTime: 0,
+  });
+}
+
+export function useProviders() {
+  return useQuery({
+    queryKey: queryKeys.providers,
+    queryFn: api.getProviders,
+    staleTime: 0,
+  });
+}
+
+export function useSetProviders() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (enabled: string[]) => api.setProviders(enabled),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.providers });
+      queryClient.invalidateQueries({ queryKey: queryKeys.settings });
+    },
+  });
+}
+
+export function useWorkspaceDefaults() {
+  return useQuery({
+    queryKey: queryKeys.workspaceDefaults,
+    queryFn: api.getWorkspaceDefaults,
+    staleTime: 0,
+  });
+}
+
+export function useSetWorkspaceDefaults() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: api.WorkspaceDefaultsResponse) => api.setWorkspaceDefaults(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.workspaceDefaults });
+      queryClient.invalidateQueries({ queryKey: queryKeys.settings });
+    },
   });
 }
 

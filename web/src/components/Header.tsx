@@ -13,6 +13,7 @@ interface HeaderProps {
   isSidebarOpen?: boolean;
   onToggleSidebar?: () => void;
   onImportSession?: () => void;
+  onOpenSettings?: () => void;
 }
 
 export function Header({
@@ -23,6 +24,7 @@ export function Header({
   isSidebarOpen = true,
   onToggleSidebar,
   onImportSession,
+  onOpenSettings,
 }: HeaderProps) {
   const { data: health, isLoading, isError } = useHealth();
 
@@ -138,6 +140,7 @@ export function Header({
           )}
           <button
             aria-label="Settings"
+            onClick={onOpenSettings}
             className="rounded-lg p-2 text-text-muted transition-colors hover:bg-surface-elevated hover:text-text"
           >
             <Settings className="h-4 w-4" />

@@ -11,6 +11,7 @@ import {
   ConfirmDialog,
 } from './components';
 import { CommandPalette, type CommandPaletteItem } from './components/CommandPalette';
+import { SettingsDialog } from './components/SettingsDialog';
 import { SessionImportDialog } from './components/SessionImportDialog';
 import { FileViewer } from './components/FileViewer';
 import { FileViewerContext } from './contexts/FileViewerContext';
@@ -161,6 +162,7 @@ function AppContent() {
   const [historyReady, setHistoryReady] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isBaseDirDialogOpen, setIsBaseDirDialogOpen] = useState(false);
   const [isProjectPickerOpen, setIsProjectPickerOpen] = useState(false);
   const [isAddProjectOpen, setIsAddProjectOpen] = useState(false);
@@ -865,6 +867,13 @@ function AppContent() {
         onSelect: handleBrowseProjects,
       },
       {
+        id: 'open-settings',
+        label: 'Settings...',
+        shortcut: 'Ctrl+,',
+        keywords: 'settings preferences options',
+        onSelect: () => setIsSettingsOpen(true),
+      },
+      {
         id: 'set-projects-dir',
         label: 'Set Projects Directory',
         onSelect: () => setIsBaseDirDialogOpen(true),
@@ -923,6 +932,10 @@ function AppContent() {
       if ((event.metaKey || event.ctrlKey) && !event.shiftKey && (key === 'k' || key === 'p')) {
         event.preventDefault();
         setIsCommandPaletteOpen((prev) => !prev);
+      }
+      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && key === ',') {
+        event.preventDefault();
+        setIsSettingsOpen(true);
       }
       if ((event.metaKey || event.ctrlKey) && event.shiftKey && key === 'm') {
         event.preventDefault();
@@ -1003,6 +1016,7 @@ function AppContent() {
         isSidebarOpen={isSidebarOpen}
         onToggleSidebar={handleToggleSidebar}
         onImportSession={handleOpenImport}
+        onOpenSettings={() => setIsSettingsOpen(true)}
         isBootstrapping={isBootstrapping}
         fileViewerTabs={fileViewerTabs}
         activeFileViewerId={activeFileViewerId}
@@ -1089,6 +1103,12 @@ function AppContent() {
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
         commands={commands}
+      />
+      <SettingsDialog
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onOpenBaseDirDialog={() => setIsBaseDirDialogOpen(true)}
+        onOpenModelPicker={handleOpenModelPicker}
       />
       <ConfirmDialog
         isOpen={!!archiveWorkspaceTarget}

@@ -393,6 +393,63 @@ export async function addOnboardingProject(
   });
 }
 
+// Settings
+export interface SettingItem {
+  id: string;
+  title: string;
+  description: string;
+  value: string;
+}
+
+export interface SettingsResponse {
+  items: SettingItem[];
+}
+
+export interface ProviderInfo {
+  id: string;
+  display_name: string;
+  installed: boolean;
+  enabled: boolean;
+}
+
+export interface ProvidersResponse {
+  providers: ProviderInfo[];
+}
+
+export interface WorkspaceDefaultsResponse {
+  mode: string;
+  archive_delete_branch: boolean;
+  archive_remote_prompt: boolean;
+}
+
+export async function getSettings(): Promise<SettingsResponse> {
+  return request('/settings');
+}
+
+export async function getProviders(): Promise<ProvidersResponse> {
+  return request('/config/providers');
+}
+
+export async function setProviders(enabled: string[]): Promise<void> {
+  await request('/config/providers', {
+    method: 'PATCH',
+    body: JSON.stringify({ enabled }),
+  });
+}
+
+export async function getWorkspaceDefaults(): Promise<WorkspaceDefaultsResponse> {
+  return request('/config/workspace-defaults');
+}
+
+export async function setWorkspaceDefaults(
+  data: WorkspaceDefaultsResponse
+): Promise<void> {
+  await request('/config/workspace-defaults', {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
 // File content
 export async function getFileContent(
   workspaceId: string,
