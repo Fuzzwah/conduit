@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-03-16
+
+### Added
+- **Settings Hub (TUI)** - Searchable settings dialog with 2-line cards, workspace defaults editor, and visual hierarchy redesign
+- **Settings Hub (Web)** - Full settings dialog mirroring the TUI with hub-and-spoke navigation, inline sub-editors for providers/theme/workspace defaults, and search filtering ([#77](https://github.com/conduit-cli/conduit/issues/77))
+- **Alt+, Shortcut** - Global keyboard shortcut to open settings from anywhere
+- **Workspace Defaults** - Configure default workspace mode, branch deletion, and remote prompt behavior
+- Backend API endpoints for unified settings summary, provider management, and workspace defaults
+
+### Fixed
+- Codex JSON-RPC pending request cleanup on send failure to prevent leaked oneshot senders
+
+### Changed
+- GPT-5.3-Codex model description updated
+
 ## [0.3.1] - 2026-03-15
 
 ### Added
@@ -160,7 +175,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Real-time streaming responses
 - Terminal-native UI with Ratatui
 
-[Unreleased]: https://github.com/conduit-cli/conduit/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/conduit-cli/conduit/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/conduit-cli/conduit/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/conduit-cli/conduit/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/conduit-cli/conduit/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/conduit-cli/conduit/compare/v0.1.6...v0.2.0
