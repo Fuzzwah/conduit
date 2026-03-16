@@ -240,7 +240,7 @@ impl ModelRegistry {
                 "gpt-5.3-codex",
                 "GPT-5.3-Codex",
                 "gpt-5.3-codex",
-                "Latest frontier agentic coding model",
+                "Frontier Codex-optimized agentic coding model",
                 Self::CODEX_GPT53_CONTEXT_WINDOW,
             ),
             ModelInfo::new(
