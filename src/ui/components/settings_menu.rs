@@ -3,19 +3,20 @@
 use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Layout, Rect},
-    style::Style,
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Paragraph, Widget},
 };
 
 use super::{
-    bg_highlight, dialog_bg, dialog_content_area, ensure_contrast_bg, ensure_contrast_fg,
-    render_minimal_scrollbar, text_muted, text_primary, text_secondary, truncate_to_width,
-    DialogFrame, SearchableListState,
+    accent_primary, bg_highlight, dialog_bg, dialog_content_area, ensure_contrast_bg,
+    ensure_contrast_fg, render_minimal_scrollbar, text_muted, text_primary, text_secondary,
+    truncate_to_width, DialogFrame, SearchableListState,
 };
 
 const DIALOG_WIDTH: u16 = 72;
-const DIALOG_HEIGHT: u16 = 16;
+const DIALOG_HEIGHT: u16 = 20;
+const ITEM_HEIGHT: usize = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SettingsMenuEntryId {
@@ -121,7 +122,7 @@ impl SettingsMenuState {
     }
 
     pub fn select_at_row(&mut self, row: usize) -> bool {
-        self.list.select_at_row(row)
+        self.list.select_at_row(row / ITEM_HEIGHT)
     }
 }
 
@@ -227,6 +228,7 @@ impl SettingsMenu {
             return;
         }
 
+        // Clear the list area with dialog background
         for y in area.y..area.y.saturating_add(area.height) {
             for x in area.x..area.x.saturating_add(area.width) {
                 buf[(x, y)].set_bg(dialog_bg());
@@ -240,64 +242,132 @@ impl SettingsMenu {
             return;
         }
 
-        let visible = area.height as usize;
+        // Calculate how many items fit (each item takes 2 lines)
+        let visible = area.height as usize / ITEM_HEIGHT;
         let has_scrollbar = state.list.filtered.len() > visible;
         let content_width = if has_scrollbar {
-            area.width.saturating_sub(1)
+            area.width.saturating_sub(1) as usize
         } else {
-            area.width
+            area.width as usize
         };
         let start = state.list.scroll_offset;
         let end = (start + visible).min(state.list.filtered.len());
+
+        // Contrast-safe colors for the selected row
         let selected_bg = ensure_contrast_bg(bg_highlight(), dialog_bg(), 2.0);
         let selected_fg = ensure_contrast_fg(text_primary(), selected_bg, 4.5);
         let selected_secondary = ensure_contrast_fg(text_secondary(), selected_bg, 3.0);
+        let selected_muted = ensure_contrast_fg(text_muted(), selected_bg, 2.5);
 
-        for (row, filtered_idx) in state.list.filtered[start..end].iter().enumerate() {
+        let prefix_width = 3; // " ▸ " or "   "
+
+        for (item_idx, filtered_idx) in state.list.filtered[start..end].iter().enumerate() {
             let Some(entry) = state.entries.get(*filtered_idx) else {
                 continue;
             };
 
-            let y = area.y + row as u16;
-            let line_area = Rect {
-                x: area.x,
-                y,
-                width: area.width,
-                height: 1,
-            };
-            let is_selected = start + row == state.list.selected;
-
-            let (fg, bg) = if is_selected {
-                (selected_fg, selected_bg)
+            let is_selected = start + item_idx == state.list.selected;
+            let bg = if is_selected {
+                selected_bg
             } else {
-                (text_primary(), dialog_bg())
+                dialog_bg()
             };
 
-            for x in line_area.x..line_area.x.saturating_add(line_area.width) {
-                buf[(x, line_area.y)].set_bg(bg);
+            // Y positions for the two lines of this item
+            let y1 = area.y + (item_idx * ITEM_HEIGHT) as u16;
+            let y2 = y1 + 1;
+
+            // Fill both lines with background
+            for y in [y1, y2] {
+                if y < area.y + area.height {
+                    for x in area.x..area.x.saturating_add(area.width) {
+                        buf[(x, y)].set_bg(bg);
+                    }
+                }
             }
 
-            let title = truncate_to_width(&entry.title, (content_width as usize / 3).max(18));
-            let value = truncate_to_width(&entry.value, (content_width as usize / 3).max(18));
-            let description = truncate_to_width(
-                &format!("  {}", entry.description),
-                (content_width as usize / 2).max(20),
+            // --- Line 1: prefix + title (bold) + gap + right-aligned value ---
+            let usable = content_width.saturating_sub(prefix_width);
+
+            // Truncate title and value to fit
+            let title_max = (usable * 2 / 3).max(12);
+            let title = truncate_to_width(&entry.title, title_max);
+            let title_len = title.len();
+
+            let value_budget = usable.saturating_sub(title_len + 2); // 2 = min gap
+            let value = if value_budget > 3 {
+                truncate_to_width(&entry.value, value_budget)
+            } else {
+                String::new()
+            };
+            let value_len = value.len();
+
+            // Gap fills the space between title and value
+            let gap = usable.saturating_sub(title_len + value_len);
+
+            // Build prefix
+            let prefix_str = if is_selected { " \u{25b8} " } else { "   " };
+            let prefix_fg = if is_selected { accent_primary() } else { bg };
+
+            let title_fg = if is_selected {
+                selected_fg
+            } else {
+                text_primary()
+            };
+            let value_fg = if is_selected {
+                selected_secondary
+            } else {
+                text_secondary()
+            };
+
+            let line1 = Line::from(vec![
+                Span::styled(prefix_str, Style::default().fg(prefix_fg).bg(bg)),
+                Span::styled(
+                    title,
+                    Style::default()
+                        .fg(title_fg)
+                        .bg(bg)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(" ".repeat(gap), Style::default().bg(bg)),
+                Span::styled(value, Style::default().fg(value_fg).bg(bg)),
+            ]);
+
+            Paragraph::new(line1).render(
+                Rect {
+                    x: area.x,
+                    y: y1,
+                    width: area.width,
+                    height: 1,
+                },
+                buf,
             );
 
-            Paragraph::new(Line::from(vec![
-                Span::styled(format!("{title}  {value}"), Style::default().fg(fg).bg(bg)),
-                Span::styled(
-                    description,
-                    Style::default()
-                        .fg(if is_selected {
-                            selected_secondary
-                        } else {
-                            text_secondary()
-                        })
-                        .bg(bg),
-                ),
-            ]))
-            .render(line_area, buf);
+            // --- Line 2: indented description in muted text ---
+            if y2 < area.y + area.height {
+                let desc_max = content_width.saturating_sub(prefix_width);
+                let desc = truncate_to_width(&entry.description, desc_max);
+                let desc_fg = if is_selected {
+                    selected_muted
+                } else {
+                    text_muted()
+                };
+
+                let line2 = Line::from(vec![
+                    Span::styled("   ", Style::default().bg(bg)),
+                    Span::styled(desc, Style::default().fg(desc_fg).bg(bg)),
+                ]);
+
+                Paragraph::new(line2).render(
+                    Rect {
+                        x: area.x,
+                        y: y2,
+                        width: area.width,
+                        height: 1,
+                    },
+                    buf,
+                );
+            }
         }
 
         if has_scrollbar {
@@ -310,7 +380,7 @@ impl SettingsMenu {
                 },
                 buf,
                 state.list.filtered.len(),
-                area.height as usize,
+                visible,
                 state.list.scroll_offset,
             );
         }
