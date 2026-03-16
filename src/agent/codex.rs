@@ -83,8 +83,11 @@ impl JsonRpcPeer {
         };
 
         let (tx, rx) = oneshot::channel();
-        self.pending.lock().await.insert(request_id, tx);
-        self.send(request).await?;
+        self.pending.lock().await.insert(request_id.clone(), tx);
+        if let Err(err) = self.send(request).await {
+            self.pending.lock().await.remove(&request_id);
+            return Err(err);
+        }
 
         let value = rx
             .await
