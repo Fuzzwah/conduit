@@ -78,6 +78,7 @@ pub fn default_keybindings() -> KeybindingConfig {
     bind(&mut config.global, "M-n", Action::NewWorkspaceUnderCursor);
     bind(&mut config.global, "M-q", Action::OpenQueueEditor);
     bind(&mut config.global, "M-e", Action::EditPromptExternal);
+    bind(&mut config.global, "M-,", Action::OpenSettings);
 
     // Agent mode toggle (Build/Plan) - Ctrl+\
     //
