@@ -34,8 +34,14 @@ impl App {
                 InputMode::ImportingSession => {
                     self.state.session_import_state.select_next();
                 }
+                InputMode::SettingsMenu => {
+                    self.state.settings_menu_state.select_next();
+                }
                 InputMode::CommandPalette => {
                     self.state.command_palette_state.select_next();
+                }
+                InputMode::WorkspaceDefaults => {
+                    self.state.workspace_defaults_dialog_state.select_next();
                 }
                 InputMode::SlashMenu => {
                     self.state.slash_menu_state.select_next();
@@ -76,8 +82,14 @@ impl App {
                 InputMode::ImportingSession => {
                     self.state.session_import_state.select_prev();
                 }
+                InputMode::SettingsMenu => {
+                    self.state.settings_menu_state.select_prev();
+                }
                 InputMode::CommandPalette => {
                     self.state.command_palette_state.select_prev();
+                }
+                InputMode::WorkspaceDefaults => {
+                    self.state.workspace_defaults_dialog_state.select_prev();
                 }
                 InputMode::SlashMenu => {
                     self.state.slash_menu_state.select_prev();

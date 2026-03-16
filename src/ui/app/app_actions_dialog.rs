@@ -18,6 +18,12 @@ impl App {
                     {
                         self.state.pending_new_project_target = None;
                     } else if self.state.model_picker_context
+                        == ModelPickerContext::SettingsDefaultSelection
+                    {
+                        self.state.model_picker_context = ModelPickerContext::SessionSelection;
+                        self.reopen_settings_menu();
+                        return;
+                    } else if self.state.model_picker_context
                         == ModelPickerContext::HandoffSelection
                     {
                         self.state.pending_handoff_request = None;
@@ -31,7 +37,9 @@ impl App {
                 }
                 InputMode::SelectingTheme => {
                     self.state.theme_picker_state.hide(true); // Cancelled - restore original
-                    self.state.input_mode = InputMode::Normal;
+                    if !self.return_to_settings_menu_if_needed() {
+                        self.state.input_mode = InputMode::Normal;
+                    }
                 }
                 InputMode::SelectingAgent => {
                     self.state.agent_selector_state.hide();
@@ -40,7 +48,9 @@ impl App {
                 InputMode::SelectingProviders => {
                     self.state.provider_selector_state.hide();
                     self.state.pending_new_project_target = None;
-                    self.state.input_mode = InputMode::Normal;
+                    if !self.return_to_settings_menu_if_needed() {
+                        self.state.input_mode = InputMode::Normal;
+                    }
                 }
                 InputMode::PickingProject => {
                     self.state.project_picker_state.hide();
@@ -52,6 +62,14 @@ impl App {
                 }
                 InputMode::SettingBaseDir => {
                     self.state.base_dir_dialog_state.hide();
+                    self.state.base_dir_dialog_context =
+                        crate::ui::app_state::BaseDirDialogContext::ProjectDiscovery;
+                    if !self.return_to_settings_menu_if_needed() {
+                        self.state.input_mode = InputMode::Normal;
+                    }
+                }
+                InputMode::SettingsMenu => {
+                    self.state.settings_menu_state.hide();
                     self.state.input_mode = InputMode::Normal;
                 }
                 InputMode::Confirming => {
@@ -87,6 +105,12 @@ impl App {
                     self.state.command_palette_state.hide();
                     self.state.input_mode = InputMode::Normal;
                 }
+                InputMode::WorkspaceDefaults => {
+                    self.state.workspace_defaults_dialog_state.hide();
+                    if !self.return_to_settings_menu_if_needed() {
+                        self.state.input_mode = InputMode::Normal;
+                    }
+                }
                 InputMode::SlashMenu => {
                     self.state.slash_menu_state.hide();
                     self.state.input_mode = InputMode::Normal;
@@ -111,20 +135,11 @@ impl App {
                 _ => {}
             },
             Action::OpenSettings => {
-                if self.state.input_mode == InputMode::SidebarNavigation {
-                    self.state.close_overlays();
-                    if let Some(dao) = self.app_state_dao() {
-                        if let Ok(Some(current_dir)) = dao.get("projects_base_dir") {
-                            self.state
-                                .base_dir_dialog_state
-                                .show_with_path(&current_dir);
-                        } else {
-                            self.state.base_dir_dialog_state.show();
-                        }
-                    } else {
-                        self.state.base_dir_dialog_state.show();
-                    }
-                    self.state.input_mode = InputMode::SettingBaseDir;
+                if matches!(
+                    self.state.input_mode,
+                    InputMode::Normal | InputMode::SidebarNavigation | InputMode::Scrolling
+                ) {
+                    self.open_settings_menu();
                 }
             }
             Action::ArchiveOrRemove => {

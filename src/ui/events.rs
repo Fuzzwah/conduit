@@ -297,12 +297,16 @@ pub enum InputMode {
     ShowingHelp,
     /// Importing a session from external agent
     ImportingSession,
+    /// Settings menu dialog is open
+    SettingsMenu,
     /// Command palette is open
     CommandPalette,
     /// Slash command menu is open
     SlashMenu,
     /// Missing tool dialog is open
     MissingTool,
+    /// Editing global workspace defaults
+    WorkspaceDefaults,
     /// Editing queued messages inline
     QueueEditing,
 }

@@ -10,8 +10,8 @@ use crate::ui::components::{
     AddRepoDialogState, AgentSelectorState, BaseDirDialogState, CommandPaletteState,
     ConfirmationDialogState, ErrorDialogState, HelpDialogState, KnightRiderSpinner,
     LogoShineAnimation, MissingToolDialogState, ModelSelectorState, ProjectPickerState,
-    ProviderSelectorState, ReasoningSelectorState, SessionImportPickerState, SidebarData,
-    SidebarState, SlashMenuState, ThemePickerState,
+    ProviderSelectorState, ReasoningSelectorState, SessionImportPickerState, SettingsMenuState,
+    SidebarData, SidebarState, SlashMenuState, ThemePickerState, WorkspaceDefaultsDialogState,
 };
 use crate::ui::events::{InputMode, ViewMode};
 use crate::ui::tab_manager::TabManager;
@@ -177,8 +177,10 @@ pub struct AppState {
     pub error_dialog_state: ErrorDialogState,
     pub help_dialog_state: HelpDialogState,
     pub missing_tool_dialog_state: MissingToolDialogState,
+    pub settings_menu_state: SettingsMenuState,
     pub command_palette_state: CommandPaletteState,
     pub slash_menu_state: SlashMenuState,
+    pub workspace_defaults_dialog_state: WorkspaceDefaultsDialogState,
     pub command_buffer: String,
     pub sidebar_area: Option<Rect>,
     pub tab_bar_area: Option<Rect>,
@@ -231,6 +233,10 @@ pub struct AppState {
     pub pending_new_project_target: Option<NewProjectTarget>,
     /// Current behavior context for the model picker
     pub model_picker_context: ModelPickerContext,
+    /// Tracks whether a child settings dialog should return to the menu
+    pub settings_menu_return: bool,
+    /// Controls whether base-dir confirmation should discover projects or only save
+    pub base_dir_dialog_context: BaseDirDialogContext,
 }
 
 /// Pending fork request data captured before workspace creation
@@ -327,7 +333,14 @@ pub enum NewProjectTarget {
 pub enum ModelPickerContext {
     SessionSelection,
     OnboardingDefaultSelection,
+    SettingsDefaultSelection,
     HandoffSelection,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BaseDirDialogContext {
+    ProjectDiscovery,
+    Settings,
 }
 
 impl AppState {
@@ -355,8 +368,10 @@ impl AppState {
             error_dialog_state: ErrorDialogState::new(),
             help_dialog_state: HelpDialogState::new(),
             missing_tool_dialog_state: MissingToolDialogState::default(),
+            settings_menu_state: SettingsMenuState::new(),
             command_palette_state: CommandPaletteState::new(),
             slash_menu_state: SlashMenuState::new(),
+            workspace_defaults_dialog_state: WorkspaceDefaultsDialogState::new(),
             command_buffer: String::new(),
             sidebar_area: None,
             tab_bar_area: None,
@@ -392,12 +407,15 @@ impl AppState {
             pending_branch_updates: HashMap::new(),
             pending_new_project_target: None,
             model_picker_context: ModelPickerContext::SessionSelection,
+            settings_menu_return: false,
+            base_dir_dialog_context: BaseDirDialogContext::ProjectDiscovery,
         }
     }
 
     pub fn close_overlays(&mut self) {
         self.add_repo_dialog_state.hide();
         self.base_dir_dialog_state.hide();
+        self.base_dir_dialog_context = BaseDirDialogContext::ProjectDiscovery;
         self.project_picker_state.hide();
         self.session_import_state.hide();
         self.model_selector_state.hide();
@@ -406,13 +424,16 @@ impl AppState {
         self.theme_picker_state.hide(true); // cancelled=true since we're closing all overlays
         self.agent_selector_state.hide();
         self.provider_selector_state.hide();
+        self.settings_menu_state.hide();
         self.confirmation_dialog_state.hide();
         self.error_dialog_state.hide();
         self.help_dialog_state.hide();
         self.missing_tool_dialog_state.hide();
         self.command_palette_state.hide();
         self.slash_menu_state.hide();
+        self.workspace_defaults_dialog_state.hide();
         self.pending_handoff_request = None;
+        self.settings_menu_return = false;
     }
 
     pub fn has_active_overlay(&self) -> bool {
@@ -424,6 +445,7 @@ impl AppState {
             || self.theme_picker_state.is_visible()
             || self.agent_selector_state.is_visible()
             || self.provider_selector_state.is_visible()
+            || self.settings_menu_state.is_visible()
             || self.confirmation_dialog_state.visible
             || self.error_dialog_state.is_visible()
             || self.help_dialog_state.is_visible()
@@ -431,6 +453,7 @@ impl AppState {
             || self.session_import_state.is_visible()
             || self.command_palette_state.is_visible()
             || self.slash_menu_state.is_visible()
+            || self.workspace_defaults_dialog_state.is_visible()
     }
 
     /// Start footer spinner with optional message

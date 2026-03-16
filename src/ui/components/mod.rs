@@ -30,6 +30,7 @@ mod scrollbar;
 mod searchable_list;
 mod session_header;
 mod session_import_picker;
+mod settings_menu;
 mod sidebar;
 mod slash_menu;
 pub(crate) mod source_highlighter;
@@ -42,6 +43,7 @@ mod theme_picker;
 mod thinking_indicator;
 mod tree_view;
 mod turn_summary;
+mod workspace_defaults_dialog;
 
 pub use add_repo_dialog::{AddRepoDialog, AddRepoDialogState};
 pub use agent_selector::{AgentSelector, AgentSelectorState};
@@ -87,6 +89,7 @@ pub use scrollbar::{render_minimal_scrollbar, scrollbar_offset_from_point, Scrol
 pub use searchable_list::SearchableListState;
 pub use session_header::SessionHeader;
 pub use session_import_picker::{AgentFilter, SessionImportPicker, SessionImportPickerState};
+pub use settings_menu::{SettingsMenu, SettingsMenuEntry, SettingsMenuEntryId, SettingsMenuState};
 pub use sidebar::{Sidebar, SidebarState, SIDEBAR_HEADER_ROWS};
 pub use slash_menu::{SlashCommand, SlashCommandEntry, SlashMenu, SlashMenuState};
 pub use spinner::Spinner;
@@ -198,6 +201,9 @@ pub use tree_view::{
     SIDEBAR_GIT_DISPLAY,
 };
 pub use turn_summary::{FileChange, TurnSummary};
+pub use workspace_defaults_dialog::{
+    WorkspaceDefaultsDialog, WorkspaceDefaultsDialogState, WorkspaceDefaultsDraft,
+};
 
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 

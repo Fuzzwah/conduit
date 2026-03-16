@@ -68,8 +68,12 @@ impl App {
             self.state.input_mode = InputMode::SelectingReasoning;
         } else if self.state.provider_selector_state.is_visible() {
             self.state.input_mode = InputMode::SelectingProviders;
+        } else if self.state.settings_menu_state.is_visible() {
+            self.state.input_mode = InputMode::SettingsMenu;
         } else if self.state.project_picker_state.is_visible() {
             self.state.input_mode = InputMode::PickingProject;
+        } else if self.state.workspace_defaults_dialog_state.is_visible() {
+            self.state.input_mode = InputMode::WorkspaceDefaults;
         } else if self.state.base_dir_dialog_state.path.is_visible() {
             self.state.input_mode = InputMode::SettingBaseDir;
         } else if self.state.add_repo_dialog_state.path.is_visible() {
@@ -580,6 +584,9 @@ impl App {
             InputMode::CommandPalette => {
                 self.state.command_palette_state.insert_char(c);
             }
+            InputMode::SettingsMenu => {
+                self.state.settings_menu_state.insert_char(c);
+            }
             InputMode::SlashMenu => {
                 self.state.slash_menu_state.insert_char(c);
             }
@@ -666,6 +673,12 @@ impl App {
                     self.state.command_palette_state.insert_char(ch);
                 }
             }
+            InputMode::SettingsMenu => {
+                let sanitized = pasted.replace('\n', " ");
+                for ch in sanitized.chars() {
+                    self.state.settings_menu_state.insert_char(ch);
+                }
+            }
             InputMode::SlashMenu => {
                 let sanitized = pasted.replace('\n', " ");
                 for ch in sanitized.chars() {
@@ -720,6 +733,10 @@ impl App {
                     && self.state.session_import_state.is_visible()
                 {
                     self.state.session_import_state.select_prev();
+                } else if self.state.input_mode == InputMode::SettingsMenu
+                    && self.state.settings_menu_state.is_visible()
+                {
+                    self.state.settings_menu_state.select_prev();
                 } else if self.state.input_mode == InputMode::SelectingTheme
                     && self.state.theme_picker_state.is_visible()
                 {
@@ -764,6 +781,10 @@ impl App {
                     && self.state.session_import_state.is_visible()
                 {
                     self.state.session_import_state.select_next();
+                } else if self.state.input_mode == InputMode::SettingsMenu
+                    && self.state.settings_menu_state.is_visible()
+                {
+                    self.state.settings_menu_state.select_next();
                 } else if self.state.input_mode == InputMode::SelectingTheme
                     && self.state.theme_picker_state.is_visible()
                 {

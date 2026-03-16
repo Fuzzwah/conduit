@@ -48,7 +48,8 @@ use crate::ui::action::Action;
 use crate::ui::app_prompt;
 use crate::ui::app_queue;
 use crate::ui::app_state::{
-    AppState, ModelPickerContext, NewProjectTarget, PendingForkRequest, PendingHandoffRequest,
+    AppState, BaseDirDialogContext, ModelPickerContext, NewProjectTarget, PendingForkRequest,
+    PendingHandoffRequest,
 };
 use crate::ui::capabilities::AgentCapabilities;
 use crate::ui::components::{
@@ -57,8 +58,9 @@ use crate::ui::components::{
     EventDirection, GlobalFooter, HelpDialog, InlinePromptState, InlinePromptType, MessageRole,
     MissingToolDialog, ModelSelector, ProcessingState, ProjectEntry, ProjectPicker, PromptAnswer,
     ProviderSelector, RawEventsClick, ReasoningSelector, SessionHeader, SessionImportPicker,
-    Sidebar, SidebarData, SlashCommand, SlashMenu, TabBar, TabBarHitTarget, ThemePicker,
-    SIDEBAR_HEADER_ROWS,
+    SettingsMenu, SettingsMenuEntry, SettingsMenuEntryId, Sidebar, SidebarData, SlashCommand,
+    SlashMenu, TabBar, TabBarHitTarget, ThemePicker, WorkspaceDefaultsDialog,
+    WorkspaceDefaultsDraft, SIDEBAR_HEADER_ROWS,
 };
 use crate::ui::effect::Effect;
 use crate::ui::events::{
@@ -1919,13 +1921,22 @@ impl App {
             Action::SetDefaultModel => {
                 if self.state.input_mode == InputMode::SelectingModel {
                     if let Some(model) = self.state.model_selector_state.selected_model().cloned() {
-                        if self.persist_default_model_selection(&model)
-                            && self.state.model_picker_context
+                        if self.persist_default_model_selection(&model) {
+                            if self.state.model_picker_context
                                 == ModelPickerContext::OnboardingDefaultSelection
-                        {
-                            self.state.model_selector_state.hide();
-                            self.state.model_picker_context = ModelPickerContext::SessionSelection;
-                            self.continue_new_project_flow();
+                            {
+                                self.state.model_selector_state.hide();
+                                self.state.model_picker_context =
+                                    ModelPickerContext::SessionSelection;
+                                self.continue_new_project_flow();
+                            } else if self.state.model_picker_context
+                                == ModelPickerContext::SettingsDefaultSelection
+                            {
+                                self.state.model_selector_state.hide();
+                                self.state.model_picker_context =
+                                    ModelPickerContext::SessionSelection;
+                                self.reopen_settings_menu();
+                            }
                         }
                     }
                 }
@@ -3146,11 +3157,13 @@ impl App {
                 self.state.theme_picker_state.hide(true); // Restore original theme
                                                           // Clear any pending theme picker error state.
                 self.state.theme_picker_state.take_error();
-                self.state.input_mode = InputMode::Normal;
                 self.state.set_timed_footer_message(
                     format!("Failed to save theme: {err}"),
                     Duration::from_secs(5),
                 );
+                if !self.return_to_settings_menu_if_needed() {
+                    self.state.input_mode = InputMode::Normal;
+                }
                 return Ok(Vec::new());
             }
             self.config_mut().theme_name = name;
@@ -3162,7 +3175,9 @@ impl App {
         }
 
         self.state.theme_picker_state.hide(false); // Not cancelled
-        self.state.input_mode = InputMode::Normal;
+        if !self.return_to_settings_menu_if_needed() {
+            self.state.input_mode = InputMode::Normal;
+        }
         Ok(Vec::new())
     }
 
@@ -3713,6 +3728,7 @@ impl App {
                 self.start_project_discovery(base_path);
             }
             NewProjectTarget::BaseDirDialog => {
+                self.state.base_dir_dialog_context = BaseDirDialogContext::ProjectDiscovery;
                 self.state.base_dir_dialog_state.show();
                 self.state.input_mode = InputMode::SettingBaseDir;
             }
@@ -3835,6 +3851,195 @@ impl App {
         self.state.close_overlays();
         self.state.pending_new_project_target = Some(self.resolve_new_project_target());
         self.continue_new_project_flow();
+    }
+
+    fn projects_base_dir_value(&self) -> String {
+        self.app_state_dao()
+            .and_then(|dao| dao.get("projects_base_dir").ok().flatten())
+            .unwrap_or_else(|| "Not set".to_string())
+    }
+
+    fn settings_menu_entries(&self) -> Vec<SettingsMenuEntry> {
+        let default_agent = self
+            .preferred_provider_for_new_sessions()
+            .unwrap_or(self.config().default_agent);
+        let default_model_id = self.config().default_model_for(default_agent);
+        let default_model = ModelRegistry::find_model(default_agent, &default_model_id)
+            .map(|model| format!("{}: {}", default_agent.display_name(), model.display_name))
+            .unwrap_or_else(|| format!("{}: {}", default_agent.display_name(), default_model_id));
+
+        let enabled_providers = self
+            .config()
+            .effective_enabled_providers(self.tools())
+            .into_iter()
+            .map(|provider| provider.display_name().to_string())
+            .collect::<Vec<_>>();
+
+        let theme_value = self
+            .config()
+            .theme_name
+            .clone()
+            .or_else(|| {
+                self.config()
+                    .theme_path
+                    .as_ref()
+                    .map(|path| path.display().to_string())
+            })
+            .unwrap_or_else(crate::ui::components::current_theme_name);
+
+        let workspace_defaults = format!(
+            "{}, delete branch {}, remote prompt {}",
+            self.config().workspaces.default_mode.as_str(),
+            if self.config().workspaces.archive_delete_branch {
+                "on"
+            } else {
+                "off"
+            },
+            if self.config().workspaces.archive_remote_prompt {
+                "on"
+            } else {
+                "off"
+            }
+        );
+
+        vec![
+            SettingsMenuEntry {
+                id: SettingsMenuEntryId::ProjectsDirectory,
+                title: "Projects Directory".to_string(),
+                description: "Where Conduit scans for local git projects".to_string(),
+                value: self.projects_base_dir_value(),
+            },
+            SettingsMenuEntry {
+                id: SettingsMenuEntryId::DefaultModel,
+                title: "Default Model".to_string(),
+                description: "Agent + model used for new sessions".to_string(),
+                value: default_model,
+            },
+            SettingsMenuEntry {
+                id: SettingsMenuEntryId::EnabledProviders,
+                title: "Enabled Providers".to_string(),
+                description: "Providers shown in model selection".to_string(),
+                value: if enabled_providers.is_empty() {
+                    "None".to_string()
+                } else {
+                    enabled_providers.join(", ")
+                },
+            },
+            SettingsMenuEntry {
+                id: SettingsMenuEntryId::Theme,
+                title: "Theme".to_string(),
+                description: "Active color theme".to_string(),
+                value: theme_value,
+            },
+            SettingsMenuEntry {
+                id: SettingsMenuEntryId::WorkspaceDefaults,
+                title: "Workspace Defaults".to_string(),
+                description: "Defaults applied when a repo has no override".to_string(),
+                value: workspace_defaults,
+            },
+        ]
+    }
+
+    fn open_settings_menu(&mut self) {
+        self.state.close_overlays();
+        self.state
+            .settings_menu_state
+            .show(self.settings_menu_entries());
+        self.state.input_mode = InputMode::SettingsMenu;
+    }
+
+    fn reopen_settings_menu(&mut self) {
+        self.state
+            .settings_menu_state
+            .show(self.settings_menu_entries());
+        self.state.input_mode = InputMode::SettingsMenu;
+    }
+
+    fn open_settings_child(&mut self) {
+        self.state.settings_menu_state.hide();
+        self.state.settings_menu_return = true;
+    }
+
+    fn return_to_settings_menu_if_needed(&mut self) -> bool {
+        if self.state.settings_menu_return {
+            self.state.settings_menu_return = false;
+            self.reopen_settings_menu();
+            return true;
+        }
+        false
+    }
+
+    fn open_selected_setting(&mut self) {
+        let Some(entry) = self.state.settings_menu_state.selected_entry().cloned() else {
+            return;
+        };
+
+        match entry.id {
+            SettingsMenuEntryId::ProjectsDirectory => {
+                self.open_settings_child();
+                self.state.base_dir_dialog_context = BaseDirDialogContext::Settings;
+                if let Some(dao) = self.app_state_dao() {
+                    if let Ok(Some(current_dir)) = dao.get("projects_base_dir") {
+                        self.state
+                            .base_dir_dialog_state
+                            .show_with_path(&current_dir);
+                    } else {
+                        self.state.base_dir_dialog_state.show();
+                    }
+                } else {
+                    self.state.base_dir_dialog_state.show();
+                }
+                self.state.input_mode = InputMode::SettingBaseDir;
+            }
+            SettingsMenuEntryId::DefaultModel => {
+                let allowed = self.config().effective_enabled_providers(self.tools());
+                if allowed.is_empty() {
+                    self.state.set_timed_footer_message(
+                        "No enabled providers available. Use providers first.".to_string(),
+                        Duration::from_secs(4),
+                    );
+                    return;
+                }
+                self.open_settings_child();
+                self.state
+                    .model_selector_state
+                    .set_allowed_providers(Some(allowed));
+                self.state.model_selector_state.show_with_title(
+                    None,
+                    self.model_selector_defaults(),
+                    "Pick your default model".to_string(),
+                );
+                self.state.model_picker_context = ModelPickerContext::SettingsDefaultSelection;
+                self.state.input_mode = InputMode::SelectingModel;
+            }
+            SettingsMenuEntryId::EnabledProviders => {
+                self.open_settings_child();
+                self.state.provider_selector_state =
+                    crate::ui::components::ProviderSelectorState::configure_for(
+                        self.config(),
+                        self.tools(),
+                    );
+                self.state.provider_selector_state.show();
+                self.state.input_mode = InputMode::SelectingProviders;
+            }
+            SettingsMenuEntryId::Theme => {
+                self.open_settings_child();
+                let theme_path = self.config().theme_path.clone();
+                self.state.theme_picker_state.show(theme_path.as_deref());
+                self.state.input_mode = InputMode::SelectingTheme;
+            }
+            SettingsMenuEntryId::WorkspaceDefaults => {
+                self.open_settings_child();
+                self.state
+                    .workspace_defaults_dialog_state
+                    .show(WorkspaceDefaultsDraft {
+                        mode: self.config().workspaces.default_mode,
+                        archive_delete_branch: self.config().workspaces.archive_delete_branch,
+                        archive_remote_prompt: self.config().workspaces.archive_remote_prompt,
+                    });
+                self.state.input_mode = InputMode::WorkspaceDefaults;
+            }
+        }
     }
 
     /// Show missing tool dialog and enter MissingTool mode.
@@ -4770,6 +4975,20 @@ impl App {
             return Ok(effects);
         }
 
+        if self.state.input_mode == InputMode::SettingsMenu
+            || self.state.settings_menu_state.is_visible()
+        {
+            self.handle_settings_menu_click(x, y);
+            return Ok(effects);
+        }
+
+        if self.state.input_mode == InputMode::WorkspaceDefaults
+            || self.state.workspace_defaults_dialog_state.is_visible()
+        {
+            self.handle_workspace_defaults_click(x, y);
+            return Ok(effects);
+        }
+
         // Handle project picker clicks first (it's a modal dialog)
         if self.state.input_mode == InputMode::PickingProject
             && self.state.project_picker_state.is_visible()
@@ -5357,6 +5576,12 @@ impl App {
             self.state.model_selector_state.hide();
             if self.state.model_picker_context == ModelPickerContext::OnboardingDefaultSelection {
                 self.state.pending_new_project_target = None;
+            } else if self.state.model_picker_context
+                == ModelPickerContext::SettingsDefaultSelection
+            {
+                self.state.model_picker_context = ModelPickerContext::SessionSelection;
+                self.reopen_settings_menu();
+                return effects;
             }
             self.state.model_picker_context = ModelPickerContext::SessionSelection;
             self.state.input_mode = InputMode::Normal;
@@ -5396,6 +5621,17 @@ impl App {
                             self.state.model_selector_state.hide();
                             self.state.model_picker_context = ModelPickerContext::SessionSelection;
                             self.continue_new_project_flow();
+                        }
+                        return effects;
+                    }
+
+                    if self.state.model_picker_context
+                        == ModelPickerContext::SettingsDefaultSelection
+                    {
+                        if self.persist_default_model_selection(&model) {
+                            self.state.model_selector_state.hide();
+                            self.state.model_picker_context = ModelPickerContext::SessionSelection;
+                            self.reopen_settings_menu();
                         }
                         return effects;
                     }
@@ -5517,7 +5753,9 @@ impl App {
         if !Self::point_in_rect(x, y, dialog_area) {
             self.state.provider_selector_state.hide();
             self.state.pending_new_project_target = None;
-            self.state.input_mode = InputMode::Normal;
+            if !self.return_to_settings_menu_if_needed() {
+                self.state.input_mode = InputMode::Normal;
+            }
             return;
         }
 
@@ -5531,6 +5769,48 @@ impl App {
             {
                 self.state.provider_selector_state.toggle_selected();
             }
+        }
+    }
+
+    fn handle_settings_menu_click(&mut self, x: u16, y: u16) {
+        let terminal_size = crossterm::terminal::size().unwrap_or((80, 24));
+        let screen = Rect::new(0, 0, terminal_size.0, terminal_size.1);
+        let dialog_area = SettingsMenu::dialog_area(screen);
+
+        if !Self::point_in_rect(x, y, dialog_area) {
+            self.state.settings_menu_state.hide();
+            self.state.input_mode = InputMode::Normal;
+            return;
+        }
+
+        let list_area = SettingsMenu::list_area(screen);
+        if y >= list_area.y && y < list_area.y + list_area.height {
+            let clicked_row = (y - list_area.y) as usize;
+            if self.state.settings_menu_state.select_at_row(clicked_row) {
+                self.open_selected_setting();
+            }
+        }
+    }
+
+    fn handle_workspace_defaults_click(&mut self, x: u16, y: u16) {
+        let terminal_size = crossterm::terminal::size().unwrap_or((80, 24));
+        let screen = Rect::new(0, 0, terminal_size.0, terminal_size.1);
+        let dialog_area = WorkspaceDefaultsDialog::dialog_area(screen);
+
+        if !Self::point_in_rect(x, y, dialog_area) {
+            self.state.workspace_defaults_dialog_state.hide();
+            if !self.return_to_settings_menu_if_needed() {
+                self.state.input_mode = InputMode::Normal;
+            }
+            return;
+        }
+
+        let list_area = WorkspaceDefaultsDialog::list_area(screen);
+        if y >= list_area.y && y < list_area.y + list_area.height {
+            let clicked_row = (y - list_area.y) as usize;
+            self.state
+                .workspace_defaults_dialog_state
+                .select_at_row(clicked_row);
         }
     }
 
@@ -9648,12 +9928,32 @@ impl App {
                             );
                         }
 
+                        if self.state.input_mode == InputMode::SettingsMenu
+                            || self.state.settings_menu_state.is_visible()
+                        {
+                            SettingsMenu::new().render(
+                                size,
+                                f.buffer_mut(),
+                                &self.state.settings_menu_state,
+                            );
+                        }
+
                         // Draw command palette (on top of everything)
                         if self.state.command_palette_state.is_visible() {
                             CommandPalette::new().render(
                                 size,
                                 f.buffer_mut(),
                                 &self.state.command_palette_state,
+                            );
+                        }
+
+                        if self.state.input_mode == InputMode::WorkspaceDefaults
+                            || self.state.workspace_defaults_dialog_state.is_visible()
+                        {
+                            WorkspaceDefaultsDialog::new().render(
+                                size,
+                                f.buffer_mut(),
+                                &self.state.workspace_defaults_dialog_state,
                             );
                         }
 
@@ -10072,9 +10372,25 @@ impl App {
             HelpDialog::new().render(size, f.buffer_mut(), &mut self.state.help_dialog_state);
         }
 
+        if self.state.input_mode == InputMode::SettingsMenu
+            || self.state.settings_menu_state.is_visible()
+        {
+            SettingsMenu::new().render(size, f.buffer_mut(), &self.state.settings_menu_state);
+        }
+
         // Draw command palette (on top of everything)
         if self.state.command_palette_state.is_visible() {
             CommandPalette::new().render(size, f.buffer_mut(), &self.state.command_palette_state);
+        }
+
+        if self.state.input_mode == InputMode::WorkspaceDefaults
+            || self.state.workspace_defaults_dialog_state.is_visible()
+        {
+            WorkspaceDefaultsDialog::new().render(
+                size,
+                f.buffer_mut(),
+                &self.state.workspace_defaults_dialog_state,
+            );
         }
 
         // Draw removing project spinner overlay

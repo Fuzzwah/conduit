@@ -175,7 +175,10 @@ impl KeyContext {
             InputMode::Command => return KeyContext::Command,
             InputMode::ShowingHelp => return KeyContext::HelpDialog,
             InputMode::ImportingSession => return KeyContext::SessionImport,
-            InputMode::CommandPalette | InputMode::SlashMenu => return KeyContext::CommandPalette,
+            InputMode::SettingsMenu
+            | InputMode::CommandPalette
+            | InputMode::SlashMenu
+            | InputMode::WorkspaceDefaults => return KeyContext::CommandPalette,
             InputMode::MissingTool => return KeyContext::Dialog,
             InputMode::SelectingTheme => return KeyContext::ThemePicker,
             InputMode::QueueEditing => return KeyContext::QueueEditing,

@@ -1,7 +1,8 @@
 use crate::agent::{AgentType, ModelRegistry};
-use crate::config::{save_default_model, save_enabled_providers};
+use crate::config::{save_default_model, save_enabled_providers, save_workspaces_config};
 use crate::core::services::error::ServiceError;
 use crate::core::ConduitCore;
+use crate::git::WorkspaceMode;
 
 pub struct ConfigService;
 
@@ -89,6 +90,24 @@ impl ConfigService {
             ServiceError::Internal(format!("Failed to save enabled providers: {err}"))
         })?;
         core.config_mut().set_enabled_providers(providers);
+        Ok(())
+    }
+
+    pub fn set_workspace_defaults(
+        core: &mut ConduitCore,
+        mode: WorkspaceMode,
+        archive_delete_branch: bool,
+        archive_remote_prompt: bool,
+    ) -> Result<(), ServiceError> {
+        save_workspaces_config(mode, archive_delete_branch, archive_remote_prompt).map_err(
+            |err| ServiceError::Internal(format!("Failed to save workspace defaults: {err}")),
+        )?;
+
+        core.config_mut().set_workspace_defaults(
+            mode,
+            archive_delete_branch,
+            archive_remote_prompt,
+        );
         Ok(())
     }
 }

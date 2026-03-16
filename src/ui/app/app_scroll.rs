@@ -21,6 +21,7 @@ impl App {
                 && self.state.project_picker_state.is_visible())
             && !(self.state.input_mode == InputMode::ImportingSession
                 && self.state.session_import_state.is_visible())
+            && self.state.input_mode != InputMode::SettingsMenu
             && !(self.state.input_mode == InputMode::CommandPalette
                 && self.state.command_palette_state.is_visible())
             && !(self.state.input_mode == InputMode::SlashMenu
@@ -33,6 +34,7 @@ impl App {
                 && self.state.reasoning_selector_state.is_visible())
             && !(self.state.input_mode == InputMode::SelectingProviders
                 && self.state.provider_selector_state.is_visible())
+            && self.state.input_mode != InputMode::WorkspaceDefaults
     }
 
     pub(super) fn raw_events_list_visible_height(&self) -> usize {
@@ -85,6 +87,15 @@ impl App {
             for _ in 0..*pending_down {
                 self.state.session_import_state.select_next();
             }
+        } else if self.state.input_mode == InputMode::SettingsMenu
+            || self.state.settings_menu_state.is_visible()
+        {
+            for _ in 0..*pending_up {
+                self.state.settings_menu_state.select_prev();
+            }
+            for _ in 0..*pending_down {
+                self.state.settings_menu_state.select_next();
+            }
         } else if self.state.input_mode == InputMode::CommandPalette
             && self.state.command_palette_state.is_visible()
         {
@@ -129,6 +140,15 @@ impl App {
             }
             for _ in 0..*pending_down {
                 self.state.provider_selector_state.select_next();
+            }
+        } else if self.state.input_mode == InputMode::WorkspaceDefaults
+            || self.state.workspace_defaults_dialog_state.is_visible()
+        {
+            for _ in 0..*pending_up {
+                self.state.workspace_defaults_dialog_state.select_prev();
+            }
+            for _ in 0..*pending_down {
+                self.state.workspace_defaults_dialog_state.select_next();
             }
         } else if self.state.tab_manager.active_is_file() {
             let visible_height = self

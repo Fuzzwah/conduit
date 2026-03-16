@@ -20,6 +20,14 @@ impl App {
             && self.state.input_mode != InputMode::SelectingProviders
         {
             self.state.input_mode = InputMode::SelectingProviders;
+        } else if self.state.settings_menu_state.is_visible()
+            && self.state.input_mode != InputMode::SettingsMenu
+        {
+            self.state.input_mode = InputMode::SettingsMenu;
+        } else if self.state.workspace_defaults_dialog_state.is_visible()
+            && self.state.input_mode != InputMode::WorkspaceDefaults
+        {
+            self.state.input_mode = InputMode::WorkspaceDefaults;
         }
 
         match self.state.input_mode {
@@ -69,6 +77,17 @@ impl App {
                             self.state.model_selector_state.hide();
                             self.state.model_picker_context = ModelPickerContext::SessionSelection;
                             self.continue_new_project_flow();
+                        }
+                        return Ok(());
+                    }
+
+                    if self.state.model_picker_context
+                        == ModelPickerContext::SettingsDefaultSelection
+                    {
+                        if self.persist_default_model_selection(&model) {
+                            self.state.model_selector_state.hide();
+                            self.state.model_picker_context = ModelPickerContext::SessionSelection;
+                            self.reopen_settings_menu();
                         }
                         return Ok(());
                     }
@@ -168,7 +187,7 @@ impl App {
 
                 if self.state.pending_new_project_target.is_some() {
                     self.continue_new_project_flow();
-                } else {
+                } else if !self.return_to_settings_menu_if_needed() {
                     self.state.input_mode = InputMode::Normal;
                 }
             }
@@ -223,9 +242,56 @@ impl App {
                             return Ok(());
                         }
                     }
-                    let base_path = self.state.base_dir_dialog_state.expanded_path();
                     self.state.base_dir_dialog_state.hide();
-                    self.start_project_discovery(base_path);
+                    match self.state.base_dir_dialog_context {
+                        crate::ui::app_state::BaseDirDialogContext::ProjectDiscovery => {
+                            let base_path = self.state.base_dir_dialog_state.expanded_path();
+                            self.state.base_dir_dialog_context =
+                                crate::ui::app_state::BaseDirDialogContext::ProjectDiscovery;
+                            self.start_project_discovery(base_path);
+                        }
+                        crate::ui::app_state::BaseDirDialogContext::Settings => {
+                            self.state.base_dir_dialog_context =
+                                crate::ui::app_state::BaseDirDialogContext::ProjectDiscovery;
+                            self.state.set_timed_footer_message(
+                                "Projects directory updated".to_string(),
+                                std::time::Duration::from_secs(3),
+                            );
+                            if !self.return_to_settings_menu_if_needed() {
+                                self.state.input_mode = InputMode::Normal;
+                            }
+                        }
+                    }
+                }
+            }
+            InputMode::SettingsMenu => {
+                self.open_selected_setting();
+            }
+            InputMode::WorkspaceDefaults => {
+                if self
+                    .state
+                    .workspace_defaults_dialog_state
+                    .activate_selected()
+                {
+                    let draft = self.state.workspace_defaults_dialog_state.draft;
+                    if let Err(err) = crate::core::services::ConfigService::set_workspace_defaults(
+                        &mut self.core,
+                        draft.mode,
+                        draft.archive_delete_branch,
+                        draft.archive_remote_prompt,
+                    ) {
+                        self.show_error("Failed to Save", &err.to_string());
+                        return Ok(());
+                    }
+
+                    self.state.workspace_defaults_dialog_state.hide();
+                    self.state.set_timed_footer_message(
+                        "Workspace defaults updated".to_string(),
+                        std::time::Duration::from_secs(3),
+                    );
+                    if !self.return_to_settings_menu_if_needed() {
+                        self.state.input_mode = InputMode::Normal;
+                    }
                 }
             }
             InputMode::Confirming => {

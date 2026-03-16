@@ -844,6 +844,18 @@ impl Config {
         self.default_model = Some(model_id);
     }
 
+    /// Update global workspace defaults in memory.
+    pub fn set_workspace_defaults(
+        &mut self,
+        mode: WorkspaceMode,
+        archive_delete_branch: bool,
+        archive_remote_prompt: bool,
+    ) {
+        self.workspaces.default_mode = mode;
+        self.workspaces.archive_delete_branch = archive_delete_branch;
+        self.workspaces.archive_remote_prompt = archive_remote_prompt;
+    }
+
     /// Calculate cost for given token usage
     pub fn calculate_cost(&self, input_tokens: i64, output_tokens: i64) -> f64 {
         let input_cost = (input_tokens as f64 / 1_000_000.0) * self.claude_input_cost_per_million;
@@ -1017,6 +1029,43 @@ pub fn save_enabled_providers(providers: &[AgentType]) -> std::io::Result<()> {
     doc["providers"]["enabled"] = Item::Value(toml_edit::Value::Array(enabled_values));
 
     // Ensure parent directory exists
+    if let Some(parent) = config_file.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent)?;
+        }
+    }
+
+    fs::write(&config_file, doc.to_string())?;
+
+    Ok(())
+}
+
+/// Save workspace defaults to the config file.
+pub fn save_workspaces_config(
+    mode: WorkspaceMode,
+    archive_delete_branch: bool,
+    archive_remote_prompt: bool,
+) -> std::io::Result<()> {
+    let config_file = config_path();
+
+    let contents = if config_file.exists() {
+        fs::read_to_string(&config_file)?
+    } else {
+        String::new()
+    };
+
+    let mut doc: DocumentMut = contents
+        .parse()
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
+    if !doc.contains_key("workspaces") {
+        doc["workspaces"] = Item::Table(Table::new());
+    }
+
+    doc["workspaces"]["mode"] = toml_edit::value(mode.as_str());
+    doc["workspaces"]["archive_delete_branch"] = toml_edit::value(archive_delete_branch);
+    doc["workspaces"]["archive_remote_prompt"] = toml_edit::value(archive_remote_prompt);
+
     if let Some(parent) = config_file.parent() {
         if !parent.exists() {
             fs::create_dir_all(parent)?;

@@ -37,6 +37,9 @@ impl App {
                 InputMode::CommandPalette => {
                     self.state.command_palette_state.delete_char();
                 }
+                InputMode::SettingsMenu => {
+                    self.state.settings_menu_state.delete_char();
+                }
                 InputMode::SlashMenu => {
                     self.state.slash_menu_state.delete_char();
                 }
@@ -80,6 +83,8 @@ impl App {
                     self.state.provider_selector_state.delete_forward();
                 } else if self.state.input_mode == InputMode::SlashMenu {
                     self.state.slash_menu_state.delete_forward();
+                } else if self.state.input_mode == InputMode::SettingsMenu {
+                    self.state.settings_menu_state.delete_char();
                 } else if self.state.input_mode == InputMode::SettingBaseDir {
                     self.state.base_dir_dialog_state.delete_forward();
                 } else if self.state.input_mode == InputMode::AddingRepository {
