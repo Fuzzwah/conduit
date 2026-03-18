@@ -838,6 +838,7 @@ impl App {
                     session
                         .agent_session_id
                         .as_ref()
+                        .or(session.resume_session_id.as_ref())
                         .map(|s| s.as_str().to_string()),
                     session.model.clone(),
                     session.pr_number.map(|n| n as i32),
@@ -12571,6 +12572,32 @@ mod tests {
 
         assert_eq!(app.state.input_mode, InputMode::Normal);
         assert!(app.state.command_buffer.is_empty());
+    }
+
+    #[test]
+    fn test_snapshot_session_state_persists_resume_session_id_when_live_id_missing() {
+        let session_id = Uuid::new_v4();
+        let mut app = build_test_app_with_sessions(&[session_id]);
+        let restored_session_id = SessionId::from_string("codex-restored-session");
+
+        {
+            let session = app
+                .state
+                .tab_manager
+                .session_by_id_mut(session_id)
+                .expect("session missing");
+            session.agent_type = AgentType::Codex;
+            session.agent_session_id = None;
+            session.resume_session_id = Some(restored_session_id.clone());
+        }
+
+        let snapshot = app.snapshot_session_state();
+        let tab = snapshot.tabs.first().expect("expected saved tab");
+
+        assert_eq!(
+            tab.agent_session_id.as_deref(),
+            Some(restored_session_id.as_str())
+        );
     }
 
     #[test]

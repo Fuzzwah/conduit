@@ -15,9 +15,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use super::display::MessageDisplay;
-#[cfg(test)]
-use crate::ui::components::MessageRole;
-use crate::ui::components::{ChatMessage, TurnSummary};
+use crate::ui::components::{ChatMessage, MessageRole, TurnSummary};
 
 /// Info extracted from a function_call entry for later lookup
 struct FunctionCallInfo {
@@ -1599,6 +1597,28 @@ pub fn parse_codex_history_file_with_debug(
                 }
 
                 let (msg, status, reason) = convert_codex_entry_with_debug(&entry, &function_calls);
+                let mut status = status.to_string();
+                let mut reason = reason;
+
+                if entry_type == "event_msg"
+                    && entry
+                        .get("payload")
+                        .and_then(|p| p.get("type"))
+                        .and_then(|t| t.as_str())
+                        == Some("user_message")
+                {
+                    if let Some(message) = msg.as_ref() {
+                        if message.role == MessageRole::User
+                            && messages.last().is_some_and(|last| {
+                                last.role == MessageRole::User && last.content == message.content
+                            })
+                        {
+                            status = "SKIP".to_string();
+                            reason = "duplicate user_message echoed by event_msg".to_string();
+                        }
+                    }
+                }
+
                 if let Some(payload) = entry.get("payload") {
                     if payload.get("type").and_then(|t| t.as_str()) == Some("message") {
                         if payload.get("role").and_then(|r| r.as_str()) == Some("user") {
@@ -1616,13 +1636,15 @@ pub fn parse_codex_history_file_with_debug(
                 debug_entries.push(HistoryDebugEntry {
                     line_number: line_num,
                     entry_type,
-                    status: status.to_string(),
+                    status: status.clone(),
                     reason,
                     raw_json: entry,
                 });
 
-                if let Some(m) = msg {
-                    messages.push(m);
+                if status == "INCLUDE" {
+                    if let Some(m) = msg {
+                        messages.push(m);
+                    }
                 }
             }
             Err(e) => {
@@ -2525,6 +2547,65 @@ mod tests {
         assert!(messages[1].content.contains("first line"));
         assert!(messages[1].content.contains("second line"));
         assert_eq!(messages[1].exit_code, Some(0));
+    }
+
+    #[test]
+    fn test_codex_skips_duplicate_event_msg_user_echo_after_response_item() {
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        let entries = vec![
+            serde_json::json!({
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{
+                        "type": "input_text",
+                        "text": "Send me a paragraph with inline and not inline code snippets so I can run some tests"
+                    }]
+                }
+            }),
+            serde_json::json!({
+                "type": "event_msg",
+                "payload": {
+                    "type": "user_message",
+                    "message": "Send me a paragraph with inline and not inline code snippets so I can run some tests",
+                    "images": [],
+                    "local_images": [],
+                    "text_elements": []
+                }
+            }),
+            serde_json::json!({
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{
+                        "type": "output_text",
+                        "text": "Here is a test paragraph."
+                    }]
+                }
+            }),
+        ];
+
+        let mut file = NamedTempFile::new().expect("create temp file");
+        for entry in &entries {
+            let line = serde_json::to_string(entry).expect("serialize entry");
+            writeln!(file, "{}", line).expect("write line");
+        }
+
+        let (messages, debug_entries) =
+            parse_codex_history_file_with_debug(&file.path().to_path_buf()).expect("parse file");
+
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0].role, MessageRole::User);
+        assert_eq!(messages[1].role, MessageRole::Assistant);
+        assert!(debug_entries.iter().any(|entry| {
+            entry.entry_type == "event_msg"
+                && entry.status == "SKIP"
+                && entry.reason == "duplicate user_message echoed by event_msg"
+        }));
     }
 
     /// Test parsing the fixture file - verifies function_call_output creates Tool messages
