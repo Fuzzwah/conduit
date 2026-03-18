@@ -233,13 +233,16 @@ impl<'a> VsCodeMapper<'a> {
                 }
             });
 
+        // Prefer dedicated inline-code surfaces when present. Fall back to an
+        // elevated UI surface, never to badge colors, which can be loud accent
+        // colors (e.g. Ayu's gold badge background).
         let markdown_inline_code_bg = self
             .get_with_fallback(&["textCodeBlock.background", "editorWidget.background"])
             .unwrap_or_else(|| {
                 if is_light {
-                    darken(markdown_code_bg, 0.04)
+                    darken(bg_base, 0.04)
                 } else {
-                    lighten(markdown_code_bg, 0.08)
+                    lighten(bg_base, 0.08)
                 }
             });
 
@@ -593,5 +596,26 @@ mod tests {
         let vscode = VsCodeTheme::load_from_str(json5_theme).unwrap();
         assert_eq!(vscode.name, Some("JSON5 Theme".to_string()));
         assert!(!vscode.is_light());
+    }
+
+    #[test]
+    fn test_ayu_inline_code_uses_widget_surface_not_badge() {
+        let json = r##"{
+            "name": "Ayu Dark Bordered",
+            "type": "dark",
+            "colors": {
+                "editor.background": "#10141c",
+                "sideBar.background": "#0d1017",
+                "editorWidget.background": "#141821",
+                "badge.background": "#e6b45033",
+                "editor.foreground": "#bfbdb6"
+            }
+        }"##;
+
+        let vscode = VsCodeTheme::load_from_str(json).unwrap();
+        let theme = vscode.to_theme();
+
+        assert_eq!(theme.markdown_inline_code_bg, Color::Rgb(20, 24, 33));
+        assert_ne!(theme.markdown_inline_code_bg, Color::Rgb(230, 180, 80));
     }
 }

@@ -191,17 +191,21 @@ fn normalize_theme(mut theme: Theme) -> Theme {
 
     // Layered backgrounds should separate enough to be visible.
     let highlight_min = if is_light { 2.6 } else { 2.0 };
+    let tool_block_min = if is_light { 2.4 } else { 1.6 };
+    let markdown_code_min = if is_light { 2.0 } else { 1.7 };
+    let markdown_inline_code_min = if is_light { 2.0 } else { 1.9 };
     theme.bg_surface = ensure_contrast_bg(theme.bg_surface, base, 1.2);
     theme.bg_elevated = ensure_contrast_bg(theme.bg_elevated, theme.bg_surface, 1.2);
     theme.bg_highlight = ensure_contrast_bg(theme.bg_highlight, base, highlight_min);
 
-    // Light themes need extra separation for code/tool surfaces.
-    if is_light {
-        theme.tool_block_bg = ensure_contrast_bg(theme.tool_block_bg, base, 2.4);
-        theme.markdown_code_bg = ensure_contrast_bg(theme.markdown_code_bg, base, 2.0);
-        theme.markdown_inline_code_bg =
-            ensure_contrast_bg(theme.markdown_inline_code_bg, base, 2.0);
-    }
+    // Code and tool surfaces need visible separation in both light and dark themes.
+    theme.tool_block_bg = ensure_contrast_bg(theme.tool_block_bg, base, tool_block_min);
+    theme.markdown_code_bg = ensure_contrast_bg(theme.markdown_code_bg, base, markdown_code_min);
+    theme.markdown_inline_code_bg = ensure_contrast_bg(
+        theme.markdown_inline_code_bg,
+        base,
+        markdown_inline_code_min,
+    );
 
     // Border contrast for outlines and separators.
     theme.border_default = ensure_contrast_fg(theme.border_default, base, 1.8);
@@ -490,4 +494,24 @@ pub fn key_hint_bg() -> Color {
 #[inline]
 pub fn input_bg() -> Color {
     bg_surface()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalize_theme_increases_dark_inline_code_separation() {
+        let theme = Theme {
+            bg_base: Color::Rgb(16, 20, 28),
+            markdown_inline_code_bg: Color::Rgb(20, 24, 33),
+            ..Theme::default_dark()
+        };
+
+        let normalized = normalize_theme(theme);
+        let ratio =
+            contrast_ratio(normalized.markdown_inline_code_bg, normalized.bg_base).unwrap_or(0.0);
+
+        assert!(ratio >= 1.9);
+    }
 }

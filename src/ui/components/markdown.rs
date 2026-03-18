@@ -5,7 +5,7 @@ use ratatui::{
 };
 use unicode_width::UnicodeWidthChar;
 
-use super::theme::{markdown_code_bg, markdown_inline_code_bg};
+use super::theme::{markdown_code_bg, markdown_inline_code_bg, text_bright};
 
 /// Custom markdown renderer with table support
 pub struct MarkdownRenderer {
@@ -226,7 +226,7 @@ impl MarkdownRenderer {
                         current_spans.push(Span::styled(
                             format!("`{}`", code),
                             Style::default()
-                                .fg(Color::Yellow)
+                                .fg(text_bright())
                                 .bg(markdown_inline_code_bg()),
                         ));
                     }
