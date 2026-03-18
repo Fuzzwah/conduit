@@ -341,14 +341,16 @@ impl ThemePickerState {
 
     /// Select the current theme in the list
     fn select_current_theme(&mut self) {
-        let confirmed_key = self.confirmed_theme_key.clone();
+        if let Some(confirmed_key) = self.confirmed_theme_key.clone() {
+            if self.select_theme_by_key(&confirmed_key) {
+                return;
+            }
+        }
+
+        let current_name = current_theme_name();
         for (idx, &item_idx) in self.filtered.iter().enumerate() {
             if let ThemePickerItem::Theme(ref info) = self.items[item_idx] {
-                let matches = confirmed_key
-                    .as_ref()
-                    .map(|key| key == &Self::theme_key(info))
-                    .unwrap_or_else(|| theme_matches_current(&current_theme_name(), info));
-                if matches {
+                if theme_matches_current(&current_name, info) {
                     self.selected = idx;
                     self.ensure_visible();
                     return;
@@ -356,6 +358,23 @@ impl ThemePickerState {
             }
         }
         self.selected = 0;
+        self.ensure_visible();
+    }
+
+    fn select_theme_by_key(&mut self, key: &str) -> bool {
+        if let Some((idx, _)) = self.filtered.iter().enumerate().find(|(_, &item_idx)| {
+            if let ThemePickerItem::Theme(info) = &self.items[item_idx] {
+                Self::theme_key(info) == key
+            } else {
+                false
+            }
+        }) {
+            self.selected = idx;
+            self.ensure_visible();
+            true
+        } else {
+            false
+        }
     }
 
     /// Get the currently selected theme info
@@ -945,6 +964,39 @@ mod tests {
             .map(|(_, text, _, _)| text.clone())
             .expect("checked item");
         assert!(checked.contains(&original_name));
+    }
+
+    #[test]
+    fn theme_show_selects_current_theme() {
+        let _reset = preserve_theme();
+        set_theme(Theme::default_dark());
+        let current_name = current_theme_name();
+
+        let target = list_themes()
+            .into_iter()
+            .find(|info| !theme_matches_current(&current_name, info))
+            .expect("at least one alternate theme");
+        assert!(
+            match &target.source {
+                ThemeSource::CustomPath { path } => load_theme_from_path(path),
+                _ => load_theme_by_name(&target.name),
+            },
+            "target theme should load"
+        );
+
+        let mut state = ThemePickerState::new();
+        state.show(match &target.source {
+            ThemeSource::Builtin => None,
+            ThemeSource::VsCodeExtension { path }
+            | ThemeSource::ConduitToml { path }
+            | ThemeSource::CustomPath { path } => Some(path.as_path()),
+        });
+
+        let selected = state.selected_theme().expect("selected theme");
+        assert_eq!(
+            ThemePickerState::theme_key(selected),
+            ThemePickerState::theme_key(&target)
+        );
     }
 
     #[test]
