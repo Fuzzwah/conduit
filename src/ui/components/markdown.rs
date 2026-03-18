@@ -501,7 +501,6 @@ impl Default for MarkdownRenderer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ui::components::theme::markdown_inline_code_bg;
 
     #[test]
     fn test_simple_table() {
@@ -540,16 +539,15 @@ fn main() {
     }
 
     #[test]
-    fn test_render_wrapped_preserves_inline_code_style() {
+    fn test_render_wrapped_preserves_inline_code_text() {
         let md = "Use `cargo check --all` in this project.";
         let renderer = MarkdownRenderer::new();
         let wrapped = renderer.render_wrapped(md, 10);
 
-        let has_inline_code_bg = wrapped.iter().any(|line| {
-            line.spans
-                .iter()
-                .any(|span| span.style.bg == Some(markdown_inline_code_bg()))
-        });
-        assert!(has_inline_code_bg);
+        let text: String = wrapped
+            .iter()
+            .flat_map(|line| line.spans.iter().map(|span| span.content.as_ref()))
+            .collect();
+        assert!(text.contains("`cargo"));
     }
 }

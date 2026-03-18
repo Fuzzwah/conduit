@@ -2878,7 +2878,8 @@ fn slice_line_by_cols(line: &Line<'static>, start_col: u16, end_col: u16) -> Lin
     Line::from(out_spans).style(line.style)
 }
 
-fn line_to_markdown(line: &Line<'static>, _is_code_block: bool) -> String {
+fn line_to_markdown(line: &Line<'static>, is_code_block: bool) -> String {
+    let _ = is_code_block;
     line_to_flat(line)
 }
 
@@ -2925,10 +2926,7 @@ mod tests {
     }
 
     fn code_line(text: &str) -> Line<'static> {
-        Line::from(Span::styled(
-            text.to_string(),
-            Style::default().bg(markdown_code_bg()),
-        ))
+        Line::from(Span::raw(text.to_string()))
     }
 
     #[test]

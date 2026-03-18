@@ -19,10 +19,7 @@ use unicode_width::UnicodeWidthChar;
 use crate::ui::file_viewer::FileKind;
 
 use super::theme::theme_revision;
-use super::{
-    current_theme, markdown_code_bg, markdown_inline_code_bg, text_bright, text_primary,
-    text_secondary, RawEventEntry,
-};
+use super::{current_theme, text_bright, text_primary, text_secondary, RawEventEntry};
 
 #[derive(Clone, Copy)]
 enum CodeSurfaceKind {
@@ -70,14 +67,11 @@ pub fn highlight_markdown_code_block(
         .unwrap_or_else(|| {
             lines
                 .iter()
-                .map(|line| Line::from(fallback_markdown_spans(line, markdown_code_bg())))
+                .map(|line| Line::from(fallback_markdown_spans(line)))
                 .collect()
         });
 
-    highlighted
-        .into_iter()
-        .map(|line| pad_code_line(line, markdown_code_bg()))
-        .collect()
+    highlighted.into_iter().map(pad_code_line).collect()
 }
 
 pub fn highlight_inline_code(code: &str) -> Vec<Span<'static>> {
@@ -85,15 +79,11 @@ pub fn highlight_inline_code(code: &str) -> Vec<Span<'static>> {
     let syntax = syntax_set.find_syntax_plain_text();
     let lines = vec![code.to_string()];
 
-    let mut spans = highlight_lines_with_syntect(&lines, syntax, CodeSurfaceKind::MarkdownInline)
+    let spans = highlight_lines_with_syntect(&lines, syntax, CodeSurfaceKind::MarkdownInline)
         .and_then(|mut lines| lines.pop().map(|line| line.spans))
-        .unwrap_or_else(|| fallback_markdown_spans(code, markdown_inline_code_bg()));
+        .unwrap_or_else(|| fallback_markdown_spans(code));
 
-    apply_background(&mut spans, markdown_inline_code_bg());
-
-    let inline_style = Style::default()
-        .fg(text_secondary())
-        .bg(markdown_inline_code_bg());
+    let inline_style = Style::default().fg(text_secondary());
     let mut wrapped = Vec::with_capacity(spans.len() + 2);
     wrapped.push(Span::styled("`", inline_style));
     wrapped.extend(spans);
@@ -145,7 +135,10 @@ fn highlight_lines_with_syntect(
             if text.is_empty() {
                 continue;
             }
-            spans.push(Span::styled(text.to_string(), style_to_ratatui(style)));
+            spans.push(Span::styled(
+                text.to_string(),
+                style_to_ratatui(style, matches!(surface, CodeSurfaceKind::SourceFile)),
+            ));
         }
 
         if spans.is_empty() {
@@ -203,13 +196,13 @@ fn build_cached_themes(revision: u64) -> CachedThemes {
         revision,
         markdown_block: Arc::new(build_syntect_theme(
             &theme,
-            markdown_code_bg(),
+            theme.bg_base,
             text_primary(),
             true,
         )),
         markdown_inline: Arc::new(build_syntect_theme(
             &theme,
-            markdown_inline_code_bg(),
+            theme.bg_base,
             text_bright(),
             true,
         )),
@@ -366,18 +359,20 @@ fn normalize_language_hint(language_hint: &str) -> Option<String> {
     Some(normalized.to_string())
 }
 
-fn style_to_ratatui(style: syntect::highlighting::Style) -> Style {
-    let mut mapped = Style::default()
-        .fg(Color::Rgb(
-            style.foreground.r,
-            style.foreground.g,
-            style.foreground.b,
-        ))
-        .bg(Color::Rgb(
+fn style_to_ratatui(style: syntect::highlighting::Style, include_background: bool) -> Style {
+    let mut mapped = Style::default().fg(Color::Rgb(
+        style.foreground.r,
+        style.foreground.g,
+        style.foreground.b,
+    ));
+
+    if include_background {
+        mapped = mapped.bg(Color::Rgb(
             style.background.r,
             style.background.g,
             style.background.b,
         ));
+    }
 
     if style.font_style.contains(FontStyle::BOLD) {
         mapped = mapped.add_modifier(Modifier::BOLD);
@@ -402,32 +397,15 @@ fn fallback_highlight_line(file_kind: FileKind, line: &str) -> Vec<Span<'static>
     }
 }
 
-fn fallback_markdown_spans(line: &str, background: Color) -> Vec<Span<'static>> {
+fn fallback_markdown_spans(line: &str) -> Vec<Span<'static>> {
     vec![Span::styled(
         line.to_string(),
-        Style::default().fg(text_primary()).bg(background),
+        Style::default().fg(text_primary()),
     )]
 }
 
-fn pad_code_line(mut line: Line<'static>, background: Color) -> Line<'static> {
-    if line.spans.is_empty() {
-        return Line::from(vec![Span::styled(
-            "  ",
-            Style::default().fg(text_primary()).bg(background),
-        )]);
-    }
-
-    apply_background(&mut line.spans, background);
-    let edge_style = Style::default().fg(text_primary()).bg(background);
-    line.spans.insert(0, Span::styled(" ", edge_style));
-    line.spans.push(Span::styled(" ", edge_style));
+fn pad_code_line(line: Line<'static>) -> Line<'static> {
     line
-}
-
-fn apply_background(spans: &mut [Span<'static>], background: Color) {
-    for span in spans {
-        span.style = span.style.bg(background);
-    }
 }
 
 fn to_syntect_color(color: Color) -> SyntectColor {
@@ -614,10 +592,7 @@ mod tests {
         let lines = highlight_markdown_code_block(Some("rust"), "fn main() { let x = 1; }");
 
         assert_eq!(lines.len(), 1);
-        assert!(lines[0]
-            .spans
-            .iter()
-            .all(|span| span.style.bg == Some(markdown_code_bg())));
+        assert!(lines[0].spans.iter().all(|span| span.style.bg.is_none()));
         assert!(lines[0].spans.len() > 2);
     }
 
@@ -625,9 +600,7 @@ mod tests {
     fn test_highlight_inline_code_wraps_with_inline_background() {
         let spans = highlight_inline_code("cargo check --all");
 
-        assert!(spans
-            .iter()
-            .all(|span| span.style.bg == Some(markdown_inline_code_bg())));
+        assert!(spans.iter().all(|span| span.style.bg.is_none()));
         let text: String = spans.iter().map(|span| span.content.as_ref()).collect();
         assert_eq!(text, "`cargo check --all`");
     }
