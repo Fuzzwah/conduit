@@ -68,6 +68,8 @@ pub struct ThemePickerState {
     original_theme_path: Option<PathBuf>,
     /// Currently previewing theme name
     preview_theme: Option<String>,
+    /// Theme that is currently confirmed in config, not just previewed.
+    confirmed_theme_key: Option<String>,
     /// Pending preview request (debounced)
     pending_preview: Option<PendingPreview>,
     /// Last preview error (for footer message)
@@ -95,6 +97,7 @@ impl ThemePickerState {
             original_theme_name: None,
             original_theme_path: None,
             preview_theme: None,
+            confirmed_theme_key: None,
             pending_preview: None,
             last_error: None,
         }
@@ -105,7 +108,6 @@ impl ThemePickerState {
         self.visible = true;
         self.original_theme_name = Some(current_theme_name());
         self.original_theme_path = theme_path.map(|path| path.to_path_buf());
-        self.preview_theme = None;
         self.pending_preview = None;
         self.last_error = None;
         self.search.clear();
@@ -126,6 +128,9 @@ impl ThemePickerState {
 
         // Initialize filtered to all selectable
         self.filtered = self.selectable_indices.clone();
+
+        self.confirmed_theme_key = self.resolve_confirmed_theme_key();
+        self.preview_theme = self.confirmed_theme_key.clone();
 
         // Select the current theme
         self.select_current_theme();
@@ -150,6 +155,7 @@ impl ThemePickerState {
         }
         self.visible = false;
         self.preview_theme = None;
+        self.confirmed_theme_key = None;
         self.pending_preview = None;
         if !cancelled {
             self.last_error = None;
@@ -186,6 +192,31 @@ impl ThemePickerState {
         }
 
         false
+    }
+
+    fn resolve_confirmed_theme_key(&self) -> Option<String> {
+        if let Some(path) = self.original_theme_path.as_ref() {
+            if let Some(info) = self.items.iter().find_map(|item| match item {
+                ThemePickerItem::Theme(info) if theme_matches_path(path, info) => Some(info),
+                _ => None,
+            }) {
+                return Some(Self::theme_key(info));
+            }
+        }
+
+        let fallback_name = current_theme_name();
+        let original_name = self
+            .original_theme_name
+            .as_deref()
+            .filter(|name| !name.trim().is_empty())
+            .unwrap_or(fallback_name.as_str());
+
+        self.items.iter().find_map(|item| match item {
+            ThemePickerItem::Theme(info) if theme_matches_current(original_name, info) => {
+                Some(Self::theme_key(info))
+            }
+            _ => None,
+        })
     }
 
     /// Build the list of items grouped by source
@@ -310,10 +341,14 @@ impl ThemePickerState {
 
     /// Select the current theme in the list
     fn select_current_theme(&mut self) {
-        let current = current_theme_name();
+        let confirmed_key = self.confirmed_theme_key.clone();
         for (idx, &item_idx) in self.filtered.iter().enumerate() {
             if let ThemePickerItem::Theme(ref info) = self.items[item_idx] {
-                if theme_matches_current(&current, info) {
+                let matches = confirmed_key
+                    .as_ref()
+                    .map(|key| key == &Self::theme_key(info))
+                    .unwrap_or_else(|| theme_matches_current(&current_theme_name(), info));
+                if matches {
                     self.selected = idx;
                     self.ensure_visible();
                     return;
@@ -342,6 +377,7 @@ impl ThemePickerState {
             return None;
         }
         let theme = self.selected_theme().cloned();
+        self.confirmed_theme_key = theme.as_ref().map(Self::theme_key);
         self.last_error = None;
         theme
     }
@@ -357,7 +393,7 @@ impl ThemePickerState {
             self.selected = self.filtered.len() - 1;
         }
         self.ensure_visible();
-        self.queue_preview();
+        self.apply_preview_now();
     }
 
     /// Move selection down
@@ -367,7 +403,7 @@ impl ThemePickerState {
         }
         self.selected = (self.selected + 1) % self.filtered.len();
         self.ensure_visible();
-        self.queue_preview();
+        self.apply_preview_now();
     }
 
     fn theme_key(info: &ThemeInfo) -> String {
@@ -695,9 +731,10 @@ impl Widget for ThemePicker<'_> {
 }
 
 impl ThemePicker<'_> {
-    fn build_render_items(&self, current_theme: &str) -> Vec<(bool, String, bool, bool)> {
+    fn build_render_items(&self) -> Vec<(bool, String, bool, bool)> {
         let mut render_items = Vec::new();
         let mut seen_headers: HashSet<String> = HashSet::new();
+        let confirmed_key = self.state.confirmed_theme_key.as_ref();
 
         for (filter_idx, &item_idx) in self.state.filtered.iter().enumerate() {
             if let ThemePickerItem::Theme(ref info) = self.state.items[item_idx] {
@@ -708,7 +745,9 @@ impl ThemePicker<'_> {
                 }
 
                 let is_selected = filter_idx == self.state.selected;
-                let is_current = theme_matches_current(current_theme, info);
+                let is_current = confirmed_key
+                    .map(|key| key == &ThemePickerState::theme_key(info))
+                    .unwrap_or(false);
                 let display = if is_current {
                     format!("\u{2713} {}", info.display_name)
                 } else {
@@ -814,12 +853,11 @@ impl ThemePicker<'_> {
             return;
         }
 
-        let current_theme = current_theme_name();
         let selected_bg = ensure_contrast_bg(bg_highlight(), dialog_bg(), 2.0);
         let selected_fg = ensure_contrast_fg(text_primary(), selected_bg, 4.5);
         let list_height = area.height as usize;
 
-        let render_items = self.build_render_items(&current_theme);
+        let render_items = self.build_render_items();
 
         // Calculate scroll offset considering headers
         let total_items = render_items.len();
@@ -855,5 +893,92 @@ impl ThemePicker<'_> {
             };
             render_minimal_scrollbar(scrollbar_area, buf, total_items, list_height, scroll);
         }
+    }
+}
+
+fn theme_matches_path(path: &std::path::Path, info: &ThemeInfo) -> bool {
+    match &info.source {
+        ThemeSource::Builtin => false,
+        ThemeSource::VsCodeExtension { path: info_path }
+        | ThemeSource::ConduitToml { path: info_path }
+        | ThemeSource::CustomPath { path: info_path } => info_path == path,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ui::components::{current_theme_name, set_theme, Theme};
+
+    struct ThemeReset(Theme);
+
+    impl Drop for ThemeReset {
+        fn drop(&mut self) {
+            set_theme(self.0.clone());
+        }
+    }
+
+    fn preserve_theme() -> ThemeReset {
+        ThemeReset(crate::ui::components::current_theme().clone())
+    }
+
+    #[test]
+    fn theme_preview_keeps_checkmark_on_confirmed_theme() {
+        let _reset = preserve_theme();
+        set_theme(Theme::default_dark());
+
+        let mut state = ThemePickerState::new();
+        state.show(None);
+        let original_key = state.confirmed_theme_key.clone().expect("confirmed key");
+        let original_name = current_theme_name();
+
+        state.select_next();
+
+        assert_ne!(current_theme_name(), original_name);
+        assert_eq!(state.confirmed_theme_key.as_ref(), Some(&original_key));
+
+        let widget = ThemePicker::new(&state);
+        let render_items = widget.build_render_items();
+        let checked = render_items
+            .iter()
+            .find(|(_, text, _, _)| text.starts_with('✓'))
+            .map(|(_, text, _, _)| text.clone())
+            .expect("checked item");
+        assert!(checked.contains(&original_name));
+    }
+
+    #[test]
+    fn theme_confirm_updates_confirmed_theme_key() {
+        let _reset = preserve_theme();
+        set_theme(Theme::default_dark());
+
+        let mut state = ThemePickerState::new();
+        state.show(None);
+        state.select_next();
+        let previewed = state.selected_theme().cloned().expect("selected theme");
+
+        let confirmed = state.confirm().expect("confirm should succeed");
+
+        assert_eq!(confirmed.name, previewed.name);
+        assert_eq!(
+            state.confirmed_theme_key.as_ref(),
+            Some(&ThemePickerState::theme_key(&previewed))
+        );
+    }
+
+    #[test]
+    fn theme_cancel_restores_original_theme_after_preview() {
+        let _reset = preserve_theme();
+        set_theme(Theme::default_dark());
+        let original_name = current_theme_name();
+
+        let mut state = ThemePickerState::new();
+        state.show(None);
+        state.select_next();
+        assert_ne!(current_theme_name(), original_name);
+
+        state.hide(true);
+
+        assert_eq!(current_theme_name(), original_name);
     }
 }
