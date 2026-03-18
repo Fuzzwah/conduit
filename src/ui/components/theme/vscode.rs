@@ -234,7 +234,7 @@ impl<'a> VsCodeMapper<'a> {
             });
 
         let markdown_inline_code_bg = self
-            .get_with_fallback(&["textCodeBlock.background", "badge.background"])
+            .get_with_fallback(&["textCodeBlock.background", "editorWidget.background"])
             .unwrap_or_else(|| {
                 if is_light {
                     darken(markdown_code_bg, 0.04)
