@@ -64,7 +64,8 @@ arboard = "3.4"
 image = "0.25"
 tempfile = "3.14"
 regex = "1"
-syntect = "5.2"
+syntect = "5.3"
+two-face = { version = "0.5.1", features = ["syntect-default-onig"] }
 
 # Database
 rusqlite = { version = "0.32", features = ["bundled"] }

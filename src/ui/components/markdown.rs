@@ -1,11 +1,12 @@
-use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
+use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
 };
 use unicode_width::UnicodeWidthChar;
 
-use super::theme::{markdown_code_bg, markdown_inline_code_bg, text_bright};
+use super::source_highlighter::{highlight_inline_code, highlight_markdown_code_block};
+use super::theme::text_primary;
 
 /// Custom markdown renderer with table support
 pub struct MarkdownRenderer {
@@ -16,7 +17,7 @@ pub struct MarkdownRenderer {
 impl MarkdownRenderer {
     pub fn new() -> Self {
         Self {
-            base_style: Style::default().fg(Color::White),
+            base_style: Style::default().fg(text_primary()),
         }
     }
 
@@ -48,6 +49,7 @@ impl MarkdownRenderer {
         // Code block state
         let mut in_code_block = false;
         let mut code_block_content = String::new();
+        let mut code_block_language: Option<String> = None;
 
         for event in events {
             match event {
@@ -66,9 +68,13 @@ impl MarkdownRenderer {
                                 .add_modifier(Modifier::ITALIC),
                         );
                     }
-                    Tag::CodeBlock(_) => {
+                    Tag::CodeBlock(kind) => {
                         in_code_block = true;
                         code_block_content.clear();
+                        code_block_language = match kind {
+                            CodeBlockKind::Indented => None,
+                            CodeBlockKind::Fenced(language) => Some(language.to_string()),
+                        };
                     }
                     Tag::List(start) => {
                         list_depth += 1;
@@ -151,24 +157,26 @@ impl MarkdownRenderer {
                     }
                     TagEnd::CodeBlock => {
                         in_code_block = false;
-                        // Render code block with background
-                        let code_style = Style::default().fg(Color::Green).bg(markdown_code_bg());
+                        let fence_label = code_block_language
+                            .as_deref()
+                            .filter(|language| !language.trim().is_empty())
+                            .map(|language| format!("```{}", language.trim()))
+                            .unwrap_or_else(|| "```".to_string());
 
                         lines.push(Line::from(Span::styled(
-                            "```",
+                            fence_label,
                             Style::default().fg(Color::DarkGray),
                         )));
-                        for code_line in code_block_content.lines() {
-                            lines.push(Line::from(Span::styled(
-                                format!(" {} ", code_line),
-                                code_style,
-                            )));
-                        }
+                        lines.extend(highlight_markdown_code_block(
+                            code_block_language.as_deref(),
+                            &code_block_content,
+                        ));
                         lines.push(Line::from(Span::styled(
                             "```",
                             Style::default().fg(Color::DarkGray),
                         )));
                         lines.push(Line::from(""));
+                        code_block_language = None;
                     }
                     TagEnd::List(_) => {
                         list_depth = list_depth.saturating_sub(1);
@@ -223,12 +231,7 @@ impl MarkdownRenderer {
                         current_cell.push_str(&code);
                         current_cell.push('`');
                     } else {
-                        current_spans.push(Span::styled(
-                            format!("`{}`", code),
-                            Style::default()
-                                .fg(text_bright())
-                                .bg(markdown_inline_code_bg()),
-                        ));
+                        current_spans.extend(highlight_inline_code(&code));
                     }
                 }
                 Event::SoftBreak => {
@@ -498,6 +501,7 @@ impl Default for MarkdownRenderer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ui::components::theme::markdown_inline_code_bg;
 
     #[test]
     fn test_simple_table() {
