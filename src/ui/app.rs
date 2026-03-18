@@ -3085,13 +3085,12 @@ impl App {
 
     fn open_resolver_menu(&mut self, trigger: char) {
         let default_working_dir = self.config().working_dir.clone();
-        let working_dir = self
-            .state
-            .tab_manager
-            .active_session()
+        let active_session = self.state.tab_manager.active_session();
+        let working_dir = active_session
             .and_then(|session| session.working_dir.clone())
             .unwrap_or(default_working_dir);
-        let entries = CommandResolver::menu_entries(&working_dir);
+        let active_provider = active_session.map_or(AgentType::Codex, |session| session.agent_type);
+        let entries = CommandResolver::menu_entries(&working_dir, active_provider);
         self.state.close_overlays();
         self.state
             .slash_menu_state
@@ -11631,7 +11630,7 @@ mod tests {
     #[test]
     fn test_slash_command_action_maps_handoff_when_present() {
         let mut slash_state = crate::ui::components::SlashMenuState::new();
-        let entries = CommandResolver::menu_entries(std::path::Path::new("."));
+        let entries = CommandResolver::menu_entries(std::path::Path::new("."), AgentType::Codex);
         slash_state.show_with_entries('/', entries);
 
         let entry = slash_state
@@ -12572,6 +12571,46 @@ mod tests {
 
         assert_eq!(app.state.input_mode, InputMode::Normal);
         assert!(app.state.command_buffer.is_empty());
+    }
+
+    #[test]
+    fn test_handle_input_edit_backspace_exits_command_palette_when_search_empty() {
+        let mut app = build_test_app_with_sessions(&[]);
+        app.state.command_palette_state.visible = true;
+        app.state.command_palette_state.list.search.clear();
+        app.state.input_mode = InputMode::CommandPalette;
+
+        app.handle_input_edit_action(Action::Backspace);
+
+        assert_eq!(app.state.input_mode, InputMode::Normal);
+        assert!(!app.state.command_palette_state.is_visible());
+    }
+
+    #[test]
+    fn test_handle_input_edit_backspace_exits_slash_menu_when_search_empty() {
+        let mut app = build_test_app_with_sessions(&[]);
+        app.state.slash_menu_state.visible = true;
+        app.state.slash_menu_state.list.search.clear();
+        app.state.input_mode = InputMode::SlashMenu;
+
+        app.handle_input_edit_action(Action::Backspace);
+
+        assert_eq!(app.state.input_mode, InputMode::Normal);
+        assert!(!app.state.slash_menu_state.is_visible());
+    }
+
+    #[test]
+    fn test_handle_input_edit_backspace_keeps_slash_menu_open_when_search_present() {
+        let mut app = build_test_app_with_sessions(&[]);
+        app.state.slash_menu_state.visible = true;
+        app.state.slash_menu_state.list.search.set("a");
+        app.state.input_mode = InputMode::SlashMenu;
+
+        app.handle_input_edit_action(Action::Backspace);
+
+        assert_eq!(app.state.input_mode, InputMode::SlashMenu);
+        assert!(app.state.slash_menu_state.is_visible());
+        assert!(app.state.slash_menu_state.list.search.is_empty());
     }
 
     #[test]

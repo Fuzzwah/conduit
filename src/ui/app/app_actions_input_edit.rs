@@ -35,13 +35,23 @@ impl App {
                     self.state.project_picker_state.delete_char();
                 }
                 InputMode::CommandPalette => {
-                    self.state.command_palette_state.delete_char();
+                    if self.state.command_palette_state.list.search.is_empty() {
+                        self.state.command_palette_state.hide();
+                        self.state.input_mode = InputMode::Normal;
+                    } else {
+                        self.state.command_palette_state.delete_char();
+                    }
                 }
                 InputMode::SettingsMenu => {
                     self.state.settings_menu_state.delete_char();
                 }
                 InputMode::SlashMenu => {
-                    self.state.slash_menu_state.delete_char();
+                    if self.state.slash_menu_state.list.search.is_empty() {
+                        self.state.slash_menu_state.hide();
+                        self.state.input_mode = InputMode::Normal;
+                    } else {
+                        self.state.slash_menu_state.delete_char();
+                    }
                 }
                 InputMode::SettingBaseDir => {
                     self.state.base_dir_dialog_state.delete_char();

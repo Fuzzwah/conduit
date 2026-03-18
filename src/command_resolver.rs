@@ -270,7 +270,7 @@ impl CommandResolver {
         }
     }
 
-    pub fn menu_entries(working_dir: &Path) -> Vec<MenuEntry> {
+    pub fn menu_entries(working_dir: &Path, active_provider: AgentType) -> Vec<MenuEntry> {
         let registry = DiscoveryRegistry::discover(working_dir);
         let mut entries = Vec::new();
 
@@ -284,7 +284,7 @@ impl CommandResolver {
             });
         }
 
-        for invocation in registry.menu_entries() {
+        for invocation in registry.menu_entries(active_provider) {
             entries.push(MenuEntry {
                 label: invocation.trigger_label(),
                 description: invocation.description().to_string(),
@@ -477,7 +477,7 @@ impl DiscoveryRegistry {
             .and_then(|entries| entries.iter().min_by_key(|entry| sort_key(entry)).cloned())
     }
 
-    fn menu_entries(&self) -> Vec<ProviderInvocation> {
+    fn menu_entries(&self, active_provider: AgentType) -> Vec<ProviderInvocation> {
         let mut entries = Vec::new();
         let mut seen = HashSet::new();
 
@@ -486,6 +486,7 @@ impl DiscoveryRegistry {
             .values()
             .chain(self.dollar_entries.values())
             .filter_map(|entries| entries.iter().min_by_key(|entry| sort_key(entry)))
+            .filter(|entry| provider_matches_source(active_provider, entry.source()))
         {
             let key = format!("{}:{}", entry.trigger_char(), entry.name());
             if seen.insert(key) {
@@ -905,7 +906,7 @@ mod tests {
         fs::create_dir_all(&command_dir).unwrap();
         fs::write(command_dir.join("notes.md"), "Write release notes").unwrap();
 
-        let entries = CommandResolver::menu_entries(root.path());
+        let entries = CommandResolver::menu_entries(root.path(), AgentType::Opencode);
         assert!(entries.iter().any(|entry| entry.label == "/release:notes"));
     }
 
@@ -936,11 +937,33 @@ mod tests {
         )
         .unwrap();
 
-        let entries = CommandResolver::menu_entries(root.path());
+        let entries = CommandResolver::menu_entries(root.path(), AgentType::Claude);
         let entry = entries
             .into_iter()
             .find(|entry| entry.label == "/ship")
             .expect("expected command entry");
         assert_eq!(entry.description, "Ship it");
+    }
+
+    #[test]
+    fn menu_entries_only_include_active_provider_invocations() {
+        let root = TempDir::new().unwrap();
+        fs::create_dir_all(root.path().join(".claude/skills/ship")).unwrap();
+        fs::create_dir_all(root.path().join(".gemini/skills/review")).unwrap();
+        fs::write(
+            root.path().join(".claude/skills/ship/SKILL.md"),
+            "# ship\nClaude ship skill\n",
+        )
+        .unwrap();
+        fs::write(
+            root.path().join(".gemini/skills/review/SKILL.md"),
+            "# review\nGemini review skill\n",
+        )
+        .unwrap();
+
+        let entries = CommandResolver::menu_entries(root.path(), AgentType::Claude);
+
+        assert!(entries.iter().any(|entry| entry.label == "/ship"));
+        assert!(!entries.iter().any(|entry| entry.label == "/review"));
     }
 }
