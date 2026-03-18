@@ -35,6 +35,9 @@ use crate::agent::{
     CodexCliRunner, GeminiCliRunner, HistoryDebugEntry, MessageDisplay, ModelRegistry,
     OpencodeRunner, SessionId,
 };
+use crate::command_resolver::{
+    CommandResolver, ConduitCommand, MenuEntryKind, ResolveResult, ResolvedPrompt,
+};
 use crate::config::{parse_action, parse_key_notation, Config, KeyContext, COMMAND_NAMES};
 use crate::core::resolve_repo_workspace_settings;
 use crate::core::services::ContextWindowService;
@@ -58,9 +61,9 @@ use crate::ui::components::{
     EventDirection, GlobalFooter, HelpDialog, InlinePromptState, InlinePromptType, MessageRole,
     MissingToolDialog, ModelSelector, ProcessingState, ProjectEntry, ProjectPicker, PromptAnswer,
     ProviderSelector, RawEventsClick, ReasoningSelector, SessionHeader, SessionImportPicker,
-    SettingsMenu, SettingsMenuEntry, SettingsMenuEntryId, Sidebar, SidebarData, SlashCommand,
-    SlashMenu, TabBar, TabBarHitTarget, ThemePicker, WorkspaceDefaultsDialog,
-    WorkspaceDefaultsDraft, SIDEBAR_HEADER_ROWS,
+    SettingsMenu, SettingsMenuEntry, SettingsMenuEntryId, Sidebar, SidebarData, SlashMenu, TabBar,
+    TabBarHitTarget, ThemePicker, WorkspaceDefaultsDialog, WorkspaceDefaultsDraft,
+    SIDEBAR_HEADER_ROWS,
 };
 use crate::ui::effect::Effect;
 use crate::ui::events::{
@@ -482,7 +485,9 @@ impl App {
             if let Some(ref session_id_str) = tab.agent_session_id {
                 let session_id = SessionId::from_string(session_id_str.clone());
                 session.resume_session_id = Some(session_id.clone());
-                session.agent_session_id = Some(session_id.clone());
+                if tab.agent_type != AgentType::Codex {
+                    session.agent_session_id = Some(session_id.clone());
+                }
 
                 // Load chat history from agent files
                 match tab.agent_type {
@@ -1891,15 +1896,26 @@ impl App {
 
                 if self.state.input_mode == InputMode::SlashMenu {
                     if let Some(entry) = self.state.slash_menu_state.selected_entry() {
-                        let command = entry.command;
+                        let kind = entry.kind.clone();
+                        let label = entry.label.clone();
                         self.state.slash_menu_state.hide();
                         self.state.input_mode = InputMode::Normal;
-                        if let Some(action) = Self::slash_command_action(command) {
-                            effects.extend(
-                                Box::pin(self.execute_action(action, terminal, guard)).await?,
-                            );
-                        } else if matches!(command, SlashCommand::NewSession) {
-                            self.start_new_session_in_place();
+                        match kind {
+                            MenuEntryKind::ConduitCommand(command) => {
+                                let active_tab_index = self.state.tab_manager.active_index();
+                                effects.extend(
+                                    self.execute_resolved_conduit_command(
+                                        active_tab_index,
+                                        command,
+                                    )?,
+                                );
+                            }
+                            MenuEntryKind::ProviderInvocation(_) => {
+                                if let Some(session) = self.state.tab_manager.active_session_mut() {
+                                    session.input_box.clear();
+                                    session.input_box.insert_str(&label);
+                                }
+                            }
                         }
                     }
                 } else if self.state.input_mode == InputMode::CommandPalette {
@@ -3048,7 +3064,7 @@ impl App {
             )
     }
 
-    /// Helper to check if a slash keypress should trigger the slash menu.
+    /// Helper to check if a slash or skill keypress should trigger the resolver menu.
     fn should_trigger_slash_menu(
         key_code: KeyCode,
         key_modifiers: KeyModifiers,
@@ -3058,7 +3074,7 @@ impl App {
         has_inline_prompt: bool,
         has_active_session: bool,
     ) -> bool {
-        key_code == KeyCode::Char('/')
+        matches!(key_code, KeyCode::Char('/') | KeyCode::Char('$'))
             && key_modifiers.is_empty()
             && input_is_empty
             && has_active_session
@@ -3067,14 +3083,53 @@ impl App {
             && input_mode == InputMode::Normal
     }
 
-    fn slash_command_action(command: SlashCommand) -> Option<Action> {
+    fn open_resolver_menu(&mut self, trigger: char) {
+        let default_working_dir = self.config().working_dir.clone();
+        let working_dir = self
+            .state
+            .tab_manager
+            .active_session()
+            .and_then(|session| session.working_dir.clone())
+            .unwrap_or(default_working_dir);
+        let entries = CommandResolver::menu_entries(&working_dir);
+        self.state.close_overlays();
+        self.state
+            .slash_menu_state
+            .show_with_entries(trigger, entries);
+        self.state.input_mode = InputMode::SlashMenu;
+    }
+
+    fn slash_command_action(command: ConduitCommand) -> Option<Action> {
         match command {
-            SlashCommand::Model => Some(Action::ShowModelSelector),
-            SlashCommand::Reasoning => Some(Action::ShowReasoningSelector),
-            SlashCommand::Providers => Some(Action::ShowProvidersSelector),
-            SlashCommand::Fork => Some(Action::ForkSession),
-            SlashCommand::Handoff => Some(Action::HandoffSession),
-            SlashCommand::NewSession => None,
+            ConduitCommand::Model => Some(Action::ShowModelSelector),
+            ConduitCommand::Reasoning => Some(Action::ShowReasoningSelector),
+            ConduitCommand::Providers => Some(Action::ShowProvidersSelector),
+            ConduitCommand::Fork => Some(Action::ForkSession),
+            ConduitCommand::Handoff => Some(Action::HandoffSession),
+            ConduitCommand::NewSession => None,
+        }
+    }
+
+    fn execute_resolved_conduit_command(
+        &mut self,
+        tab_index: usize,
+        command: ConduitCommand,
+    ) -> anyhow::Result<Vec<Effect>> {
+        if tab_index != self.state.tab_manager.active_index() {
+            self.state.tab_manager.switch_to(tab_index);
+            self.sync_input_mode_for_active_tab();
+            self.sync_sidebar_to_active_tab();
+            self.sync_footer_spinner();
+        }
+        let mut effects = Vec::new();
+        if let Some(action) = Self::slash_command_action(command) {
+            self.handle_global_action(action, &mut effects);
+            Ok(effects)
+        } else if matches!(command, ConduitCommand::NewSession) {
+            self.start_new_session_in_place();
+            Ok(Vec::new())
+        } else {
+            Ok(Vec::new())
         }
     }
 
@@ -3484,7 +3539,9 @@ impl App {
                 if let Some(ref session_id_str) = saved.agent_session_id {
                     let session_id = SessionId::from_string(session_id_str.clone());
                     session.resume_session_id = Some(session_id.clone());
-                    session.agent_session_id = Some(session_id);
+                    if saved.agent_type != AgentType::Codex {
+                        session.agent_session_id = Some(session_id);
+                    }
 
                     // Load chat history
                     match saved.agent_type {
@@ -4858,7 +4915,9 @@ impl App {
         // Set both resume and agent session IDs so the session can be restored after restart
         let session_id = SessionId::from_string(&session_id_str);
         session.resume_session_id = Some(session_id.clone());
-        session.agent_session_id = Some(session_id);
+        if agent_type != AgentType::Codex {
+            session.agent_session_id = Some(session_id);
+        }
 
         // Load history based on agent type
         match agent_type {
@@ -7910,13 +7969,30 @@ impl App {
             let model_invalid = session.model_invalid;
             // Use agent_session_id if available (set by agent after first prompt)
             // Fall back to resume_session_id (clone, don't take - we consume it later)
-            let session_id_to_use = session
-                .agent_session_id
-                .clone()
-                .or_else(|| session.resume_session_id.clone());
+            let session_id_to_use = if agent_type == AgentType::Codex
+                && session.agent_input_tx.is_none()
+                && session.agent_session_id.is_none()
+            {
+                None
+            } else {
+                session
+                    .agent_session_id
+                    .clone()
+                    .or_else(|| session.resume_session_id.clone())
+            };
             // Use session's working_dir if set, otherwise fall back to config
             let working_dir = session.working_dir.clone().unwrap_or(default_working_dir);
             let session_id = session.id;
+
+            tracing::debug!(
+                session_id = %session_id,
+                agent = %agent_type,
+                has_input_tx = session.agent_input_tx.is_some(),
+                agent_session_id = session.agent_session_id.as_ref().map(|id| id.as_str()),
+                resume_session_id = session.resume_session_id.as_ref().map(|id| id.as_str()),
+                selected_session_id = session_id_to_use.as_ref().map(|id| id.as_str()),
+                "submit_prompt_for_tab resolved session state"
+            );
 
             (
                 agent_type,
@@ -7931,10 +8007,33 @@ impl App {
             )
         };
 
+        let resolved_input = CommandResolver::resolve(&prompt, &working_dir, agent_type);
+        match &resolved_input {
+            ResolveResult::ConduitCommand { command, .. } => {
+                return self.execute_resolved_conduit_command(tab_index, *command);
+            }
+            ResolveResult::ListRequest { trigger } => {
+                self.open_resolver_menu(*trigger);
+                return Ok(effects);
+            }
+            _ => {}
+        }
+
         let display_prompt = prompt;
         let mut agent_prompt = display_prompt.clone();
+        let mut codex_skill = None;
         let mut stdin_payload = stdin_payload;
         let use_inline_plan_prompt = Self::plan_prompt_inline_enabled();
+
+        if let ResolveResult::ProviderPrompt(ResolvedPrompt {
+            agent_text,
+            codex_skill: resolved_skill,
+            ..
+        }) = resolved_input
+        {
+            agent_prompt = agent_text;
+            codex_skill = resolved_skill;
+        }
 
         // Validate working directory exists before showing user message
         if !working_dir.exists() {
@@ -8119,6 +8218,7 @@ impl App {
                             text: prompt_to_send,
                             images: images_to_send,
                             model: model.clone(),
+                            skill: codex_skill.clone(),
                         };
                         if let Err(err) = input_tx.send(input).await {
                             tracing::warn!("Failed to send prompt: {}", err);
@@ -8145,6 +8245,10 @@ impl App {
             .with_tools(self.config().claude_allowed_tools.clone())
             .with_images(images)
             .with_agent_mode(agent_mode);
+
+        if let Some(skill) = codex_skill {
+            config = config.with_skill(skill);
+        }
 
         // Add model if specified
         if let Some(model_id) = model {
@@ -11123,8 +11227,8 @@ async fn generate_title_and_branch_impl(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agent::events::{AssistantMessageEvent, ReasoningEvent};
-    use crate::agent::{AgentType, ModelRegistry, ReasoningEffort};
+    use crate::agent::events::{AssistantMessageEvent, ReasoningEvent, TurnCompletedEvent};
+    use crate::agent::{AgentType, ModelRegistry, ReasoningEffort, SessionId, TokenUsage};
     use crate::config::Config;
     use crate::data::{QueuedMessage, QueuedMessageMode};
     use crate::ui::components::MessageRole;
@@ -11469,6 +11573,20 @@ mod tests {
     }
 
     #[test]
+    fn test_dollar_triggers_menu_on_empty_input() {
+        let result = App::should_trigger_slash_menu(
+            KeyCode::Char('$'),
+            KeyModifiers::NONE,
+            InputMode::Normal,
+            true,
+            false,
+            false,
+            true,
+        );
+        assert!(result, "Dollar should trigger menu on empty input");
+    }
+
+    #[test]
     fn test_slash_does_not_trigger_with_existing_input() {
         let result = App::should_trigger_slash_menu(
             KeyCode::Char('/'),
@@ -11505,7 +11623,7 @@ mod tests {
     #[test]
     fn test_slash_command_action_maps_fork_to_fork_session() {
         assert_eq!(
-            App::slash_command_action(SlashCommand::Fork),
+            App::slash_command_action(ConduitCommand::Fork),
             Some(Action::ForkSession)
         );
     }
@@ -11513,7 +11631,8 @@ mod tests {
     #[test]
     fn test_slash_command_action_maps_handoff_when_present() {
         let mut slash_state = crate::ui::components::SlashMenuState::new();
-        slash_state.show();
+        let entries = CommandResolver::menu_entries(std::path::Path::new("."));
+        slash_state.show_with_entries('/', entries);
 
         let entry = slash_state
             .commands
@@ -11521,7 +11640,10 @@ mod tests {
             .find(|entry| entry.label == "/handoff")
             .expect("Expected /handoff command to be present");
         assert_eq!(
-            App::slash_command_action(entry.command),
+            App::slash_command_action(match entry.kind {
+                MenuEntryKind::ConduitCommand(command) => command,
+                _ => panic!("expected conduit command"),
+            }),
             Some(Action::HandoffSession)
         );
     }
@@ -11899,6 +12021,124 @@ mod tests {
             assert!(session.chat_view.streaming_buffer().is_none());
             assert!(session.chat_view.messages().is_empty());
         }
+    }
+
+    #[tokio::test]
+    async fn test_turn_completed_clears_codex_input_channel() {
+        let session_id = Uuid::new_v4();
+        let mut app = build_test_app_with_sessions(&[session_id]);
+
+        let (tx, _rx) = mpsc::channel(1);
+        {
+            let session = app
+                .state
+                .tab_manager
+                .session_by_id_mut(session_id)
+                .expect("session missing");
+            session.agent_type = AgentType::Codex;
+            session.agent_input_tx = Some(tx);
+            session.start_processing();
+        }
+
+        app.handle_agent_event(
+            session_id,
+            AgentEvent::TurnCompleted(TurnCompletedEvent {
+                usage: TokenUsage::default(),
+            }),
+        )
+        .await
+        .unwrap();
+
+        let session = app
+            .state
+            .tab_manager
+            .session_by_id_mut(session_id)
+            .expect("session missing");
+        assert!(session.agent_input_tx.is_none());
+        assert!(!session.is_processing);
+    }
+
+    #[test]
+    fn test_submit_prompt_for_tab_does_not_resume_stale_codex_session_without_live_channel() {
+        let session_id = Uuid::new_v4();
+        let mut app = build_test_app_with_sessions(&[session_id]);
+        let cwd = std::env::current_dir().expect("cwd");
+        let saved_session = SessionId::from_string("codex-thread-123");
+        let default_model = app.config().default_model_for(AgentType::Codex);
+
+        {
+            let session = app
+                .state
+                .tab_manager
+                .session_by_id_mut(session_id)
+                .expect("session missing");
+            session.agent_type = AgentType::Codex;
+            session.model = Some(default_model);
+            session.model_invalid = false;
+            session.working_dir = Some(cwd.clone());
+            session.resume_session_id = Some(saved_session);
+            session.agent_input_tx = None;
+        }
+
+        let effects = app
+            .submit_prompt_for_tab(0, "hi".to_string(), vec![], vec![], false, None)
+            .expect("submit should succeed");
+
+        let (agent_type, config) = effects
+            .iter()
+            .find_map(|effect| match effect {
+                Effect::StartAgent {
+                    agent_type, config, ..
+                } => Some((agent_type, config)),
+                _ => None,
+            })
+            .expect("expected StartAgent effect");
+
+        assert_eq!(*agent_type, AgentType::Codex);
+        assert!(config.resume_session.is_none());
+        assert_eq!(config.prompt, "hi");
+    }
+
+    #[test]
+    fn test_submit_prompt_for_tab_resumes_live_codex_session_after_turn_completion() {
+        let session_id = Uuid::new_v4();
+        let mut app = build_test_app_with_sessions(&[session_id]);
+        let cwd = std::env::current_dir().expect("cwd");
+        let live_session = SessionId::from_string("codex-thread-live");
+        let default_model = app.config().default_model_for(AgentType::Codex);
+
+        {
+            let session = app
+                .state
+                .tab_manager
+                .session_by_id_mut(session_id)
+                .expect("session missing");
+            session.agent_type = AgentType::Codex;
+            session.model = Some(default_model);
+            session.model_invalid = false;
+            session.working_dir = Some(cwd.clone());
+            session.agent_session_id = Some(live_session.clone());
+            session.resume_session_id = Some(SessionId::from_string("historic-session"));
+            session.agent_input_tx = None;
+        }
+
+        let effects = app
+            .submit_prompt_for_tab(0, "hi again".to_string(), vec![], vec![], false, None)
+            .expect("submit should succeed");
+
+        let (agent_type, config) = effects
+            .iter()
+            .find_map(|effect| match effect {
+                Effect::StartAgent {
+                    agent_type, config, ..
+                } => Some((agent_type, config)),
+                _ => None,
+            })
+            .expect("expected StartAgent effect");
+
+        assert_eq!(*agent_type, AgentType::Codex);
+        assert_eq!(config.resume_session.as_ref(), Some(&live_session));
+        assert_eq!(config.prompt, "hi again");
     }
 
     #[test]

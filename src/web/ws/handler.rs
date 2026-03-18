@@ -15,6 +15,7 @@ use uuid::Uuid;
 use crate::agent::events::AgentEvent;
 use crate::agent::runner::{AgentInput, AgentRunner, AgentStartConfig, AgentType};
 use crate::agent::session::SessionId;
+use crate::command_resolver::{CommandResolver, ConduitCommand, ResolveResult, SkillReference};
 use crate::core::services::{SessionService, UpdateSessionParams};
 use crate::core::ConduitCore;
 use crate::ui::app_prompt;
@@ -26,6 +27,7 @@ use super::messages::{ClientMessage, ImageAttachment, ServerMessage};
 /// Active session state tracked by the WebSocket handler.
 struct ActiveSession {
     agent_type: AgentType,
+    working_dir: PathBuf,
     /// Process ID for stopping the agent
     pid: Option<u32>,
     /// Sender to broadcast events to all subscribers
@@ -49,6 +51,7 @@ struct StartSessionArgs {
     images: Vec<PathBuf>,
     input_format: Option<String>,
     stdin_payload: Option<String>,
+    skill: Option<SkillReference>,
 }
 
 struct TitleGenerationOutcome {
@@ -146,6 +149,7 @@ impl SessionManager {
             images,
             input_format,
             stdin_payload,
+            skill,
         } = args;
 
         // Check if session already exists
@@ -173,6 +177,7 @@ impl SessionManager {
         }
 
         // Build start config
+        let session_working_dir = working_dir.clone();
         let mut config = AgentStartConfig::new(prompt, working_dir);
         if let Some(m) = model {
             config = config.with_model(m);
@@ -185,6 +190,9 @@ impl SessionManager {
         }
         if let Some(payload) = stdin_payload {
             config = config.with_stdin_payload(payload);
+        }
+        if let Some(skill) = skill {
+            config = config.with_skill(skill);
         }
 
         if agent_type == AgentType::Opencode {
@@ -237,6 +245,7 @@ impl SessionManager {
                     return Err(format!("Session {} is already running", session_id));
                 }
                 existing.agent_type = agent_type;
+                existing.working_dir = session_working_dir.clone();
                 existing.pid = Some(pid);
                 existing.input_tx = input_tx;
                 (existing.event_tx.clone(), existing.event_tx.subscribe())
@@ -246,6 +255,7 @@ impl SessionManager {
                     session_id,
                     ActiveSession {
                         agent_type,
+                        working_dir: session_working_dir,
                         pid: Some(pid),
                         event_tx: event_tx.clone(),
                         input_tx,
@@ -330,6 +340,7 @@ impl SessionManager {
             .map_err(|e| format!("Failed to get session {}: {}", session_id, e))?
             .ok_or_else(|| format!("Session {} not found", session_id))?;
 
+        let working_dir = self.core.read().await.config().working_dir.clone();
         let (event_tx, event_rx) = broadcast::channel(256);
         let mut sessions = self.sessions.write().await;
         // Another subscribe/start could have raced us.
@@ -341,6 +352,7 @@ impl SessionManager {
             session_id,
             ActiveSession {
                 agent_type: tab.agent_type,
+                working_dir,
                 pid: None,
                 event_tx,
                 input_tx: None,
@@ -419,8 +431,9 @@ impl SessionManager {
         input: String,
         images: Vec<PathBuf>,
         model: Option<String>,
+        skill: Option<SkillReference>,
     ) -> Result<(), String> {
-        let (input_tx, agent_type) = {
+        let (input_tx, agent_type, _working_dir) = {
             let sessions = self.sessions.read().await;
             let session = sessions
                 .get(&session_id)
@@ -429,7 +442,7 @@ impl SessionManager {
                 .input_tx
                 .clone()
                 .ok_or_else(|| "Session does not support input".to_string())?;
-            (input_tx, session.agent_type)
+            (input_tx, session.agent_type, session.working_dir.clone())
         };
 
         // Send as appropriate input type based on agent
@@ -439,6 +452,7 @@ impl SessionManager {
                 text: input,
                 images,
                 model,
+                skill,
             },
         };
 
@@ -500,6 +514,25 @@ impl SessionManager {
 
 fn should_generate_title(hidden: bool, session: &crate::data::SessionTab) -> bool {
     !hidden && session.title.is_none() && !session.title_generated
+}
+
+fn web_conduit_command_error(command: ConduitCommand) -> String {
+    match command {
+        ConduitCommand::Model => {
+            "Use the model picker in the web UI instead of `/model`.".to_string()
+        }
+        ConduitCommand::Reasoning => {
+            "Use the mode and reasoning controls in the web UI instead of `/reasoning`.".to_string()
+        }
+        ConduitCommand::Providers => {
+            "Use Settings in the web UI instead of `/providers`.".to_string()
+        }
+        ConduitCommand::NewSession => {
+            "Create a new session from the web UI instead of `/new`.".to_string()
+        }
+        ConduitCommand::Fork => "Fork is only available from the TUI right now.".to_string(),
+        ConduitCommand::Handoff => "Handoff is only available from the TUI right now.".to_string(),
+    }
 }
 
 async fn generate_title_and_branch_for_session(
@@ -1039,11 +1072,6 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                 let mut input_format: Option<String> = None;
                 let mut stdin_payload: Option<String> = None;
                 let working_dir_path = PathBuf::from(working_dir);
-                let prompt_for_agent = if agent_type == AgentType::Claude {
-                    String::new()
-                } else {
-                    prompt.clone()
-                };
 
                 let image_paths = if images.is_empty() {
                     Vec::new()
@@ -1126,8 +1154,52 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                     }
                 };
 
-                if agent_type == AgentType::Claude && stdin_payload.is_none() {
-                    match build_claude_prompt_jsonl(&prompt, &[]) {
+                let resolved_prompt =
+                    CommandResolver::resolve(&prompt, &working_dir_path, agent_type);
+                let (prompt_for_agent, prompt_for_history, skill) = match resolved_prompt {
+                    ResolveResult::ConduitCommand { command, .. } => {
+                        if let Err(send_err) = tx
+                            .send(ServerMessage::session_error(
+                                session_id,
+                                web_conduit_command_error(command),
+                            ))
+                            .await
+                        {
+                            tracing::debug!(
+                                %session_id,
+                                error = ?send_err,
+                                "Failed to send session error"
+                            );
+                            break 'ws_loop;
+                        }
+                        continue;
+                    }
+                    ResolveResult::ListRequest { trigger } => {
+                        if let Err(send_err) = tx
+                            .send(ServerMessage::session_error(
+                                session_id,
+                                format!("`{trigger}` opens the command picker in the TUI. Type a full command or skill name in the web UI."),
+                            ))
+                            .await
+                        {
+                            tracing::debug!(
+                                %session_id,
+                                error = ?send_err,
+                                "Failed to send session error"
+                            );
+                            break 'ws_loop;
+                        }
+                        continue;
+                    }
+                    ResolveResult::ProviderPrompt(prompt) => {
+                        (prompt.agent_text, prompt.history_text, prompt.codex_skill)
+                    }
+                    ResolveResult::Passthrough { text } => (text.clone(), text, None),
+                };
+
+                if agent_type == AgentType::Claude {
+                    let claude_images = if images.is_empty() { &[][..] } else { &images };
+                    match build_claude_prompt_jsonl(&prompt_for_agent, claude_images) {
                         Ok(payload) => {
                             input_format = Some("stream-json".to_string());
                             stdin_payload = Some(payload);
@@ -1149,8 +1221,6 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                     }
                 }
 
-                let prompt_for_history = prompt.clone();
-
                 match session_manager
                     .start_session(StartSessionArgs {
                         session_id,
@@ -1161,6 +1231,7 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                         images: image_paths,
                         input_format,
                         stdin_payload,
+                        skill,
                     })
                     .await
                 {
@@ -1321,7 +1392,59 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                     continue;
                 }
                 let model = session_tab.model.clone();
+                let working_dir_path = {
+                    let sessions = session_manager.sessions.read().await;
+                    sessions
+                        .get(&session_id)
+                        .map(|session| session.working_dir.clone())
+                        .unwrap_or_else(|| core.config().working_dir.clone())
+                };
                 drop(core);
+                let resolved_prompt = CommandResolver::resolve(
+                    &input,
+                    &working_dir_path,
+                    agent_type.unwrap_or(AgentType::Claude),
+                );
+                let (resolved_input_text, history_text, skill) = match resolved_prompt {
+                    ResolveResult::ConduitCommand { command, .. } => {
+                        if let Err(send_err) = tx
+                            .send(ServerMessage::session_error(
+                                session_id,
+                                web_conduit_command_error(command),
+                            ))
+                            .await
+                        {
+                            tracing::debug!(
+                                %session_id,
+                                error = ?send_err,
+                                "Failed to send session error"
+                            );
+                            break 'ws_loop;
+                        }
+                        continue;
+                    }
+                    ResolveResult::ListRequest { trigger } => {
+                        if let Err(send_err) = tx
+                            .send(ServerMessage::session_error(
+                                session_id,
+                                format!("`{trigger}` opens the command picker in the TUI. Type a full command or skill name in the web UI."),
+                            ))
+                            .await
+                        {
+                            tracing::debug!(
+                                %session_id,
+                                error = ?send_err,
+                                "Failed to send session error"
+                            );
+                            break 'ws_loop;
+                        }
+                        continue;
+                    }
+                    ResolveResult::ProviderPrompt(prompt) => {
+                        (prompt.agent_text, prompt.history_text, prompt.codex_skill)
+                    }
+                    ResolveResult::Passthrough { text } => (text.clone(), text, None),
+                };
                 let mut input_payload = input.clone();
                 let image_paths = if images.is_empty() {
                     Vec::new()
@@ -1345,7 +1468,7 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                             }
                         },
                         Some(AgentType::Claude) => {
-                            match build_claude_prompt_jsonl(&input, &images) {
+                            match build_claude_prompt_jsonl(&resolved_input_text, &images) {
                                 Ok(payload) => {
                                     input_payload = payload;
                                     Vec::new()
@@ -1405,7 +1528,7 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                 };
 
                 if matches!(agent_type, Some(AgentType::Claude)) && images.is_empty() {
-                    match build_claude_prompt_jsonl(&input, &[]) {
+                    match build_claude_prompt_jsonl(&resolved_input_text, &[]) {
                         Ok(payload) => {
                             input_payload = payload;
                         }
@@ -1425,9 +1548,12 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                         }
                     }
                 }
+                if !matches!(agent_type, Some(AgentType::Claude)) {
+                    input_payload = resolved_input_text.clone();
+                }
 
                 if let Err(e) = session_manager
-                    .send_input(session_id, input_payload, image_paths, model)
+                    .send_input(session_id, input_payload, image_paths, model, skill)
                     .await
                 {
                     if let Err(send_err) =
@@ -1452,7 +1578,7 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                         );
                     }
                     if let Err(error) =
-                        append_input_history(&session_manager.core, session_id, &input).await
+                        append_input_history(&session_manager.core, session_id, &history_text).await
                     {
                         tracing::warn!(
                             %session_id,
