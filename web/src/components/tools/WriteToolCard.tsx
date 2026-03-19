@@ -48,7 +48,12 @@ export function WriteToolCard({ status, filePath, content, error }: WriteToolCar
         <div className="p-3 text-sm text-error">{error}</div>
       ) : content ? (
         <div className="p-2">
-          <CodeBlock code={content} language={language} showLineNumbers />
+          <CodeBlock
+            code={content}
+            language={language}
+            surface="sourceFile"
+            showLineNumbers
+          />
         </div>
       ) : (
         <div className="p-3 text-xs text-text-muted">File written successfully</div>

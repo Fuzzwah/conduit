@@ -70,7 +70,12 @@ export function ReadToolCard({ status, filePath, content, error }: ReadToolCardP
         <div className="p-3 text-sm text-error">{error}</div>
       ) : cleanContent ? (
         <div className="p-2">
-          <CodeBlock code={cleanContent} language={language} showLineNumbers={hasLineNumbers} />
+          <CodeBlock
+            code={cleanContent}
+            language={language}
+            surface="sourceFile"
+            showLineNumbers={hasLineNumbers}
+          />
         </div>
       ) : null}
     </ToolCard>

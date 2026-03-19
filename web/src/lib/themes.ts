@@ -46,11 +46,51 @@ export interface ThemeColors {
   diffRemove: string;
 }
 
+export interface ThemeSyntaxTokenColors {
+  comment: string;
+  keyword: string;
+  type: string;
+  function: string;
+  string: string;
+  constant: string;
+  property: string;
+  parameter: string;
+  punctuation: string;
+  invalid: string;
+}
+
+export interface ThemeSyntaxFontStyles {
+  keywordBold: boolean;
+  typeBold: boolean;
+  invalidUnderline: boolean;
+}
+
+export interface ThemeSyntaxSurface {
+  foreground: string;
+  background: string;
+  caret: string;
+  selection: string;
+  selectionForeground: string;
+  gutter: string;
+  gutterForeground: string;
+  lineHighlight: string;
+  accent: string;
+  tokens: ThemeSyntaxTokenColors;
+  fontStyles: ThemeSyntaxFontStyles;
+}
+
+export interface ThemeSyntax {
+  markdownBlock: ThemeSyntaxSurface;
+  markdownInline: ThemeSyntaxSurface;
+  sourceFile: ThemeSyntaxSurface;
+}
+
 export interface Theme {
   name: string;
   displayName: string;
   isLight: boolean;
   colors: ThemeColors;
+  syntax: ThemeSyntax;
 }
 
 export interface ThemeInfo {

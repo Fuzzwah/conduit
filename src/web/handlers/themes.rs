@@ -9,6 +9,13 @@ use crate::ui::components::theme::{
 };
 use crate::web::error::WebError;
 
+#[derive(Debug, Clone, Copy)]
+enum SyntaxSurfaceKind {
+    MarkdownBlock,
+    MarkdownInline,
+    SourceFile,
+}
+
 /// Convert a ratatui Color to a CSS hex color string.
 fn color_to_hex(color: Color) -> String {
     match color {
@@ -80,6 +87,53 @@ fn ansi_to_rgb(idx: u8) -> (u8, u8, u8) {
     }
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyntaxTokenColorsResponse {
+    pub comment: String,
+    pub keyword: String,
+    pub r#type: String,
+    pub function: String,
+    pub string: String,
+    pub constant: String,
+    pub property: String,
+    pub parameter: String,
+    pub punctuation: String,
+    pub invalid: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyntaxFontStylesResponse {
+    pub keyword_bold: bool,
+    pub type_bold: bool,
+    pub invalid_underline: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyntaxSurfaceResponse {
+    pub foreground: String,
+    pub background: String,
+    pub caret: String,
+    pub selection: String,
+    pub selection_foreground: String,
+    pub gutter: String,
+    pub gutter_foreground: String,
+    pub line_highlight: String,
+    pub accent: String,
+    pub tokens: SyntaxTokenColorsResponse,
+    pub font_styles: SyntaxFontStylesResponse,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThemeSyntaxResponse {
+    pub markdown_block: SyntaxSurfaceResponse,
+    pub markdown_inline: SyntaxSurfaceResponse,
+    pub source_file: SyntaxSurfaceResponse,
+}
+
 /// Response for theme colors.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -136,6 +190,7 @@ pub struct ThemeResponse {
     pub display_name: String,
     pub is_light: bool,
     pub colors: ThemeColorsResponse,
+    pub syntax: ThemeSyntaxResponse,
 }
 
 /// Response for theme info (without colors).
@@ -234,6 +289,11 @@ pub async fn get_current_theme() -> Json<ThemeResponse> {
             diff_add: color_to_hex(theme.diff_add),
             diff_remove: color_to_hex(theme.diff_remove),
         },
+        syntax: ThemeSyntaxResponse {
+            markdown_block: build_syntax_surface(&theme, SyntaxSurfaceKind::MarkdownBlock),
+            markdown_inline: build_syntax_surface(&theme, SyntaxSurfaceKind::MarkdownInline),
+            source_file: build_syntax_surface(&theme, SyntaxSurfaceKind::SourceFile),
+        },
     })
 }
 
@@ -249,4 +309,106 @@ pub async fn set_current_theme(
     }
 
     Ok(get_current_theme().await)
+}
+
+fn build_syntax_surface(
+    theme: &crate::ui::components::Theme,
+    surface: SyntaxSurfaceKind,
+) -> SyntaxSurfaceResponse {
+    let (foreground, emphasize_functions) = match surface {
+        SyntaxSurfaceKind::MarkdownBlock => (theme.text_primary, true),
+        SyntaxSurfaceKind::MarkdownInline => (theme.text_bright, true),
+        SyntaxSurfaceKind::SourceFile => (theme.text_primary, false),
+    };
+
+    SyntaxSurfaceResponse {
+        foreground: color_to_hex(foreground),
+        background: color_to_hex(theme.bg_base),
+        caret: color_to_hex(theme.accent_primary),
+        selection: color_to_hex(theme.bg_highlight),
+        selection_foreground: color_to_hex(theme.text_bright),
+        gutter: color_to_hex(theme.bg_surface),
+        gutter_foreground: color_to_hex(theme.text_muted),
+        line_highlight: color_to_hex(theme.bg_highlight),
+        accent: color_to_hex(theme.accent_secondary),
+        tokens: SyntaxTokenColorsResponse {
+            comment: color_to_hex(theme.text_muted),
+            keyword: color_to_hex(theme.accent_primary),
+            r#type: color_to_hex(theme.accent_secondary),
+            function: color_to_hex(if emphasize_functions {
+                theme.text_bright
+            } else {
+                theme.accent_secondary
+            }),
+            string: color_to_hex(theme.accent_success),
+            constant: color_to_hex(theme.accent_warning),
+            property: color_to_hex(theme.accent_secondary),
+            parameter: color_to_hex(theme.text_bright),
+            punctuation: color_to_hex(theme.text_secondary),
+            invalid: color_to_hex(theme.accent_error),
+        },
+        font_styles: SyntaxFontStylesResponse {
+            keyword_bold: true,
+            type_bold: true,
+            invalid_underline: true,
+        },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ui::components::theme::{set_theme, Theme};
+
+    struct ThemeReset(Theme);
+
+    impl Drop for ThemeReset {
+        fn drop(&mut self) {
+            set_theme(self.0.clone());
+        }
+    }
+
+    fn preserve_theme() -> ThemeReset {
+        ThemeReset(current_theme().clone())
+    }
+
+    #[tokio::test]
+    async fn get_current_theme_includes_syntax_surfaces() {
+        let _reset = preserve_theme();
+        set_theme(Theme::default_dark());
+
+        let Json(theme) = get_current_theme().await;
+
+        assert_eq!(
+            theme.syntax.markdown_block.tokens.keyword,
+            color_to_hex(Theme::default_dark().accent_primary)
+        );
+        assert_eq!(
+            theme.syntax.markdown_inline.tokens.function,
+            color_to_hex(Theme::default_dark().text_bright)
+        );
+        assert_eq!(
+            theme.syntax.source_file.tokens.function,
+            color_to_hex(Theme::default_dark().accent_secondary)
+        );
+    }
+
+    #[tokio::test]
+    async fn set_current_theme_returns_syntax_payload() {
+        let _reset = preserve_theme();
+
+        let Json(theme) = set_current_theme(Json(SetThemeRequest {
+            name: "default-light".to_string(),
+        }))
+        .await
+        .expect("theme should load");
+
+        let expected = Theme::default_light();
+        assert_eq!(theme.name, expected.name);
+        assert_eq!(
+            theme.syntax.markdown_block.background,
+            color_to_hex(expected.bg_base)
+        );
+        assert!(theme.syntax.source_file.font_styles.type_bold);
+    }
 }

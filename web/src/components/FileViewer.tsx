@@ -165,6 +165,7 @@ export function FileViewer({ filePath, workspaceId, onClose }: FileViewerProps) 
                 <CodeBlock
                   code={data.content}
                   language={language}
+                  surface="sourceFile"
                   showLineNumbers
                   maxHeight={undefined}
                 />

@@ -1,4 +1,6 @@
 import { cn } from '../../lib/cn';
+import { getInlineCodeStyles } from '../../lib/shiki';
+import { useTheme } from '../../hooks/useTheme';
 import { FilePathLink } from '../FilePathLink';
 
 interface InlineCodeProps {
@@ -20,19 +22,22 @@ function isFilePath(text: string): boolean {
 }
 
 export function InlineCode({ children, className }: InlineCodeProps) {
+  const { currentTheme } = useTheme();
   // Check if children is a single string that looks like a file path
   const text = typeof children === 'string' ? children : null;
   const isPath = text && isFilePath(text);
+  const inlineStyles = currentTheme ? getInlineCodeStyles(currentTheme) : undefined;
 
   if (isPath) {
     return (
       <code
         className={cn(
-          'rounded bg-surface-elevated px-1.5 py-0.5',
+          'rounded px-1.5 py-0.5',
           'text-[0.9em] font-mono',
           'border border-border/50',
           className
         )}
+        style={inlineStyles}
       >
         <FilePathLink path={text} className="text-text-bright" />
       </code>
@@ -42,11 +47,12 @@ export function InlineCode({ children, className }: InlineCodeProps) {
   return (
     <code
       className={cn(
-        'rounded bg-surface-elevated px-1.5 py-0.5',
-        'text-[0.9em] font-mono text-text-bright',
+        'rounded px-1.5 py-0.5',
+        'text-[0.9em] font-mono',
         'border border-border/50',
         className
       )}
+      style={inlineStyles}
     >
       {children}
     </code>

@@ -88,6 +88,188 @@ export const theme = {
     diffAdd: '#166534',
     diffRemove: '#991b1b',
   },
+  syntax: {
+    markdownBlock: {
+      foreground: '#e5e5e5',
+      background: '#0f0f0f',
+      caret: '#3b82f6',
+      selection: '#262626',
+      selectionForeground: '#ffffff',
+      gutter: '#161616',
+      gutterForeground: '#a3a3a3',
+      lineHighlight: '#262626',
+      accent: '#2563eb',
+      tokens: {
+        comment: '#a3a3a3',
+        keyword: '#3b82f6',
+        type: '#2563eb',
+        function: '#ffffff',
+        string: '#22c55e',
+        constant: '#f59e0b',
+        property: '#2563eb',
+        parameter: '#ffffff',
+        punctuation: '#c7c7c7',
+        invalid: '#ef4444',
+      },
+      fontStyles: {
+        keywordBold: true,
+        typeBold: true,
+        invalidUnderline: true,
+      },
+    },
+    markdownInline: {
+      foreground: '#ffffff',
+      background: '#0f0f0f',
+      caret: '#3b82f6',
+      selection: '#262626',
+      selectionForeground: '#ffffff',
+      gutter: '#161616',
+      gutterForeground: '#a3a3a3',
+      lineHighlight: '#262626',
+      accent: '#2563eb',
+      tokens: {
+        comment: '#a3a3a3',
+        keyword: '#3b82f6',
+        type: '#2563eb',
+        function: '#ffffff',
+        string: '#22c55e',
+        constant: '#f59e0b',
+        property: '#2563eb',
+        parameter: '#ffffff',
+        punctuation: '#c7c7c7',
+        invalid: '#ef4444',
+      },
+      fontStyles: {
+        keywordBold: true,
+        typeBold: true,
+        invalidUnderline: true,
+      },
+    },
+    sourceFile: {
+      foreground: '#e5e5e5',
+      background: '#0f0f0f',
+      caret: '#3b82f6',
+      selection: '#262626',
+      selectionForeground: '#ffffff',
+      gutter: '#161616',
+      gutterForeground: '#a3a3a3',
+      lineHighlight: '#262626',
+      accent: '#2563eb',
+      tokens: {
+        comment: '#a3a3a3',
+        keyword: '#3b82f6',
+        type: '#2563eb',
+        function: '#2563eb',
+        string: '#22c55e',
+        constant: '#f59e0b',
+        property: '#2563eb',
+        parameter: '#ffffff',
+        punctuation: '#c7c7c7',
+        invalid: '#ef4444',
+      },
+      fontStyles: {
+        keywordBold: true,
+        typeBold: true,
+        invalidUnderline: true,
+      },
+    },
+  },
+};
+
+export const alternateTheme = {
+  ...theme,
+  name: 'default-light',
+  displayName: 'Default Light',
+  isLight: true,
+  colors: {
+    ...theme.colors,
+    bgBase: '#f6f6f6',
+    bgSurface: '#efefef',
+    bgElevated: '#e6e6e6',
+    bgHighlight: '#d9d9d9',
+    textBright: '#111827',
+    textPrimary: '#1f2937',
+    textSecondary: '#374151',
+    textMuted: '#6b7280',
+    accentPrimary: '#dc2626',
+    accentSecondary: '#b91c1c',
+    accentSuccess: '#059669',
+    accentWarning: '#d97706',
+    accentError: '#991b1b',
+    borderDefault: '#d1d5db',
+    borderDimmed: '#e5e7eb',
+  },
+  syntax: {
+    markdownBlock: {
+      ...theme.syntax.markdownBlock,
+      foreground: '#1f2937',
+      background: '#f6f6f6',
+      selection: '#d9d9d9',
+      selectionForeground: '#111827',
+      gutter: '#efefef',
+      gutterForeground: '#6b7280',
+      lineHighlight: '#d9d9d9',
+      caret: '#dc2626',
+      accent: '#b91c1c',
+      tokens: {
+        ...theme.syntax.markdownBlock.tokens,
+        keyword: '#dc2626',
+        type: '#b91c1c',
+        function: '#111827',
+        string: '#059669',
+        constant: '#d97706',
+        property: '#b91c1c',
+        punctuation: '#374151',
+        invalid: '#991b1b',
+      },
+    },
+    markdownInline: {
+      ...theme.syntax.markdownInline,
+      foreground: '#111827',
+      background: '#f6f6f6',
+      selection: '#d9d9d9',
+      selectionForeground: '#111827',
+      gutter: '#efefef',
+      gutterForeground: '#6b7280',
+      lineHighlight: '#d9d9d9',
+      caret: '#dc2626',
+      accent: '#b91c1c',
+      tokens: {
+        ...theme.syntax.markdownInline.tokens,
+        keyword: '#dc2626',
+        type: '#b91c1c',
+        function: '#111827',
+        string: '#059669',
+        constant: '#d97706',
+        property: '#b91c1c',
+        punctuation: '#374151',
+        invalid: '#991b1b',
+      },
+    },
+    sourceFile: {
+      ...theme.syntax.sourceFile,
+      foreground: '#1f2937',
+      background: '#f6f6f6',
+      selection: '#d9d9d9',
+      selectionForeground: '#111827',
+      gutter: '#efefef',
+      gutterForeground: '#6b7280',
+      lineHighlight: '#d9d9d9',
+      caret: '#dc2626',
+      accent: '#b91c1c',
+      tokens: {
+        ...theme.syntax.sourceFile.tokens,
+        keyword: '#dc2626',
+        type: '#b91c1c',
+        function: '#b91c1c',
+        string: '#059669',
+        constant: '#d97706',
+        property: '#b91c1c',
+        punctuation: '#374151',
+        invalid: '#991b1b',
+      },
+    },
+  },
 };
 
 export const themesResponse = {
@@ -96,6 +278,12 @@ export const themesResponse = {
       name: theme.name,
       displayName: theme.displayName,
       isLight: theme.isLight,
+      source: 'builtin',
+    },
+    {
+      name: alternateTheme.name,
+      displayName: alternateTheme.displayName,
+      isLight: alternateTheme.isLight,
       source: 'builtin',
     },
   ],
@@ -140,6 +328,7 @@ export async function mockApi(
     session?: Session;
     uiState?: UiState;
     queueMessages?: QueuedMessage[];
+    sessionEvents?: typeof sessionEventsResponse;
   } = {}
 ) {
   const effectiveSession = overrides.session ?? session;
@@ -149,6 +338,8 @@ export async function mockApi(
     tab_order: [effectiveSession.id],
   };
   const queueMessages = overrides.queueMessages ?? [];
+  const effectiveSessionEvents = overrides.sessionEvents ?? sessionEventsResponse;
+  let currentTheme = theme;
 
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url());
@@ -189,7 +380,7 @@ export async function mockApi(
     }
 
     if (path === `/sessions/${effectiveSession.id}/events`) {
-      return fulfillJson(route, sessionEventsResponse);
+      return fulfillJson(route, effectiveSessionEvents);
     }
 
     if (path === `/sessions/${effectiveSession.id}/history`) {
@@ -224,7 +415,11 @@ export async function mockApi(
     }
 
     if (path === '/themes/current') {
-      return fulfillJson(route, theme);
+      if (route.request().method() === 'POST') {
+        const body = route.request().postDataJSON() as { name?: string } | null;
+        currentTheme = body?.name === alternateTheme.name ? alternateTheme : theme;
+      }
+      return fulfillJson(route, currentTheme);
     }
 
     if (path === '/models') {

@@ -163,7 +163,13 @@ export function MarkdownBody({ content, className }: MarkdownBodyProps) {
           const codeContent = String(children).replace(/\n$/, '');
 
           if (isCodeBlock) {
-            return <CodeBlock code={codeContent} language={match?.[1]} />;
+            return (
+              <CodeBlock
+                code={codeContent}
+                language={match?.[1]}
+                surface="markdownBlock"
+              />
+            );
           }
 
           return <InlineCode>{children}</InlineCode>;

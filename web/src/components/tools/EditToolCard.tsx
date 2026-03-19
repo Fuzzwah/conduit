@@ -3,6 +3,7 @@ import { ToolCard, type ToolStatus } from './ToolCard';
 import { DiffViewer } from '../DiffViewer';
 import { isDiffContent } from '../../lib/diffParser';
 import { FilePathLink } from '../FilePathLink';
+import { CodeBlock } from '../markdown/CodeBlock';
 
 interface EditToolCardProps {
   status: ToolStatus;
@@ -28,9 +29,7 @@ export function EditToolCard({ status, filePath, content, error }: EditToolCardP
           {hasDiff ? (
             <DiffViewer diff={content} />
           ) : (
-            <pre className="p-3 text-xs text-text-muted overflow-auto rounded bg-surface max-h-[300px]">
-              {content}
-            </pre>
+            <CodeBlock code={content} surface="sourceFile" />
           )}
         </div>
       ) : null}

@@ -3,11 +3,13 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { cn } from '../../lib/cn';
 import { CopyButton } from '../ui/CopyButton';
-import { getHighlighter, normalizeLanguage, THEME_MAP } from '../../lib/shiki';
+import { highlightCodeToHtml, normalizeLanguage, type CodeSurface } from '../../lib/shiki';
+import { useTheme } from '../../hooks/useTheme';
 
 interface CodeBlockProps {
   code: string;
   language?: string;
+  surface: Exclude<CodeSurface, 'markdownInline'>;
   showLineNumbers?: boolean;
   maxHeight?: number;
   className?: string;
@@ -19,10 +21,12 @@ const DEFAULT_MAX_HEIGHT = 400; // px
 export function CodeBlock({
   code,
   language,
+  surface,
   showLineNumbers = false,
   maxHeight = DEFAULT_MAX_HEIGHT,
   className,
 }: CodeBlockProps) {
+  const { currentTheme } = useTheme();
   const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [shouldCollapse, setShouldCollapse] = useState(false);
@@ -40,17 +44,8 @@ export function CodeBlock({
 
     async function highlight() {
       try {
-        const highlighter = await getHighlighter();
-        if (cancelled) return;
-
-        // Get current theme from document
-        const isDark = !document.documentElement.classList.contains('light');
-        const theme = isDark ? THEME_MAP.dark : THEME_MAP.light;
-
-        const html = highlighter.codeToHtml(code, {
-          lang: normalizedLang === 'text' ? 'text' : normalizedLang,
-          theme,
-        });
+        if (!currentTheme) return;
+        const html = await highlightCodeToHtml(code, normalizedLang, surface, currentTheme);
 
         if (!cancelled) {
           setHighlightedHtml(html);
@@ -68,7 +63,7 @@ export function CodeBlock({
     return () => {
       cancelled = true;
     };
-  }, [code, normalizedLang]);
+  }, [code, currentTheme, normalizedLang, surface]);
 
   useEffect(() => {
     if (contentRef.current) {
@@ -93,7 +88,8 @@ export function CodeBlock({
       <div
         ref={contentRef}
         className={cn(
-          'overflow-auto bg-background',
+          'overflow-auto',
+          surface === 'sourceFile' && 'bg-background',
           !isExpanded && shouldCollapse && 'max-h-[400px]'
         )}
         style={!isExpanded && shouldCollapse ? { maxHeight } : undefined}
