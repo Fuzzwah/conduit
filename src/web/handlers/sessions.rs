@@ -22,7 +22,7 @@ use crate::ui::app_prompt;
 use crate::ui::components::{ChatMessage, MessageRole};
 use crate::util::names::{generate_branch_name, generate_workspace_name, get_git_username};
 use crate::web::error::WebError;
-use crate::web::handlers::workspaces::WorkspaceResponse;
+use crate::web::handlers::workspaces::{run_workspace_setup_script, WorkspaceResponse};
 use crate::web::state::WebAppState;
 
 /// Response for a single session.
@@ -650,6 +650,8 @@ pub async fn fork_session(
             e
         )));
     }
+
+    run_workspace_setup_script(&base_repo_path, &new_workspace.path);
 
     let forked_session = SessionService::create_forked_session(
         &core,
