@@ -5,6 +5,7 @@ pub mod paths;
 pub mod project_folders;
 pub mod title_generator;
 pub mod tools;
+pub mod workspace_setup;
 
 pub use names::{generate_branch_name, generate_workspace_name, get_git_username};
 pub use paths::{

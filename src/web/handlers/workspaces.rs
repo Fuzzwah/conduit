@@ -14,6 +14,7 @@ use crate::core::services::{ServiceError, SessionService};
 use crate::data::Workspace;
 use crate::git::PrManager;
 use crate::util::names::{generate_branch_name, generate_workspace_name, get_git_username};
+use crate::util::workspace_setup::run_workspace_setup_script;
 use crate::web::error::WebError;
 use crate::web::handlers::sessions::SessionResponse;
 use crate::web::state::WebAppState;
@@ -829,54 +830,3 @@ pub async fn read_workspace_file(
     }))
 }
 
-/// Run `workspace_setup.sh` from the base repo path inside the new workspace directory.
-///
-/// The script is looked up in the repository root (not the workspace). If it doesn't
-/// exist the function is a no-op. Failures are logged as warnings but do not prevent
-/// workspace creation from succeeding.
-pub(super) fn run_workspace_setup_script(
-    repo_path: &std::path::Path,
-    workspace_path: &std::path::Path,
-) {
-    let script = repo_path.join("workspace_setup.sh");
-    if !script.exists() {
-        return;
-    }
-
-    tracing::info!(
-        script = %script.display(),
-        workspace = %workspace_path.display(),
-        "Running workspace setup script"
-    );
-
-    match std::process::Command::new(&script)
-        .current_dir(workspace_path)
-        .env("WORKSPACE_PATH", workspace_path)
-        .output()
-    {
-        Ok(output) => {
-            if output.status.success() {
-                tracing::info!(
-                    workspace = %workspace_path.display(),
-                    "Workspace setup script completed successfully"
-                );
-            } else {
-                tracing::warn!(
-                    workspace = %workspace_path.display(),
-                    stderr = %String::from_utf8_lossy(&output.stderr),
-                    stdout = %String::from_utf8_lossy(&output.stdout),
-                    status = %output.status,
-                    "Workspace setup script failed"
-                );
-            }
-        }
-        Err(e) => {
-            tracing::warn!(
-                error = %e,
-                script = %script.display(),
-                workspace = %workspace_path.display(),
-                "Failed to run workspace setup script"
-            );
-        }
-    }
-}

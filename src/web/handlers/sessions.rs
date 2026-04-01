@@ -22,7 +22,8 @@ use crate::ui::app_prompt;
 use crate::ui::components::{ChatMessage, MessageRole};
 use crate::util::names::{generate_branch_name, generate_workspace_name, get_git_username};
 use crate::web::error::WebError;
-use crate::web::handlers::workspaces::{run_workspace_setup_script, WorkspaceResponse};
+use crate::util::workspace_setup::run_workspace_setup_script;
+use crate::web::handlers::workspaces::WorkspaceResponse;
 use crate::web::state::WebAppState;
 
 /// Response for a single session.

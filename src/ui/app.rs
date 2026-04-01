@@ -2442,6 +2442,11 @@ impl App {
                                 return Err(format!("Failed to save workspace to database: {}", e));
                             }
 
+                            crate::util::workspace_setup::run_workspace_setup_script(
+                                &base_path,
+                                &workspace.path,
+                            );
+
                             Ok(WorkspaceCreated {
                                 repo_id,
                                 workspace_id,
@@ -2550,6 +2555,11 @@ impl App {
                                 }
                                 return Err(format!("Failed to save workspace to database: {}", e));
                             }
+
+                            crate::util::workspace_setup::run_workspace_setup_script(
+                                &base_path,
+                                &workspace.path,
+                            );
 
                             Ok(ForkWorkspaceCreated {
                                 repo_id: parent_workspace.repository_id,
