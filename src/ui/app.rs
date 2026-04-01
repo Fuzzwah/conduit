@@ -1336,6 +1336,21 @@ impl App {
             session.tick();
         }
 
+        // Poll the database every 5 seconds to detect projects added externally (e.g. via web UI)
+        if now.duration_since(self.state.last_sidebar_db_check) >= Duration::from_secs(5) {
+            self.state.last_sidebar_db_check = now;
+            let current_repo_count = self.state.sidebar_data.nodes.len();
+            let db_repo_count = self
+                .repo_dao()
+                .and_then(|dao| dao.get_all().ok())
+                .map(|repos| repos.len())
+                .unwrap_or(current_repo_count);
+            if db_repo_count != current_repo_count {
+                self.refresh_sidebar_data();
+                state_changed = true;
+            }
+        }
+
         state_changed
     }
 
