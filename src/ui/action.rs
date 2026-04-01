@@ -48,6 +48,8 @@ pub enum Action {
     CopyWorkspacePath,
     /// Copy active selection to clipboard
     CopySelection,
+    /// Copy the bottommost visible code block to clipboard (dedented)
+    CopyCodeBlock,
 
     // ========== Tab Management ==========
     /// Close current tab
@@ -255,6 +257,7 @@ impl Action {
             Action::Suspend => "Suspend",
             Action::CopyWorkspacePath => "Copy workspace path",
             Action::CopySelection => "Copy selection",
+            Action::CopyCodeBlock => "Copy code block",
 
             // Tab management
             Action::CloseTab => "Close tab",
@@ -404,6 +407,7 @@ impl Action {
                 | Action::DumpDebugState
                 | Action::CopyWorkspacePath
                 | Action::CopySelection
+                | Action::CopyCodeBlock
                 // Tab management
                 | Action::CloseTab
                 | Action::NextTab

@@ -200,7 +200,7 @@ impl FileViewerSession {
             return;
         }
 
-        let renderer = MarkdownRenderer::new();
+        let mut renderer = MarkdownRenderer::new();
         self.rendered_lines = renderer.render_wrapped(&self.content, content_width);
         self.rendered_total_lines = self.rendered_lines.len();
         self.last_render_width = Some(content_width);

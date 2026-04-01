@@ -1794,7 +1794,8 @@ impl App {
             | Action::ToggleAgentMode
             | Action::DumpDebugState
             | Action::CopyWorkspacePath
-            | Action::CopySelection => {
+            | Action::CopySelection
+            | Action::CopyCodeBlock => {
                 self.handle_global_action(action, &mut effects);
             }
             Action::OpenPr => {
@@ -2948,13 +2949,22 @@ impl App {
                     use arboard::Clipboard;
                     match Clipboard::new() {
                         Ok(mut clipboard) => {
-                            if let Err(e) = clipboard.set_text(text) {
+                            if let Err(e) = clipboard.set_text(&text) {
                                 tracing::debug!(error = %e, "Failed to copy text to clipboard");
                             }
                         }
                         Err(e) => {
                             tracing::debug!(error = %e, "Failed to initialize clipboard");
                         }
+                    }
+                    // Also emit OSC 52 so the clipboard is set on the SSH client terminal.
+                    // Requires tmux: set -g set-clipboard on
+                    {
+                        use base64::Engine as _;
+                        let encoded =
+                            base64::engine::general_purpose::STANDARD.encode(text.as_bytes());
+                        let osc52 = format!("\x1b]52;c;{}\x07", encoded);
+                        let _ = std::io::Write::write_all(&mut std::io::stdout(), osc52.as_bytes());
                     }
                 }
                 Effect::DiscoverSessions => {

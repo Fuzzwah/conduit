@@ -12,17 +12,20 @@ use super::theme::text_primary;
 pub struct MarkdownRenderer {
     /// Base style for text
     base_style: Style,
+    /// Raw code block contents captured during render (one entry per code block)
+    pub code_blocks: Vec<String>,
 }
 
 impl MarkdownRenderer {
     pub fn new() -> Self {
         Self {
             base_style: Style::default().fg(text_primary()),
+            code_blocks: Vec::new(),
         }
     }
 
     /// Render markdown string to ratatui Text
-    pub fn render(&self, markdown: &str) -> Text<'static> {
+    pub fn render(&mut self, markdown: &str) -> Text<'static> {
         let mut options = Options::empty();
         options.insert(Options::ENABLE_TABLES);
         options.insert(Options::ENABLE_STRIKETHROUGH);
@@ -157,6 +160,8 @@ impl MarkdownRenderer {
                     }
                     TagEnd::CodeBlock => {
                         in_code_block = false;
+                        // Save raw content before rendering so callers can copy it
+                        self.code_blocks.push(code_block_content.clone());
                         let fence_label = code_block_language
                             .as_deref()
                             .filter(|language| !language.trim().is_empty())
@@ -273,7 +278,7 @@ impl MarkdownRenderer {
     }
 
     /// Render markdown and wrap output to the requested display width.
-    pub fn render_wrapped(&self, markdown: &str, width: usize) -> Vec<Line<'static>> {
+    pub fn render_wrapped(&mut self, markdown: &str, width: usize) -> Vec<Line<'static>> {
         if width == 0 {
             return Vec::new();
         }
@@ -510,7 +515,7 @@ mod tests {
 | Alice | 30 |
 | Bob | 25 |
 "#;
-        let renderer = MarkdownRenderer::new();
+        let mut renderer = MarkdownRenderer::new();
         let text = renderer.render(md);
         assert!(!text.lines.is_empty());
     }
@@ -524,7 +529,7 @@ fn main() {
 }
 ```
 "#;
-        let renderer = MarkdownRenderer::new();
+        let mut renderer = MarkdownRenderer::new();
         let text = renderer.render(md);
         assert!(!text.lines.is_empty());
     }
@@ -532,7 +537,7 @@ fn main() {
     #[test]
     fn test_render_wrapped_splits_long_line() {
         let md = "This is a long markdown paragraph that should wrap.";
-        let renderer = MarkdownRenderer::new();
+        let mut renderer = MarkdownRenderer::new();
         let wrapped = renderer.render_wrapped(md, 12);
 
         assert!(wrapped.len() > 1);
@@ -541,7 +546,7 @@ fn main() {
     #[test]
     fn test_render_wrapped_preserves_inline_code_text() {
         let md = "Use `cargo check --all` in this project.";
-        let renderer = MarkdownRenderer::new();
+        let mut renderer = MarkdownRenderer::new();
         let wrapped = renderer.render_wrapped(md, 10);
 
         let text: String = wrapped
