@@ -1238,21 +1238,54 @@ impl<'a> InlinePrompt<'a> {
         // Render prompt and input
         let prompt_style = Style::default().fg(accent_primary());
         let input_style = Style::default().fg(text_primary());
+        let cursor_style = Style::default().add_modifier(Modifier::REVERSED);
 
-        // Draw prompt
+        // Draw prompt prefix on first line
         buf[(area.x, area.y)].set_char('>').set_style(prompt_style);
         buf[(area.x + 1, area.y)]
             .set_char(' ')
             .set_style(prompt_style);
 
-        // Draw input text with cursor
+        // Build spans with cursor highlighted so Paragraph wrapping positions it correctly
+        let input = &self.state.text_input.input;
+        let cursor_pos = self.state.text_input.cursor;
+        let spans = if input.is_empty() {
+            vec![Span::styled(" ", cursor_style)]
+        } else if cursor_pos >= input.len() {
+            vec![
+                Span::styled(input.clone(), input_style),
+                Span::styled(" ", cursor_style),
+            ]
+        } else {
+            let (before, after) = input.split_at(cursor_pos);
+            let (cursor_char, rest) = after.split_at(1);
+            vec![
+                Span::styled(before.to_string(), input_style),
+                Span::styled(cursor_char.to_string(), cursor_style),
+                Span::styled(rest.to_string(), input_style),
+            ]
+        };
+
+        // Draw input text with wrapping in the area to the right of the prompt prefix
         let input_area = Rect {
             x: area.x + 2,
             y: area.y,
             width: area.width.saturating_sub(2),
-            height: 1,
+            height: area.height,
         };
-        self.state.text_input.render(input_area, buf, input_style);
+        Paragraph::new(Line::from(spans))
+            .wrap(Wrap { trim: false })
+            .render(input_area, buf);
+    }
+
+    /// Compute how many lines the text input will occupy given the available width.
+    fn input_height(&self, available_width: u16) -> u16 {
+        if available_width == 0 {
+            return 1;
+        }
+        // +1 for the cursor space appended after the text
+        let text_len = (self.state.text_input.input.len() + 1) as u16;
+        ((text_len + available_width - 1) / available_width).max(1)
     }
 }
 
@@ -1376,17 +1409,19 @@ impl Widget for InlinePrompt<'_> {
                     y += 2;
 
                     if self.state.input_mode {
-                        // Render text input
+                        // Render text input — height grows with content to enable line wrapping
+                        let input_w = area.width.saturating_sub(2); // 2 for "> "
+                        let input_h = self.input_height(input_w);
                         self.render_input(
                             Rect {
                                 x: area.x,
                                 y,
                                 width: area.width,
-                                height: 1,
+                                height: input_h,
                             },
                             buf,
                         );
-                        y += 2;
+                        y += input_h + 1;
 
                         // Input mode instructions
                         InstructionBar::new(vec![("Enter", "submit"), ("Esc", "go back")]).render(
@@ -1563,17 +1598,19 @@ impl Widget for InlinePrompt<'_> {
                         );
                     y += 2;
 
-                    // Text input
+                    // Text input — height grows with content to enable line wrapping
+                    let input_w = area.width.saturating_sub(3); // 1 indent + 2 for "> "
+                    let input_h = self.input_height(input_w);
                     self.render_input(
                         Rect {
                             x: area.x + 1,
                             y,
                             width: area.width.saturating_sub(1),
-                            height: 1,
+                            height: input_h,
                         },
                         buf,
                     );
-                    y += 2;
+                    y += input_h + 1;
 
                     // File path
                     let path_style = Style::default().fg(text_faint());
