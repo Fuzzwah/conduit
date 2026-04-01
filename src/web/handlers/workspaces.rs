@@ -14,6 +14,7 @@ use crate::core::services::{ServiceError, SessionService};
 use crate::data::Workspace;
 use crate::git::PrManager;
 use crate::util::names::{generate_branch_name, generate_workspace_name, get_git_username};
+use crate::util::workspace_setup::run_workspace_setup_script;
 use crate::web::error::WebError;
 use crate::web::handlers::sessions::SessionResponse;
 use crate::web::state::WebAppState;
@@ -570,6 +571,8 @@ pub async fn auto_create_workspace(
         WebError::Internal(format!("Failed to save workspace: {}", e))
     })?;
 
+    run_workspace_setup_script(&repo_path, &workspace.path);
+
     let response = WorkspaceResponse::from(workspace.clone());
     state
         .status_manager()
@@ -826,3 +829,4 @@ pub async fn read_workspace_file(
         exists: true,
     }))
 }
+
