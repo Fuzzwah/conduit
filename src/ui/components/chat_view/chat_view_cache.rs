@@ -17,6 +17,8 @@ pub(super) struct CachedMessageLines {
     /// Hash of message content for invalidation detection (reserved for future use)
     #[allow(dead_code)]
     pub(super) content_hash: u64,
+    /// Raw code block contents from this message (for clipboard copy)
+    pub(super) code_blocks: Vec<String>,
 }
 
 /// Line cache for efficient rendering
@@ -62,7 +64,8 @@ impl ChatView {
     ) -> CachedMessageLines {
         let mut lines = Vec::new();
         let mut joiner_before = Vec::new();
-        self.format_message_with_joiners(msg, width, &mut lines, &mut joiner_before);
+        let code_blocks =
+            self.format_message_with_joiners(msg, width, &mut lines, &mut joiner_before);
         if add_spacing {
             lines.push(Line::from(""));
             joiner_before.push(None);
@@ -71,6 +74,7 @@ impl ChatView {
             lines,
             joiner_before,
             content_hash: Self::compute_message_hash(msg),
+            code_blocks,
         }
     }
 
@@ -170,18 +174,24 @@ impl ChatView {
         self.flat_cache.reserve(self.line_cache.total_line_count);
         self.joiner_before.clear();
         self.joiner_before.reserve(self.line_cache.total_line_count);
-        for cached in self.line_cache.entries.iter().flatten() {
-            for (line, joiner) in cached.lines.iter().zip(cached.joiner_before.iter()) {
-                // Skip consecutive blank lines to avoid excessive spacing
-                let is_blank = is_blank_line(line);
-                let last_is_blank = self.flat_cache.last().map(is_blank_line).unwrap_or(false);
+        self.flat_cache_entry_spans.clear();
+        for entry_opt in self.line_cache.entries.iter() {
+            let entry_start = self.flat_cache.len();
+            if let Some(cached) = entry_opt {
+                for (line, joiner) in cached.lines.iter().zip(cached.joiner_before.iter()) {
+                    // Skip consecutive blank lines to avoid excessive spacing
+                    let is_blank = is_blank_line(line);
+                    let last_is_blank = self.flat_cache.last().map(is_blank_line).unwrap_or(false);
 
-                if is_blank && last_is_blank {
-                    continue;
+                    if is_blank && last_is_blank {
+                        continue;
+                    }
+                    self.flat_cache.push(line.clone());
+                    self.joiner_before.push(joiner.clone());
                 }
-                self.flat_cache.push(line.clone());
-                self.joiner_before.push(joiner.clone());
             }
+            self.flat_cache_entry_spans
+                .push((entry_start, self.flat_cache.len()));
         }
         self.flat_cache_width = self.cache_width;
         self.flat_cache_dirty = false;

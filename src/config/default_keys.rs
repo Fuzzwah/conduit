@@ -238,6 +238,7 @@ pub fn default_keybindings() -> KeybindingConfig {
     );
     bind(scrolling, "q", Action::Cancel);
     bind(scrolling, "i", Action::Cancel);
+    bind(scrolling, "y", Action::CopyCodeBlock);
 
     // ========== File Viewer ==========
     let file_viewer = config.context.entry(KeyContext::FileViewer).or_default();

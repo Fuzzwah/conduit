@@ -479,6 +479,10 @@ pub struct ChatView {
     last_extra_lines_start: usize,
     /// Label for the agent (e.g. "Claude", "Codex") shown above assistant messages
     agent_label: String,
+    /// Flat cache line span (start, end) for each line_cache entry, parallel to line_cache.entries
+    flat_cache_entry_spans: Vec<(usize, usize)>,
+    /// Viewport height from the last render pass (used by nearest_code_block_content)
+    last_visible_height: usize,
 }
 
 /// Information about a hovered file path for rendering
@@ -517,6 +521,8 @@ impl ChatView {
             last_extra_lines: Vec::new(),
             last_extra_lines_start: 0,
             agent_label: "Claude".to_string(),
+            flat_cache_entry_spans: Vec::new(),
+            last_visible_height: 0,
         }
     }
 
@@ -533,6 +539,52 @@ impl ChatView {
             self.streaming_joiner_before = None;
             self.cache_width = None;
         }
+    }
+
+    /// Return the dedented content of the bottommost visible code block.
+    ///
+    /// Returns `Some((content, block_index, total_blocks))` where `block_index` is
+    /// 1-based within visible blocks, or `None` if no code blocks are visible.
+    pub fn nearest_code_block_content(&self) -> Option<(String, usize, usize)> {
+        let bottom = self.flat_cache.len().saturating_sub(self.scroll_offset);
+        let top = bottom.saturating_sub(self.last_visible_height);
+
+        let mut visible_blocks: Vec<String> = Vec::new();
+        for (i, &(entry_start, entry_end)) in self.flat_cache_entry_spans.iter().enumerate() {
+            if entry_end <= top {
+                continue; // entirely above viewport
+            }
+            if entry_start >= bottom {
+                break; // entirely below viewport
+            }
+            if let Some(Some(entry)) = self.line_cache.entries.get(i) {
+                visible_blocks.extend(entry.code_blocks.iter().cloned());
+            }
+        }
+
+        let total = visible_blocks.len();
+        visible_blocks
+            .into_iter()
+            .last()
+            .map(|c| (Self::dedent(&c), total, total))
+    }
+
+    fn dedent(content: &str) -> String {
+        let lines: Vec<&str> = content.lines().collect();
+        let min_indent = lines
+            .iter()
+            .filter(|l| !l.trim().is_empty())
+            .map(|l| l.len() - l.trim_start_matches(' ').len())
+            .min()
+            .unwrap_or(0);
+        if min_indent == 0 {
+            return content.to_string();
+        }
+        lines
+            .iter()
+            .map(|l| l.get(min_indent..).unwrap_or(l))
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 
     /// Calculate content area with padding for left margin and optional scrollbar.
@@ -1489,19 +1541,35 @@ impl ChatView {
         width: usize,
         lines: &mut Vec<Line<'static>>,
         joiner_before: &mut Vec<Option<String>>,
-    ) {
+    ) -> Vec<String> {
         match msg.role {
-            MessageRole::Tool => self.format_tool_message(msg, width, lines, joiner_before),
-            MessageRole::User => self.format_user_message(msg, width, lines, joiner_before),
+            MessageRole::Tool => {
+                self.format_tool_message(msg, width, lines, joiner_before);
+                Vec::new()
+            }
+            MessageRole::User => {
+                self.format_user_message(msg, width, lines, joiner_before);
+                Vec::new()
+            }
             MessageRole::Assistant => {
                 self.format_assistant_message(msg, width, lines, joiner_before)
             }
             MessageRole::Reasoning => {
-                self.format_reasoning_message(msg, width, lines, joiner_before)
+                self.format_reasoning_message(msg, width, lines, joiner_before);
+                Vec::new()
             }
-            MessageRole::System => self.format_system_message(msg, width, lines, joiner_before),
-            MessageRole::Error => self.format_error_message(msg, width, lines, joiner_before),
-            MessageRole::Summary => self.format_summary_message(msg, width, lines, joiner_before),
+            MessageRole::System => {
+                self.format_system_message(msg, width, lines, joiner_before);
+                Vec::new()
+            }
+            MessageRole::Error => {
+                self.format_error_message(msg, width, lines, joiner_before);
+                Vec::new()
+            }
+            MessageRole::Summary => {
+                self.format_summary_message(msg, width, lines, joiner_before);
+                Vec::new()
+            }
         }
     }
 
@@ -1584,9 +1652,9 @@ impl ChatView {
         width: usize,
         lines: &mut Vec<Line<'static>>,
         joiner_before: &mut Vec<Option<String>>,
-    ) {
+    ) -> Vec<String> {
         if msg.content.is_empty() {
-            return;
+            return Vec::new();
         }
 
         // Vertical breathing room
@@ -1601,8 +1669,9 @@ impl ChatView {
         joiner_before.push(None);
 
         // Parse markdown with custom renderer
-        let renderer = MarkdownRenderer::new();
+        let mut renderer = MarkdownRenderer::new();
         let md_text = renderer.render(&msg.content);
+        let code_blocks = std::mem::take(&mut renderer.code_blocks);
 
         let bullet_prefix = vec![Span::raw("• ")];
         let continuation_prefix = vec![Span::raw("  ")];
@@ -1677,6 +1746,8 @@ impl ChatView {
             ]));
             joiner_before.push(None);
         }
+
+        code_blocks
     }
 
     /// Format reasoning messages with subdued styling
@@ -2340,6 +2411,7 @@ impl ChatView {
         self.last_extra_lines_start = cached_len + streaming_len;
         let total_lines = cached_len + streaming_len + extra_len;
         let visible_height = content.height as usize;
+        self.last_visible_height = visible_height;
 
         // Clamp scroll offset (respect selection lock if active)
         let max_scroll = total_lines.saturating_sub(visible_height);
