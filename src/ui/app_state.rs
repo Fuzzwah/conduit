@@ -237,6 +237,8 @@ pub struct AppState {
     pub settings_menu_return: bool,
     /// Controls whether base-dir confirmation should discover projects or only save
     pub base_dir_dialog_context: BaseDirDialogContext,
+    /// Last time the sidebar was checked against the database for external changes
+    pub last_sidebar_db_check: Instant,
 }
 
 /// Pending fork request data captured before workspace creation
@@ -409,6 +411,7 @@ impl AppState {
             model_picker_context: ModelPickerContext::SessionSelection,
             settings_menu_return: false,
             base_dir_dialog_context: BaseDirDialogContext::ProjectDiscovery,
+            last_sidebar_db_check: Instant::now(),
         }
     }
 
