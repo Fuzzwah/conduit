@@ -1773,7 +1773,9 @@ impl App {
             | Action::EnterSidebarMode
             | Action::ExitSidebarMode
             | Action::ExpandOrSelect
-            | Action::Collapse => {
+            | Action::Collapse
+            | Action::ProjectMoveUp
+            | Action::ProjectMoveDown => {
                 self.handle_sidebar_action(action, &mut effects);
             }
             Action::Quit

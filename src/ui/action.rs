@@ -162,6 +162,10 @@ pub enum Action {
     OpenSettings,
     /// Archive workspace or remove project
     ArchiveOrRemove,
+    /// Move selected project up in sidebar
+    ProjectMoveUp,
+    /// Move selected project down in sidebar
+    ProjectMoveDown,
 
     // ========== Sidebar Navigation ==========
     /// Focus sidebar and enter sidebar mode
@@ -319,6 +323,8 @@ impl Action {
             Action::AddRepository => "Add repository",
             Action::OpenSettings => "Open settings",
             Action::ArchiveOrRemove => "Archive/remove",
+            Action::ProjectMoveUp => "Move project up",
+            Action::ProjectMoveDown => "Move project down",
 
             // Sidebar
             Action::EnterSidebarMode => "Enter sidebar",

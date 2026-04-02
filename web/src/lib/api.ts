@@ -143,6 +143,13 @@ export async function deleteRepository(id: string): Promise<void> {
   await request(`/repositories/${id}`, { method: 'DELETE' });
 }
 
+export async function reorderRepositories(ids: string[]): Promise<void> {
+  await request('/repositories/reorder', {
+    method: 'POST',
+    body: JSON.stringify({ ids }),
+  });
+}
+
 export async function getRepositoryRemovePreflight(id: string): Promise<RepositoryRemovePreflightResponse> {
   return request(`/repositories/${id}/remove/preflight`);
 }

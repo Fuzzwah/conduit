@@ -211,6 +211,29 @@ pub async fn update_repository_settings(
     Ok(Json(RepositoryResponse::from_repo(updated, core.config())))
 }
 
+/// Request to reorder repositories.
+#[derive(Debug, Deserialize)]
+pub struct ReorderRepositoriesRequest {
+    pub ids: Vec<Uuid>,
+}
+
+/// Set the display order of repositories.
+pub async fn reorder_repositories(
+    State(state): State<WebAppState>,
+    Json(req): Json<ReorderRepositoriesRequest>,
+) -> Result<StatusCode, WebError> {
+    let core = state.core().await;
+    let store = core
+        .repo_store()
+        .ok_or_else(|| WebError::Internal("Database not available".to_string()))?;
+
+    store
+        .reorder(&req.ids)
+        .map_err(|e| WebError::Internal(format!("Failed to reorder repositories: {}", e)))?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
 /// Delete a repository.
 pub async fn delete_repository(
     State(state): State<WebAppState>,

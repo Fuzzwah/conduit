@@ -375,6 +375,14 @@ pub fn default_keybindings() -> KeybindingConfig {
     bind(sidebar, "r", Action::AddRepository);
     bind(sidebar, "s", Action::OpenSettings);
     bind(sidebar, "x", Action::ArchiveOrRemove);
+    sidebar.insert(
+        KeyCombo::new(KeyCode::PageUp, KeyModifiers::NONE),
+        Action::ProjectMoveUp,
+    );
+    sidebar.insert(
+        KeyCombo::new(KeyCode::PageDown, KeyModifiers::NONE),
+        Action::ProjectMoveDown,
+    );
 
     // ========== Dialog Context ==========
     let dialog = config.context.entry(KeyContext::Dialog).or_default();

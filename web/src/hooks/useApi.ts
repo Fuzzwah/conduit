@@ -141,6 +141,16 @@ export function useDeleteRepository() {
   });
 }
 
+export function useReorderRepositories() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => api.reorderRepositories(ids),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.repositories });
+    },
+  });
+}
+
 export function useRepositoryRemovePreflight(
   repositoryId: string | null,
   options?: { enabled?: boolean }

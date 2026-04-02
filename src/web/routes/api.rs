@@ -18,6 +18,10 @@ pub fn api_routes() -> Router<WebAppState> {
         // Repository routes
         .route("/repositories", get(repositories::list_repositories))
         .route("/repositories", post(repositories::create_repository))
+        .route(
+            "/repositories/reorder",
+            post(repositories::reorder_repositories),
+        )
         .route("/repositories/{id}", get(repositories::get_repository))
         .route(
             "/repositories/{id}",
