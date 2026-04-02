@@ -65,7 +65,7 @@ impl RepositoryStore {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "SELECT id, name, base_path, repository_url, workspace_mode, archive_delete_branch, archive_remote_prompt, created_at, updated_at
-             FROM repositories ORDER BY name",
+             FROM repositories ORDER BY COALESCE(position, 999999), name",
         )?;
 
         let repos = stmt
@@ -177,6 +177,18 @@ impl RepositoryStore {
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),
         })
+    }
+
+    /// Set the display order of repositories by assigning each a position.
+    pub fn reorder(&self, ordered_ids: &[Uuid]) -> SqliteResult<()> {
+        let conn = self.conn.lock().unwrap();
+        for (pos, id) in ordered_ids.iter().enumerate() {
+            conn.execute(
+                "UPDATE repositories SET position = ?1, updated_at = ?2 WHERE id = ?3",
+                params![pos as i64, Utc::now().to_rfc3339(), id.to_string()],
+            )?;
+        }
+        Ok(())
     }
 
     /// Update repository workspace settings.

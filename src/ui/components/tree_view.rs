@@ -819,6 +819,22 @@ impl SidebarData {
             .position(|node| node.id == workspace_id && node.node_type == NodeType::Workspace)
     }
 
+    /// Return the IDs of all repository nodes in their current display order.
+    pub fn repo_ids_in_order(&self) -> Vec<Uuid> {
+        self.nodes
+            .iter()
+            .filter(|n| n.node_type == NodeType::Repository)
+            .map(|n| n.id)
+            .collect()
+    }
+
+    /// Find the visible flat-list index of a repository node by ID.
+    pub fn focus_repository(&self, repo_id: Uuid) -> Option<usize> {
+        self.visible_nodes()
+            .iter()
+            .position(|n| n.id == repo_id && n.node_type == NodeType::Repository)
+    }
+
     /// Update git stats for a workspace by its ID
     pub fn update_workspace_git_stats(&mut self, workspace_id: Uuid, stats: GitDiffStats) {
         tracing::debug!(

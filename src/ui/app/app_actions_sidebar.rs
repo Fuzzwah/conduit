@@ -1,5 +1,6 @@
 use crate::ui::action::Action;
 use crate::ui::app::App;
+use crate::ui::components::{ActionType, NodeType};
 use crate::ui::events::InputMode;
 
 impl App {
@@ -43,7 +44,6 @@ impl App {
                 if self.state.input_mode == InputMode::SidebarNavigation {
                     let selected = self.state.sidebar_state.tree_state.selected;
                     if let Some(node) = self.state.sidebar_data.get_at(selected) {
-                        use crate::ui::components::{ActionType, NodeType};
                         match node.node_type {
                             NodeType::Action(ActionType::NewWorkspace) => {
                                 if let Some(parent_id) = node.parent_id {
@@ -70,6 +70,38 @@ impl App {
                     if let Some(node) = self.state.sidebar_data.get_at(selected) {
                         if !node.is_leaf() && node.expanded {
                             self.state.sidebar_data.toggle_at(selected);
+                        }
+                    }
+                }
+            }
+            Action::ProjectMoveUp | Action::ProjectMoveDown => {
+                if self.state.input_mode == InputMode::SidebarNavigation {
+                    let selected = self.state.sidebar_state.tree_state.selected;
+                    if let Some(node) = self.state.sidebar_data.get_at(selected) {
+                        if node.node_type == NodeType::Repository {
+                            let repo_id = node.id;
+                            let mut ids = self.state.sidebar_data.repo_ids_in_order();
+                            if let Some(pos) = ids.iter().position(|&id| id == repo_id) {
+                                let new_pos = if matches!(action, Action::ProjectMoveUp) {
+                                    pos.checked_sub(1)
+                                } else if pos + 1 < ids.len() {
+                                    Some(pos + 1)
+                                } else {
+                                    None
+                                };
+                                if let Some(target) = new_pos {
+                                    ids.swap(pos, target);
+                                    if let Some(repo_dao) = self.repo_dao() {
+                                        let _ = repo_dao.reorder(&ids);
+                                    }
+                                    self.refresh_sidebar_data();
+                                    if let Some(new_idx) =
+                                        self.state.sidebar_data.focus_repository(repo_id)
+                                    {
+                                        self.state.sidebar_state.tree_state.selected = new_idx;
+                                    }
+                                }
+                            }
                         }
                     }
                 }

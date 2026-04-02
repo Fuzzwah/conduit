@@ -1,5 +1,22 @@
 import { useEffect, useState, useRef } from 'react';
-import { useRepositories, useWorkspaces, useWorkspaceStatus } from '../hooks';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { useRepositories, useWorkspaces, useWorkspaceStatus, useReorderRepositories } from '../hooks';
 import {
   FolderGit2,
   Plus,
@@ -11,6 +28,7 @@ import {
   Archive,
   FolderOpen,
   Trash2,
+  GripVertical,
 } from 'lucide-react';
 import { cn } from '../lib/cn';
 import type { Repository, Workspace } from '../types';
@@ -179,6 +197,7 @@ interface RepositorySectionProps {
   onArchiveWorkspace?: (workspace: Workspace) => void;
   onNewWorkspace?: () => void;
   onRemoveRepository?: (repository: Repository) => void;
+  dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
 }
 
 function RepositorySection({
@@ -189,6 +208,7 @@ function RepositorySection({
   onArchiveWorkspace,
   onNewWorkspace,
   onRemoveRepository,
+  dragHandleProps,
 }: RepositorySectionProps) {
   const [expanded, setExpanded] = useState(true);
 
@@ -196,6 +216,19 @@ function RepositorySection({
     <div className="mb-2">
       {/* Repository header */}
       <div className="group flex w-full items-center">
+        {dragHandleProps && (
+          <button
+            {...dragHandleProps}
+            className={cn(
+              'flex cursor-grab items-center justify-center rounded px-0.5 py-1.5 text-text-muted transition-colors hover:text-text active:cursor-grabbing',
+              'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
+            )}
+            aria-label={`Drag to reorder ${repository.name}`}
+            tabIndex={-1}
+          >
+            <GripVertical className="h-3.5 w-3.5" />
+          </button>
+        )}
         <button
           onClick={() => setExpanded(!expanded)}
           aria-label={expanded ? 'Collapse repository' : 'Expand repository'}
@@ -260,6 +293,29 @@ function RepositorySection({
   );
 }
 
+function SortableRepositorySection(props: Omit<RepositorySectionProps, 'dragHandleProps'>) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: props.repository.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <RepositorySection {...props} dragHandleProps={{ ...attributes, ...listeners }} />
+    </div>
+  );
+}
+
 interface SidebarProps {
   selectedWorkspaceId?: string | null;
   onSelectWorkspace?: (workspace: Workspace) => void;
@@ -283,13 +339,27 @@ export function Sidebar({
 }: SidebarProps) {
   const { data: repositories = [] } = useRepositories();
   const { data: workspaces = [] } = useWorkspaces();
+  const [orderedRepos, setOrderedRepos] = useState<Repository[]>([]);
   const [workspacesExpanded, setWorkspacesExpanded] = useState(true);
   const [createWorkspaceRepo, setCreateWorkspaceRepo] = useState<Repository | null>(null);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const addMenuRef = useRef<HTMLDivElement>(null);
+  const reorderMutation = useReorderRepositories();
+
+  // Sync local order state whenever server data arrives
+  useEffect(() => {
+    setOrderedRepos(repositories);
+  }, [repositories]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Group workspaces by repository
-  const workspacesByRepo = repositories.reduce((acc, repo) => {
+  const workspacesByRepo = orderedRepos.reduce((acc, repo) => {
     acc[repo.id] = workspaces.filter((w) => w.repository_id === repo.id);
     return acc;
   }, {} as Record<string, Workspace[]>);
@@ -306,6 +376,19 @@ export function Sidebar({
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isAddMenuOpen]);
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setOrderedRepos((prev) => {
+        const oldIndex = prev.findIndex((r) => r.id === active.id);
+        const newIndex = prev.findIndex((r) => r.id === over.id);
+        const next = arrayMove(prev, oldIndex, newIndex);
+        reorderMutation.mutate(next.map((r) => r.id));
+        return next;
+      });
+    }
+  };
 
   const handleNewWorkspace = (repository: Repository) => {
     if (onCreateWorkspace) {
@@ -345,21 +428,32 @@ export function Sidebar({
 
         {workspacesExpanded && (
           <div className="space-y-1">
-            {repositories.length === 0 ? (
+            {orderedRepos.length === 0 ? (
               <p className="px-3 py-2 text-xs text-text-muted">No repositories</p>
             ) : (
-              repositories.map((repo) => (
-                <RepositorySection
-                  key={repo.id}
-                  repository={repo}
-                  workspaces={workspacesByRepo[repo.id] || []}
-                  selectedWorkspaceId={selectedWorkspaceId}
-                  onSelectWorkspace={onSelectWorkspace}
-                  onArchiveWorkspace={onArchiveWorkspace}
-                  onRemoveRepository={onRemoveRepository}
-                  onNewWorkspace={() => handleNewWorkspace(repo)}
-                />
-              ))
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={orderedRepos.map((r) => r.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {orderedRepos.map((repo) => (
+                    <SortableRepositorySection
+                      key={repo.id}
+                      repository={repo}
+                      workspaces={workspacesByRepo[repo.id] || []}
+                      selectedWorkspaceId={selectedWorkspaceId}
+                      onSelectWorkspace={onSelectWorkspace}
+                      onArchiveWorkspace={onArchiveWorkspace}
+                      onRemoveRepository={onRemoveRepository}
+                      onNewWorkspace={() => handleNewWorkspace(repo)}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
             )}
           </div>
         )}

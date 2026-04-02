@@ -532,6 +532,29 @@ CREATE TABLE IF NOT EXISTS fork_seeds_new (
             [],
         )?;
 
+        // Migration 15: Add position column to repositories for manual ordering.
+        let has_position: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('repositories') WHERE name='position'",
+                [],
+                |row| row.get::<_, i64>(0).map(|c| c > 0),
+            )
+            .unwrap_or(false);
+
+        if !has_position {
+            conn.execute(
+                "ALTER TABLE repositories ADD COLUMN position INTEGER",
+                [],
+            )?;
+            // Initialize positions in alphabetical order so existing ordering is preserved
+            conn.execute(
+                "UPDATE repositories SET position = (
+                    SELECT COUNT(*) FROM repositories r2 WHERE r2.name < repositories.name
+                )",
+                [],
+            )?;
+        }
+
         Ok(())
     }
 

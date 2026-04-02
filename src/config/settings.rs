@@ -468,6 +468,8 @@ pub fn parse_action(name: &str) -> Option<Action> {
         "add_repository" => Some(Action::AddRepository),
         "open_settings" => Some(Action::OpenSettings),
         "archive_or_remove" => Some(Action::ArchiveOrRemove),
+        "project_move_up" => Some(Action::ProjectMoveUp),
+        "project_move_down" => Some(Action::ProjectMoveDown),
 
         // Sidebar
         "enter_sidebar_mode" => Some(Action::EnterSidebarMode),
