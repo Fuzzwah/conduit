@@ -384,7 +384,7 @@ export function Sidebar({
         const oldIndex = prev.findIndex((r) => r.id === active.id);
         const newIndex = prev.findIndex((r) => r.id === over.id);
         const next = arrayMove(prev, oldIndex, newIndex);
-        reorderMutation.mutate(next.map((r) => r.id));
+        reorderMutation.mutate(next.map((r: Repository) => r.id));
         return next;
       });
     }
