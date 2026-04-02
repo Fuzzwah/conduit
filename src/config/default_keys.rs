@@ -100,6 +100,8 @@ pub fn default_keybindings() -> KeybindingConfig {
     bind(&mut config.global, "M-S-c", Action::CopyWorkspacePath);
     // Copy selection to clipboard
     bind(&mut config.global, "M-c", Action::CopySelection);
+    // Copy nearest visible code block to clipboard
+    bind(&mut config.global, "M-y", Action::CopyCodeBlock);
 
     // Ctrl+Arrow for scrolling
     config.global.insert(
