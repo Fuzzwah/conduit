@@ -12,8 +12,6 @@ After a workspace is created, Conduit now looks for a `workspace_setup.sh` scrip
 
 This applies to workspaces created from both the TUI and the web UI.
 
-![Workspace setup script running after workspace creation](docs/screenshots/workspace-setup-script.png)
-
 ---
 
 ## 2. Paste Images into Web UI Chat
