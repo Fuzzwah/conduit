@@ -2,6 +2,8 @@
 
 Conduit is a keyboard-first interface for running coding agents inside git-backed workspaces. It ships as a Ratatui TUI and an optional local web UI, with support for Codex CLI, Claude Code, Gemini CLI, and OpenCode.
 
+> This is a personal fork. See [FORK_CHANGES.md](FORK_CHANGES.md) for a summary of changes relative to the upstream project.
+
 ## What You Get
 
 - Multi-agent sessions with up to 10 concurrent tabs
