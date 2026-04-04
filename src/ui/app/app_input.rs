@@ -81,6 +81,15 @@ impl App {
         }
         self.sync_input_mode_for_active_tab();
 
+        // If the file mention menu is open but something changed input_mode away from
+        // FileMention (e.g. Ctrl+T sidebar toggle), dismiss the menu so it doesn't
+        // stay rendered in an unresponsive state.
+        if self.state.file_mention_state.is_visible()
+            && self.state.input_mode != InputMode::FileMention
+        {
+            self.state.file_mention_state.hide();
+        }
+
         // Handle Ctrl+C with double-press detection (global)
         if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
             tracing::debug!("Ctrl+C detected, calling handle_ctrl_c_press");
