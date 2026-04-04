@@ -205,6 +205,7 @@ pub enum ResolveResult {
 pub enum MenuEntryKind {
     ConduitCommand(ConduitCommand),
     ProviderInvocation(ProviderInvocation),
+    FilePath(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

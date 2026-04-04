@@ -309,6 +309,8 @@ pub enum InputMode {
     WorkspaceDefaults,
     /// Editing queued messages inline
     QueueEditing,
+    /// File mention autocomplete (@filename) is active
+    FileMention,
 }
 
 /// View mode for the main content area
