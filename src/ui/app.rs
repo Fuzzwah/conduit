@@ -1935,6 +1935,33 @@ impl App {
                                     session.input_box.insert_str(&label);
                                 }
                             }
+                            MenuEntryKind::FilePath(_) => {}
+                        }
+                    }
+                } else if self.state.input_mode == InputMode::FileMention {
+                    let filter_char_count = self
+                        .state
+                        .file_mention_state
+                        .list
+                        .search
+                        .value()
+                        .chars()
+                        .count();
+                    let selected = self
+                        .state
+                        .file_mention_state
+                        .selected_entry()
+                        .map(|e| e.label.clone());
+                    self.state.file_mention_state.hide();
+                    self.state.input_mode = InputMode::Normal;
+                    if let Some(path) = selected {
+                        if let Some(session) = self.state.tab_manager.active_session_mut() {
+                            // Delete '@' + typed filter from the input box
+                            let delete_count = 1 + filter_char_count;
+                            for _ in 0..delete_count {
+                                session.input_box.backspace();
+                            }
+                            session.input_box.insert_str(&path);
                         }
                     }
                 } else if self.state.input_mode == InputMode::CommandPalette {
@@ -3134,6 +3161,90 @@ impl App {
             .slash_menu_state
             .show_with_entries(trigger, entries);
         self.state.input_mode = InputMode::SlashMenu;
+    }
+
+    pub(super) fn open_file_mention_menu(&mut self) {
+        let default_working_dir = self.config().working_dir.clone();
+        let working_dir = self
+            .state
+            .tab_manager
+            .active_session()
+            .and_then(|s| s.working_dir.clone())
+            .unwrap_or(default_working_dir);
+        let files = Self::scan_files_for_mention(&working_dir);
+        let entries: Vec<crate::command_resolver::MenuEntry> = files
+            .into_iter()
+            .map(|path| crate::command_resolver::MenuEntry {
+                label: path.clone(),
+                description: String::new(),
+                source_badge: String::new(),
+                trigger: '@',
+                kind: crate::command_resolver::MenuEntryKind::FilePath(path),
+            })
+            .collect();
+        self.state.close_overlays();
+        self.state.file_mention_state.show_with_entries('@', entries);
+        self.state.input_mode = InputMode::FileMention;
+    }
+
+    fn scan_files_for_mention(dir: &std::path::Path) -> Vec<String> {
+        const MAX_FILES: usize = 500;
+        const MAX_DEPTH: usize = 5;
+        const EXCLUDED_DIRS: &[&str] = &[
+            ".git",
+            "target",
+            "node_modules",
+            "__pycache__",
+            ".cargo",
+            ".next",
+            ".nuxt",
+            "dist",
+            "build",
+            "out",
+            ".cache",
+            "vendor",
+            ".venv",
+            "venv",
+            "env",
+        ];
+
+        let mut files = Vec::new();
+        let mut dirs_to_visit: std::collections::VecDeque<(std::path::PathBuf, usize)> =
+            std::collections::VecDeque::new();
+        dirs_to_visit.push_back((dir.to_path_buf(), 0));
+
+        while let Some((current_dir, depth)) = dirs_to_visit.pop_front() {
+            if depth >= MAX_DEPTH {
+                continue;
+            }
+            let read_dir = match std::fs::read_dir(&current_dir) {
+                Ok(rd) => rd,
+                Err(_) => continue,
+            };
+            for entry in read_dir.flatten() {
+                let path = entry.path();
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if path.is_dir() {
+                    if !EXCLUDED_DIRS.contains(&name_str.as_ref())
+                        && !name_str.starts_with('.')
+                    {
+                        dirs_to_visit.push_back((path, depth + 1));
+                    }
+                } else if path.is_file() {
+                    if let Ok(rel) = path.strip_prefix(dir) {
+                        files.push(rel.to_string_lossy().into_owned());
+                        if files.len() >= MAX_FILES {
+                            files.sort();
+                            return files;
+                        }
+                    }
+                }
+            }
+        }
+
+        files.sort();
+        files
     }
 
     fn slash_command_action(command: ConduitCommand) -> Option<Action> {
@@ -10364,6 +10475,10 @@ impl App {
                         self.render_slash_menu(chat_chunk, input_area_inner, f.buffer_mut());
                     }
 
+                    if self.state.file_mention_state.is_visible() && !has_inline_prompt {
+                        self.render_file_mention_menu(chat_chunk, input_area_inner, f.buffer_mut());
+                    }
+
                     // Draw footer (full width) - context-aware based on input mode
                     let footer = GlobalFooter::from_state(
                         self.state.view_mode,
@@ -10840,6 +10955,40 @@ impl App {
         };
 
         SlashMenu::new().render(menu_area, buf, &self.state.slash_menu_state);
+    }
+
+    fn render_file_mention_menu(
+        &mut self,
+        chat_area: Rect,
+        input_area: Rect,
+        buf: &mut ratatui::buffer::Buffer,
+    ) {
+        if !self.state.file_mention_state.is_visible() {
+            return;
+        }
+
+        let available_height = input_area.y.saturating_sub(chat_area.y);
+        let list_height_max = available_height.saturating_sub(4);
+        if list_height_max == 0 {
+            return;
+        }
+
+        let list_len = self.state.file_mention_state.filtered_len().max(1);
+        let list_height = list_len.min(list_height_max as usize).max(1) as u16;
+        self.state
+            .file_mention_state
+            .set_max_visible(list_height as usize);
+
+        let menu_height = list_height.saturating_add(4);
+        let menu_y = input_area.y.saturating_sub(menu_height);
+        let menu_area = Rect {
+            x: input_area.x,
+            y: menu_y,
+            width: input_area.width,
+            height: menu_height,
+        };
+
+        SlashMenu::new().render(menu_area, buf, &self.state.file_mention_state);
     }
 
     fn find_latest_plan_file(session: &AgentSession) -> Option<std::path::PathBuf> {

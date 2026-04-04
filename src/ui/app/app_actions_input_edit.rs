@@ -53,6 +53,21 @@ impl App {
                         self.state.slash_menu_state.delete_char();
                     }
                 }
+                InputMode::FileMention => {
+                    if self.state.file_mention_state.list.search.is_empty() {
+                        // Filter is empty: close menu and delete the '@' from input
+                        self.state.file_mention_state.hide();
+                        self.state.input_mode = InputMode::Normal;
+                        if let Some(session) = self.state.tab_manager.active_session_mut() {
+                            session.input_box.backspace();
+                        }
+                    } else {
+                        self.state.file_mention_state.delete_char();
+                        if let Some(session) = self.state.tab_manager.active_session_mut() {
+                            session.input_box.backspace();
+                        }
+                    }
+                }
                 InputMode::SettingBaseDir => {
                     self.state.base_dir_dialog_state.delete_char();
                 }

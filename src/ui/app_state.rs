@@ -180,6 +180,7 @@ pub struct AppState {
     pub settings_menu_state: SettingsMenuState,
     pub command_palette_state: CommandPaletteState,
     pub slash_menu_state: SlashMenuState,
+    pub file_mention_state: SlashMenuState,
     pub workspace_defaults_dialog_state: WorkspaceDefaultsDialogState,
     pub command_buffer: String,
     pub sidebar_area: Option<Rect>,
@@ -373,6 +374,7 @@ impl AppState {
             settings_menu_state: SettingsMenuState::new(),
             command_palette_state: CommandPaletteState::new(),
             slash_menu_state: SlashMenuState::new(),
+            file_mention_state: SlashMenuState::new(),
             workspace_defaults_dialog_state: WorkspaceDefaultsDialogState::new(),
             command_buffer: String::new(),
             sidebar_area: None,
@@ -434,6 +436,7 @@ impl AppState {
         self.missing_tool_dialog_state.hide();
         self.command_palette_state.hide();
         self.slash_menu_state.hide();
+        self.file_mention_state.hide();
         self.workspace_defaults_dialog_state.hide();
         self.pending_handoff_request = None;
         self.settings_menu_return = false;
@@ -456,6 +459,7 @@ impl AppState {
             || self.session_import_state.is_visible()
             || self.command_palette_state.is_visible()
             || self.slash_menu_state.is_visible()
+            || self.file_mention_state.is_visible()
             || self.workspace_defaults_dialog_state.is_visible()
     }
 

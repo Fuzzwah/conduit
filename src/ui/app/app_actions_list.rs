@@ -46,6 +46,9 @@ impl App {
                 InputMode::SlashMenu => {
                     self.state.slash_menu_state.select_next();
                 }
+                InputMode::FileMention => {
+                    self.state.file_mention_state.select_next();
+                }
                 InputMode::QueueEditing => {
                     if let Some(session) = self.state.tab_manager.active_session_mut() {
                         session.select_queue_next();
@@ -93,6 +96,9 @@ impl App {
                 }
                 InputMode::SlashMenu => {
                     self.state.slash_menu_state.select_prev();
+                }
+                InputMode::FileMention => {
+                    self.state.file_mention_state.select_prev();
                 }
                 InputMode::QueueEditing => {
                     if let Some(session) = self.state.tab_manager.active_session_mut() {

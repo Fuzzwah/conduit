@@ -26,6 +26,8 @@ impl App {
                 && self.state.command_palette_state.is_visible())
             && !(self.state.input_mode == InputMode::SlashMenu
                 && self.state.slash_menu_state.is_visible())
+            && !(self.state.input_mode == InputMode::FileMention
+                && self.state.file_mention_state.is_visible())
             && !(self.state.input_mode == InputMode::SelectingTheme
                 && self.state.theme_picker_state.is_visible())
             && !(self.state.input_mode == InputMode::SelectingModel
@@ -113,6 +115,15 @@ impl App {
             }
             for _ in 0..*pending_down {
                 self.state.slash_menu_state.select_next();
+            }
+        } else if self.state.input_mode == InputMode::FileMention
+            && self.state.file_mention_state.is_visible()
+        {
+            for _ in 0..*pending_up {
+                self.state.file_mention_state.select_prev();
+            }
+            for _ in 0..*pending_down {
+                self.state.file_mention_state.select_next();
             }
         } else if self.state.input_mode == InputMode::SelectingTheme
             && self.state.theme_picker_state.is_visible()

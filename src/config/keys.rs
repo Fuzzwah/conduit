@@ -178,6 +178,7 @@ impl KeyContext {
             InputMode::SettingsMenu
             | InputMode::CommandPalette
             | InputMode::SlashMenu
+            | InputMode::FileMention
             | InputMode::WorkspaceDefaults => return KeyContext::CommandPalette,
             InputMode::MissingTool => return KeyContext::Dialog,
             InputMode::SelectingTheme => return KeyContext::ThemePicker,

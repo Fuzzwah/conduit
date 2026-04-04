@@ -537,6 +537,7 @@ impl App {
 
         match self.state.input_mode {
             InputMode::Normal => {
+                let mut trigger_file_mention = false;
                 if let Some(session) = self.state.tab_manager.active_session_mut() {
                     // Note: ':' is handled globally in handle_key_event
                     // Trigger shell mode with leading '!'
@@ -561,6 +562,22 @@ impl App {
                         return;
                     }
 
+                    // Trigger file mention autocomplete with '@'
+                    if c == '@' && !session.input_box.is_shell_mode() {
+                        session.input_box.insert_char('@');
+                        trigger_file_mention = true;
+                    } else {
+                        session.input_box.insert_char(c);
+                    }
+                }
+                if trigger_file_mention {
+                    self.open_file_mention_menu();
+                    return;
+                }
+            }
+            InputMode::FileMention => {
+                self.state.file_mention_state.insert_char(c);
+                if let Some(session) = self.state.tab_manager.active_session_mut() {
                     session.input_box.insert_char(c);
                 }
             }
@@ -685,6 +702,15 @@ impl App {
                 let sanitized = pasted.replace('\n', " ");
                 for ch in sanitized.chars() {
                     self.state.slash_menu_state.insert_char(ch);
+                }
+            }
+            InputMode::FileMention => {
+                let sanitized = pasted.replace('\n', " ");
+                for ch in sanitized.chars() {
+                    self.state.file_mention_state.insert_char(ch);
+                    if let Some(session) = self.state.tab_manager.active_session_mut() {
+                        session.input_box.insert_char(ch);
+                    }
                 }
             }
             InputMode::MissingTool => {

@@ -115,6 +115,11 @@ impl App {
                     self.state.slash_menu_state.hide();
                     self.state.input_mode = InputMode::Normal;
                 }
+                InputMode::FileMention => {
+                    // ESC closes the menu but keeps '@<filter>' in the input
+                    self.state.file_mention_state.hide();
+                    self.state.input_mode = InputMode::Normal;
+                }
                 InputMode::QueueEditing => {
                     self.close_queue_editor();
                 }
