@@ -34,8 +34,6 @@ Previously, `Alt+Tab` / `Alt+Shift+Tab` would include the sidebar in the workspa
 
 Long text typed into the plan mode feedback input now wraps within the input box rather than overflowing off-screen. This makes it easier to write detailed instructions before submitting.
 
-![Plan mode feedback input with wrapped long text](docs/screenshots/plan-mode-wrap.png)
-
 ---
 
 ## 5. TUI Project List Auto-Refreshes
@@ -51,15 +49,11 @@ Two shortcuts for copying code blocks from agent output:
 - **`y`** — when in scroll mode (after pressing `PgUp` or similar), pressing `y` copies the nearest code block to the clipboard.
 - **`Alt+y`** — a global hotkey that copies the nearest code block regardless of the current focus, so you do not need to enter scroll mode first.
 
-![Copying a code block with the y shortcut](docs/screenshots/copy-code-block.png)
-
 ---
 
 ## 7. Reorder Projects in the Sidebar
 
 Projects in the sidebar can now be reordered via drag-and-drop in the web UI, or with dedicated move-up / move-down actions in the TUI. The order is persisted and reflected across both interfaces.
-
-![Reordering projects in the sidebar](docs/screenshots/reorder-projects.png)
 
 ---
 
