@@ -483,6 +483,8 @@ pub struct ChatView {
     flat_cache_entry_spans: Vec<(usize, usize)>,
     /// Viewport height from the last render pass (used by nearest_code_block_content)
     last_visible_height: usize,
+    /// Cycling index for Alt+y: 0 = most recent code block, increments on each press
+    code_block_cycle_idx: usize,
 }
 
 /// Information about a hovered file path for rendering
@@ -523,6 +525,7 @@ impl ChatView {
             agent_label: "Claude".to_string(),
             flat_cache_entry_spans: Vec::new(),
             last_visible_height: 0,
+            code_block_cycle_idx: 0,
         }
     }
 
@@ -545,40 +548,31 @@ impl ChatView {
     ///
     /// Returns `Some((content, block_index, total_blocks))` where `block_index` is
     /// 1-based within visible blocks, or `None` if no code blocks are visible.
-    pub fn nearest_code_block_content(&self) -> Option<(String, usize, usize)> {
-        // scroll_offset is relative to total_lines (flat_cache + streaming + extra), matching
-        // the render path. Compute the visible window in total_lines space, then clamp to
-        // flat_cache coordinate space since entry_spans are flat_cache indices.
-        let streaming_len = self
-            .streaming_cache
-            .as_ref()
-            .map(|l| l.len())
-            .unwrap_or(0);
-        let total_lines =
-            self.flat_cache.len() + streaming_len + self.last_render_extra_lines;
-        let end = total_lines.saturating_sub(self.scroll_offset);
-        let start = total_lines.saturating_sub(self.scroll_offset + self.last_visible_height);
-        let bottom = end.min(self.flat_cache.len());
-        let top = start.min(self.flat_cache.len());
+    /// Return a code block by cycling backwards through all blocks (newest first).
+    ///
+    /// Each call advances the cycle index so repeated presses of the hotkey walk
+    /// from the most recent code block toward older ones, wrapping around.
+    /// Returns `Some((content, 1-based index, total))` or `None` if no blocks exist.
+    pub fn nearest_code_block_content(&mut self) -> Option<(String, usize, usize)> {
+        // Collect all code blocks newest-first: reverse over messages, reverse within each message.
+        let all_blocks: Vec<String> = self
+            .line_cache
+            .entries
+            .iter()
+            .rev()
+            .filter_map(|e| e.as_ref())
+            .flat_map(|e| e.code_blocks.iter().rev().cloned())
+            .collect();
 
-        let mut visible_blocks: Vec<String> = Vec::new();
-        for (i, &(entry_start, entry_end)) in self.flat_cache_entry_spans.iter().enumerate() {
-            if entry_end <= top {
-                continue; // entirely above viewport
-            }
-            if entry_start >= bottom {
-                break; // entirely below viewport
-            }
-            if let Some(Some(entry)) = self.line_cache.entries.get(i) {
-                visible_blocks.extend(entry.code_blocks.iter().cloned());
-            }
+        let total = all_blocks.len();
+        if total == 0 {
+            self.code_block_cycle_idx = 0;
+            return None;
         }
 
-        let total = visible_blocks.len();
-        visible_blocks
-            .into_iter()
-            .last()
-            .map(|c| (Self::dedent(&c), total, total))
+        let idx = self.code_block_cycle_idx % total;
+        self.code_block_cycle_idx = (idx + 1) % total;
+        Some((Self::dedent(&all_blocks[idx]), idx + 1, total))
     }
 
     fn dedent(content: &str) -> String {
@@ -771,6 +765,7 @@ impl ChatView {
         self.streaming_cache = None;
         self.joiner_before.clear();
         self.streaming_joiner_before = None;
+        self.code_block_cycle_idx = 0;
         // Keep cache_width so we don't have to recalculate on next render
     }
 
