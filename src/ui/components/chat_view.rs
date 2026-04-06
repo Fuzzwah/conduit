@@ -546,8 +546,20 @@ impl ChatView {
     /// Returns `Some((content, block_index, total_blocks))` where `block_index` is
     /// 1-based within visible blocks, or `None` if no code blocks are visible.
     pub fn nearest_code_block_content(&self) -> Option<(String, usize, usize)> {
-        let bottom = self.flat_cache.len().saturating_sub(self.scroll_offset);
-        let top = bottom.saturating_sub(self.last_visible_height);
+        // scroll_offset is relative to total_lines (flat_cache + streaming + extra), matching
+        // the render path. Compute the visible window in total_lines space, then clamp to
+        // flat_cache coordinate space since entry_spans are flat_cache indices.
+        let streaming_len = self
+            .streaming_cache
+            .as_ref()
+            .map(|l| l.len())
+            .unwrap_or(0);
+        let total_lines =
+            self.flat_cache.len() + streaming_len + self.last_render_extra_lines;
+        let end = total_lines.saturating_sub(self.scroll_offset);
+        let start = total_lines.saturating_sub(self.scroll_offset + self.last_visible_height);
+        let bottom = end.min(self.flat_cache.len());
+        let top = start.min(self.flat_cache.len());
 
         let mut visible_blocks: Vec<String> = Vec::new();
         for (i, &(entry_start, entry_end)) in self.flat_cache_entry_spans.iter().enumerate() {
