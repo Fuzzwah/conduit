@@ -262,7 +262,7 @@ impl App {
                             effects.push(Effect::CopyToClipboard(content));
                             let msg = if total > 1 {
                                 format!(
-                                    "Copied code block ({} of {}) — scroll to copy others",
+                                    "Copied code block ({} of {}) — press again for previous",
                                     idx, total
                                 )
                             } else {
@@ -273,7 +273,7 @@ impl App {
                         }
                         None => {
                             self.state.set_timed_footer_message(
-                                "No code block in view".to_string(),
+                                "No code block found".to_string(),
                                 Duration::from_secs(2),
                             );
                         }
