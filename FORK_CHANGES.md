@@ -44,10 +44,7 @@ When a new project is added via the web UI, the TUI sidebar project list now upd
 
 ## 6. Copy Code Blocks to Clipboard
 
-Two shortcuts for copying code blocks from agent output:
-
-- **`y`** — when in scroll mode (after pressing `PgUp` or similar), pressing `y` copies the nearest code block to the clipboard.
-- **`Alt+y`** — a global hotkey that copies the nearest code block regardless of the current focus, so you do not need to enter scroll mode first.
+**`Alt+y`** copies the nearest visible code block to the clipboard regardless of current focus. Pressing `Alt+y` repeatedly cycles through all code blocks in the current output.
 
 ---
 
