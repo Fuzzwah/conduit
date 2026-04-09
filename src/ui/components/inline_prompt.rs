@@ -3,6 +3,7 @@
 //! Emulates Claude Code CLI's inline UI patterns for interactive tool responses.
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use unicode_width::UnicodeWidthStr;
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
@@ -668,10 +669,30 @@ impl InlinePromptState {
                 // Top dashed line
                 lines.push(self.dashed_line(width));
 
-                // Plan content (limited to 15 lines)
+                // Plan content (limited to 15 display lines, with word-wrapping)
                 let plan_style = Style::default().fg(text_secondary());
-                for line in plan_content.lines().take(15) {
-                    lines.push(Line::from(Span::styled(format!(" {}", line), plan_style)));
+                let content_width = width.saturating_sub(1); // subtract 1 for leading " "
+                let max_display_lines = 15;
+                let mut displayed = 0;
+                'plan: for line in plan_content.lines() {
+                    if displayed >= max_display_lines {
+                        break;
+                    }
+                    if line.is_empty() {
+                        lines.push(Line::from(Span::styled(" ".to_string(), plan_style)));
+                        displayed += 1;
+                        continue;
+                    }
+                    for wrapped in word_wrap_line(line, content_width) {
+                        if displayed >= max_display_lines {
+                            break 'plan;
+                        }
+                        lines.push(Line::from(Span::styled(
+                            format!(" {}", wrapped),
+                            plan_style,
+                        )));
+                        displayed += 1;
+                    }
                 }
 
                 // Bottom dashed line
@@ -1739,4 +1760,37 @@ impl Widget for InlinePrompt<'_> {
             }
         }
     }
+}
+
+/// Word-wrap a single line of text to fit within max_width display columns.
+/// Returns one or more sub-lines. Uses unicode display width for correctness.
+fn word_wrap_line(text: &str, max_width: usize) -> Vec<String> {
+    if max_width == 0 || text.is_empty() {
+        return vec![text.to_string()];
+    }
+    let mut result = Vec::new();
+    let mut current = String::new();
+    let mut current_width = 0usize;
+    for word in text.split_whitespace() {
+        let word_width = UnicodeWidthStr::width(word);
+        if current.is_empty() {
+            current.push_str(word);
+            current_width = word_width;
+        } else if current_width + 1 + word_width <= max_width {
+            current.push(' ');
+            current.push_str(word);
+            current_width += 1 + word_width;
+        } else {
+            result.push(std::mem::take(&mut current));
+            current.push_str(word);
+            current_width = word_width;
+        }
+    }
+    if !current.is_empty() {
+        result.push(current);
+    }
+    if result.is_empty() {
+        result.push(String::new());
+    }
+    result
 }
