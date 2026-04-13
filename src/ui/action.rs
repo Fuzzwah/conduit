@@ -16,7 +16,7 @@ pub enum Action {
     Quit,
     /// Toggle sidebar visibility
     ToggleSidebar,
-    /// Force-hide sidebar (overrides always_show_sidebar, for copy-paste)
+    /// Force-toggle sidebar visibility (overrides always_show_sidebar, for copy-paste)
     HideSidebar,
     /// Open new project dialog
     NewProject,
