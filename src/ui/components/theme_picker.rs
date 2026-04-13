@@ -927,6 +927,7 @@ fn theme_matches_path(path: &std::path::Path, info: &ThemeInfo) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ui::components::theme::theme_test_lock;
     use crate::ui::components::{current_theme_name, set_theme, Theme};
 
     struct ThemeReset(Theme);
@@ -943,6 +944,7 @@ mod tests {
 
     #[test]
     fn theme_preview_keeps_checkmark_on_confirmed_theme() {
+        let _theme_guard = theme_test_lock();
         let _reset = preserve_theme();
         set_theme(Theme::default_dark());
 
@@ -968,6 +970,7 @@ mod tests {
 
     #[test]
     fn theme_show_selects_current_theme() {
+        let _theme_guard = theme_test_lock();
         let _reset = preserve_theme();
         set_theme(Theme::default_dark());
         let current_name = current_theme_name();
@@ -1001,6 +1004,7 @@ mod tests {
 
     #[test]
     fn theme_confirm_updates_confirmed_theme_key() {
+        let _theme_guard = theme_test_lock();
         let _reset = preserve_theme();
         set_theme(Theme::default_dark());
 
@@ -1020,6 +1024,7 @@ mod tests {
 
     #[test]
     fn theme_cancel_restores_original_theme_after_preview() {
+        let _theme_guard = theme_test_lock();
         let _reset = preserve_theme();
         set_theme(Theme::default_dark());
         let original_name = current_theme_name();

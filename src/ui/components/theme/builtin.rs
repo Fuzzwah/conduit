@@ -2313,7 +2313,7 @@ pub fn vscode_dark() -> Theme {
         bg_base: bg,
         bg_surface: bg_secondary,
         bg_elevated: bg_active,
-        bg_highlight: bg_highlight,
+        bg_highlight,
         markdown_code_bg: Color::Rgb(24, 24, 24),
         markdown_inline_code_bg: bg_secondary,
 
@@ -2387,7 +2387,7 @@ pub fn vscode_dark_modern() -> Theme {
         bg_base: bg,
         bg_surface: bg_secondary,
         bg_elevated: bg_active,
-        bg_highlight: bg_highlight,
+        bg_highlight,
         markdown_code_bg: Color::Rgb(22, 22, 22),
         markdown_inline_code_bg: bg_secondary,
 
@@ -2535,7 +2535,7 @@ pub fn night_owl() -> Theme {
         bg_terminal: Color::Rgb(0, 15, 27),
         bg_base: background,
         bg_surface: bg_highlight,
-        bg_elevated: bg_elevated,
+        bg_elevated,
         bg_highlight: bg_selection,
         markdown_code_bg: Color::Rgb(0, 15, 27),
         markdown_inline_code_bg: bg_highlight,
