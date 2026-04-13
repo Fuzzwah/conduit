@@ -617,33 +617,66 @@ impl WorktreeManager {
             }
         }
 
-        // Detect squash-merge: compare the working tree content against origin/main using
-        // `git diff --quiet`. If the diff is empty the branch content is already in main
-        // regardless of how it was merged (squash, cherry-pick, or regular merge). This
-        // works where `git cherry` fails because squash merges produce a combined patch
-        // whose ID does not match any individual commit.
+        // Detect squash-merge: check whether the files this branch changed have the same
+        // content in HEAD as in origin/main. A full `git diff origin/main HEAD` would
+        // fail whenever master has moved since the branch was created (extra commits on
+        // master appear as differences even though the branch's own changes are already
+        // there). Using the merge-base scopes the file list to only what the branch
+        // touched, so other master progress is ignored.
         if !status.is_merged && status.commits_ahead > 0 {
             // Fetch so origin/main reflects the latest remote state. Without this,
             // a squash-merged PR won't be detected because the local origin/main
-            // ref still points to the pre-merge commit and the diff is non-empty.
+            // ref still points to the pre-merge commit.
             let _ = Command::new("git")
                 .args(["fetch", "origin", "--quiet"])
                 .current_dir(worktree_path)
                 .output();
 
-            let diff_output = Command::new("git")
-                .args([
-                    "diff",
-                    "--quiet",
-                    &format!("origin/{}", main_branch),
-                    "HEAD",
-                ])
+            let remote_ref = format!("origin/{}", main_branch);
+
+            // Step 1: find the common ancestor of HEAD and origin/main.
+            let merge_base_out = Command::new("git")
+                .args(["merge-base", "HEAD", &remote_ref])
                 .current_dir(worktree_path)
                 .output();
-            if let Ok(diff_output) = diff_output {
-                // exit 0 = no diff → content already in main
-                if diff_output.status.success() {
-                    status.likely_squash_merged = true;
+
+            if let Ok(mb) = merge_base_out {
+                if mb.status.success() {
+                    let merge_base = String::from_utf8_lossy(&mb.stdout).trim().to_string();
+
+                    // Step 2: list files the branch changed relative to the merge base.
+                    let files_out = Command::new("git")
+                        .args(["diff", "--name-only", &merge_base, "HEAD"])
+                        .current_dir(worktree_path)
+                        .output();
+
+                    if let Ok(files_out) = files_out {
+                        if files_out.status.success() {
+                            let files_str = String::from_utf8_lossy(&files_out.stdout).into_owned();
+                            let files: Vec<&str> =
+                                files_str.lines().filter(|l| !l.is_empty()).collect();
+
+                            if files.is_empty() {
+                                // Branch introduces no changes vs merge base.
+                                status.likely_squash_merged = true;
+                            } else {
+                                // Step 3: check those specific files are identical in
+                                // HEAD and origin/main. Other files that changed on
+                                // master (unrelated PRs) are intentionally ignored.
+                                let mut args = vec!["diff", "--quiet", "HEAD", &remote_ref, "--"];
+                                args.extend(files.iter().copied());
+                                let diff_out = Command::new("git")
+                                    .args(&args)
+                                    .current_dir(worktree_path)
+                                    .output();
+                                if let Ok(diff_out) = diff_out {
+                                    if diff_out.status.success() {
+                                        status.likely_squash_merged = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
