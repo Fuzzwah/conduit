@@ -164,6 +164,21 @@ impl App {
                     }
                 }
             }
+            Action::ArchiveCurrentWorkspace => {
+                if matches!(
+                    self.state.input_mode,
+                    InputMode::Normal | InputMode::Scrolling
+                ) {
+                    if let Some(workspace_id) = self
+                        .state
+                        .tab_manager
+                        .active_session()
+                        .and_then(|s| s.workspace_id)
+                    {
+                        self.initiate_archive_workspace(workspace_id);
+                    }
+                }
+            }
             _ => {}
         }
     }

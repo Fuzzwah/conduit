@@ -118,6 +118,7 @@ impl<'a> GlobalFooter<'a> {
             ("C-t", "sidebar"),
             ("C-n", "new project"),
             ("M-S-w", "close"),
+            ("M-S-x", "archive"),
             ("C-c", "stop"),
             ("C-q", "quit"),
         ]

@@ -2006,7 +2006,8 @@ impl App {
             Action::Cancel
             | Action::AddRepository
             | Action::OpenSettings
-            | Action::ArchiveOrRemove => {
+            | Action::ArchiveOrRemove
+            | Action::ArchiveCurrentWorkspace => {
                 self.handle_dialog_action(action);
             }
 
