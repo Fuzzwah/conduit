@@ -617,23 +617,20 @@ impl WorktreeManager {
             }
         }
 
-        // Detect squash-merge: use `git cherry` which compares patch IDs rather than
-        // commit ancestry, so it correctly identifies commits whose content has already
-        // landed in main via a squash merge (where the SHA differs but the diff matches).
+        // Detect squash-merge: compare the working tree content against origin/main using
+        // `git diff --quiet`. If the diff is empty the branch content is already in main
+        // regardless of how it was merged (squash, cherry-pick, or regular merge). This
+        // works where `git cherry` fails because squash merges produce a combined patch
+        // whose ID does not match any individual commit.
         if !status.is_merged && status.commits_ahead > 0 {
-            let cherry_output = Command::new("git")
-                .args(["cherry", &format!("origin/{}", main_branch), "HEAD"])
+            let diff_output = Command::new("git")
+                .args(["diff", "--quiet", &format!("origin/{}", main_branch), "HEAD"])
                 .current_dir(worktree_path)
                 .output();
-            if let Ok(cherry_output) = cherry_output {
-                if cherry_output.status.success() {
-                    let stdout = String::from_utf8_lossy(&cherry_output.stdout);
-                    // Lines prefixed with '+' are commits not yet applied upstream.
-                    // If there are none, all commits have been applied (squash merged).
-                    let has_unmerged_commits = stdout.lines().any(|line| line.starts_with('+'));
-                    if !has_unmerged_commits {
-                        status.likely_squash_merged = true;
-                    }
+            if let Ok(diff_output) = diff_output {
+                // exit 0 = no diff → content already in main
+                if diff_output.status.success() {
+                    status.likely_squash_merged = true;
                 }
             }
         }
