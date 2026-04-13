@@ -1806,6 +1806,13 @@ impl App {
             | Action::ProjectMoveDown => {
                 self.handle_sidebar_action(action, &mut effects);
             }
+            Action::RefreshSidebar => {
+                self.refresh_sidebar_data();
+                self.state.set_timed_footer_message(
+                    "Sidebar refreshed".to_string(),
+                    Duration::from_secs(2),
+                );
+            }
             Action::Quit
             | Action::NewProject
             | Action::NewWorkspaceUnderCursor
