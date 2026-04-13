@@ -4425,9 +4425,6 @@ impl App {
 
     /// Sync sidebar selection to the active tab's workspace (if sidebar is visible)
     fn sync_sidebar_to_active_tab(&mut self) {
-        if !self.state.sidebar_state.visible {
-            return;
-        }
         if let Some(session) = self.state.tab_manager.active_session() {
             if let Some(workspace_id) = session.workspace_id {
                 if let Some(index) = self.state.sidebar_data.focus_workspace(workspace_id) {

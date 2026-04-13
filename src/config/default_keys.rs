@@ -378,7 +378,7 @@ pub fn default_keybindings() -> KeybindingConfig {
     );
     bind(sidebar, "r", Action::AddRepository);
     bind(sidebar, "s", Action::OpenSettings);
-    bind(sidebar, "x", Action::ArchiveOrRemove);
+    bind(sidebar, "M-S-x", Action::ArchiveOrRemove);
     sidebar.insert(
         KeyCombo::new(KeyCode::PageUp, KeyModifiers::NONE),
         Action::ProjectMoveUp,
