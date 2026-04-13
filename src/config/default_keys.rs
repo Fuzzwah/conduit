@@ -26,7 +26,7 @@ pub fn default_keybindings() -> KeybindingConfig {
 
     bind(&mut config.global, "C-q", Action::Quit);
     bind(&mut config.global, "C-t", Action::ToggleSidebar);
-    bind(&mut config.global, "M-S-t", Action::HideSidebar); // Alt+Shift+T: force-hide sidebar for copy-paste
+    bind(&mut config.global, "M-S-t", Action::HideSidebar); // Alt+Shift+T: force-toggle sidebar (overrides always_show_sidebar)
     bind(&mut config.global, "C-n", Action::NewProject);
     bind(&mut config.global, "C-p", Action::OpenCommandPalette);
     bind(&mut config.global, "C-M-p", Action::OpenPr); // Ctrl+Alt+P for PR

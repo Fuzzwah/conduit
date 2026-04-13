@@ -11,10 +11,26 @@ impl App {
     ) {
         match action {
             Action::HideSidebar => {
-                // Force-hide regardless of always_show_sidebar (e.g. to copy text)
-                self.state.sidebar_state.hide();
-                self.state.sidebar_state.set_focused(false);
-                self.state.input_mode = InputMode::Normal;
+                if self.state.sidebar_state.visible {
+                    // Force-hide regardless of always_show_sidebar (e.g. to copy text)
+                    self.state.sidebar_state.hide();
+                    self.state.sidebar_state.set_focused(false);
+                    self.state.input_mode = InputMode::Normal;
+                } else {
+                    // Already hidden — show and focus sidebar
+                    self.state.sidebar_state.show();
+                    self.state.sidebar_state.set_focused(true);
+                    self.state.input_mode = InputMode::SidebarNavigation;
+                    if let Some(session) = self.state.tab_manager.active_session() {
+                        if let Some(workspace_id) = session.workspace_id {
+                            if let Some(index) =
+                                self.state.sidebar_data.focus_workspace(workspace_id)
+                            {
+                                self.state.sidebar_state.tree_state.selected = index;
+                            }
+                        }
+                    }
+                }
             }
             Action::ToggleSidebar => {
                 if self.config().ui.always_show_sidebar {
