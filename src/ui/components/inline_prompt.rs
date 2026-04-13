@@ -10,7 +10,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Paragraph, Widget, Wrap},
 };
-use unicode_width::UnicodeWidthStr;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use super::{
     accent_primary, accent_secondary, text_faint, text_muted, text_primary, text_secondary,
@@ -1417,7 +1417,7 @@ impl<'a> InlinePrompt<'a> {
         }
         // +1 for the cursor space appended after the text
         let text_len = (self.state.text_input.input.len() + 1) as u16;
-        ((text_len + available_width - 1) / available_width).max(1)
+        text_len.div_ceil(available_width).max(1)
     }
 }
 

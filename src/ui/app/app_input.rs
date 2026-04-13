@@ -581,7 +581,6 @@ impl App {
                 }
                 if trigger_file_mention {
                     self.open_file_mention_menu();
-                    return;
                 }
             }
             InputMode::FileMention => {

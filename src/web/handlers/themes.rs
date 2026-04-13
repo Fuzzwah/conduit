@@ -358,7 +358,7 @@ fn build_syntax_surface(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ui::components::theme::{set_theme, Theme};
+    use crate::ui::components::theme::{set_theme, theme_test_lock_async, Theme};
 
     struct ThemeReset(Theme);
 
@@ -374,6 +374,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_current_theme_includes_syntax_surfaces() {
+        let _theme_guard = theme_test_lock_async().await;
         let _reset = preserve_theme();
         set_theme(Theme::default_dark());
 
@@ -395,6 +396,7 @@ mod tests {
 
     #[tokio::test]
     async fn set_current_theme_returns_syntax_payload() {
+        let _theme_guard = theme_test_lock_async().await;
         let _reset = preserve_theme();
 
         let Json(theme) = set_current_theme(Json(SetThemeRequest {

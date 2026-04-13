@@ -59,6 +59,22 @@ fn registry_lock() -> &'static RwLock<ThemeRegistry> {
     REGISTRY.get_or_init(|| RwLock::new(ThemeRegistry::new()))
 }
 
+#[cfg(test)]
+fn theme_test_mutex() -> &'static tokio::sync::Mutex<()> {
+    static THEME_TEST_MUTEX: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
+    THEME_TEST_MUTEX.get_or_init(|| tokio::sync::Mutex::new(()))
+}
+
+#[cfg(test)]
+pub(crate) fn theme_test_lock() -> tokio::sync::MutexGuard<'static, ()> {
+    theme_test_mutex().blocking_lock()
+}
+
+#[cfg(test)]
+pub(crate) async fn theme_test_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    theme_test_mutex().lock().await
+}
+
 // =============================================================================
 // Theme Management API
 // =============================================================================

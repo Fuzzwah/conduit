@@ -554,6 +554,7 @@ fn push_char_with_style(spans: &mut Vec<Span<'static>>, ch: char, style: Style) 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ui::components::theme::theme_test_lock;
     use crate::ui::components::{set_theme, Theme};
 
     struct ThemeReset(Theme);
@@ -617,6 +618,7 @@ mod tests {
 
     #[test]
     fn test_theme_cache_refreshes_on_theme_change() {
+        let _theme_guard = theme_test_lock();
         let _reset = preserve_theme();
         set_theme(Theme::default_dark());
         let before = highlight_markdown_code_block(Some("rust"), "fn main() { let x = 1; }");
