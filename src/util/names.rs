@@ -4,29 +4,37 @@ use rand::prelude::IndexedRandom;
 
 /// Short adjectives (max 4 chars) for workspace names
 const ADJECTIVES: &[&str] = &[
-    "bold", "calm", "cool", "dark", "deep", "fair", "fast", "free", "glad", "gold", "keen", "kind",
-    "live", "lone", "lost", "loud", "mild", "near", "neat", "new", "nice", "old", "pale", "pure",
-    "rare", "raw", "red", "rich", "safe", "shy", "slim", "slow", "soft", "tall", "tame", "thin",
-    "tiny", "trim", "true", "vast", "warm", "weak", "wide", "wild", "wise",
+    "able", "aged", "airy", "bare", "blue", "bold", "buff", "calm", "cool", "cute",
+    "damp", "dark", "dear", "deep", "deft", "dull", "easy", "even", "fair", "fast",
+    "fine", "firm", "flat", "fond", "free", "full", "glad", "gold", "good", "gray",
+    "grim", "hale", "hard", "hazy", "high", "holy", "huge", "icy", "idle", "just",
+    "keen", "kind", "lazy", "lean", "live", "lone", "lost", "loud", "lush", "mild",
+    "mute", "near", "neat", "new", "nice", "old", "pale", "pink", "posh", "pure",
+    "rare", "raw", "red", "rich", "rosy", "safe", "shy", "slim", "slow", "snug",
+    "soft", "sour", "spry", "sure", "tall", "tame", "taut", "thin", "tidy", "tiny",
+    "trim", "true", "vain", "vast", "vile", "warm", "wavy", "weak", "wide", "wild",
+    "wise", "worn", "zany",
 ];
 
 /// Short nouns (max 4 chars) for workspace names
 const NOUNS: &[&str] = &[
-    "dune", "fern", "fox", "hawk", "hill", "iris", "jade", "lake", "lark", "leaf", "lynx", "mesa",
-    "mist", "moon", "moss", "oak", "owl", "peak", "pine", "pond", "rain", "reef", "rock", "sage",
-    "seal", "snow", "star", "sun", "swan", "tide", "vale", "wave", "wind", "wolf", "wren",
+    "ash", "bay", "bear", "bee", "colt", "cove", "crow", "dale", "dawn", "deer", "dove", "duck", "dune", "dusk", "elk", "elm",
+    "fawn", "fern", "fox", "gale", "gull", "hare", "hawk", "hill", "iris", "ivy", "jade", "kite", "lake", "lamb", "lark", "leaf",
+    "loon", "lynx", "mare", "mead", "mesa", "mill", "mist", "moon", "moss", "moth", "newt", "nook", "oak", "owl", "peak", "peat",
+    "pike", "pine", "plum", "pond", "pool", "rain", "reef", "reed", "rock", "rook", "rose", "rune", "rush", "sage", "sand", "seal",
+    "snow", "star", "sun", "swan", "tern", "tide", "toad", "tuft", "turf", "vale", "vole", "wave", "wind", "wolf", "wren", "yew",
 ];
 
 /// Generate a unique workspace name not in the existing list
 ///
 /// Uses adjective-noun combinations (e.g., "bold-fox", "calm-owl").
-/// With 45 adjectives and 35 nouns, there are 1,575 unique combinations.
+/// With 93 adjectives and 80 nouns, there are 7,440 unique combinations.
 /// If all combinations are exhausted, falls back to UUID suffix.
 pub fn generate_workspace_name(existing: &[String]) -> String {
     let mut rng = rand::rng();
 
     // Try random combinations until we find an unused one
-    // With 1,575 combinations, 100 attempts should be plenty
+    // With 7,440 combinations, 100 attempts should be plenty
     for _ in 0..100 {
         let adj = ADJECTIVES.choose(&mut rng).unwrap_or(&"bold");
         let noun = NOUNS.choose(&mut rng).unwrap_or(&"fox");
@@ -161,9 +169,9 @@ mod tests {
 
     #[test]
     fn test_total_combinations() {
-        // Verify we have enough combinations (should be 1,575)
+        // Verify we have enough combinations (should be 7,440)
         let total = ADJECTIVES.len() * NOUNS.len();
-        assert_eq!(total, 45 * 35);
+        assert_eq!(total, 93 * 80);
         assert!(
             total > 1500,
             "Should have at least 1500 unique combinations"
