@@ -669,29 +669,19 @@ impl InlinePromptState {
                 // Top dashed line
                 lines.push(self.dashed_line(width));
 
-                // Plan content (limited to 15 display lines, with word-wrapping)
+                // Plan content (word-wrapped, full content shown)
                 let plan_style = Style::default().fg(text_secondary());
                 let content_width = width.saturating_sub(1); // subtract 1 for leading " "
-                let max_display_lines = 15;
-                let mut displayed = 0;
-                'plan: for line in plan_content.lines() {
-                    if displayed >= max_display_lines {
-                        break;
-                    }
+                for line in plan_content.lines() {
                     if line.is_empty() {
                         lines.push(Line::from(Span::styled(" ".to_string(), plan_style)));
-                        displayed += 1;
                         continue;
                     }
                     for wrapped in word_wrap_line(line, content_width) {
-                        if displayed >= max_display_lines {
-                            break 'plan;
-                        }
                         lines.push(Line::from(Span::styled(
                             format!(" {}", wrapped),
                             plan_style,
                         )));
-                        displayed += 1;
                     }
                 }
 
