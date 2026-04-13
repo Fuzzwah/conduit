@@ -4684,15 +4684,17 @@ impl App {
                     if !status.is_merged {
                         if status.likely_squash_merged {
                             warnings.push(format!(
-                                "Squash-merged ({} commits ahead, diff already in main)",
-                                status.commits_ahead
+                                "Squash-merged ({} {} ahead, diff already in main)",
+                                status.commits_ahead,
+                                if status.commits_ahead == 1 { "commit" } else { "commits" }
                             ));
                         } else {
                             has_unmerged = true;
                             if status.commits_ahead > 0 {
                                 warnings.push(format!(
-                                    "Branch not merged ({} commits ahead)",
-                                    status.commits_ahead
+                                    "Branch not merged ({} {} ahead)",
+                                    status.commits_ahead,
+                                    if status.commits_ahead == 1 { "commit" } else { "commits" }
                                 ));
                             } else {
                                 warnings.push("Branch not merged into main".to_string());
@@ -4702,8 +4704,9 @@ impl App {
 
                     if status.commits_behind > 0 {
                         warnings.push(format!(
-                            "Branch is {} commits behind main",
-                            status.commits_behind
+                            "Branch is {} {} behind main",
+                            status.commits_behind,
+                            if status.commits_behind == 1 { "commit" } else { "commits" }
                         ));
                     }
                 }
