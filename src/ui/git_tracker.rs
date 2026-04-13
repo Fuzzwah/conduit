@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use crate::git::{GitDiffStats, PrManager, PrStatus};
+use crate::git::{get_ahead_behind, GitDiffStats, PrManager, PrStatus};
 
 /// Configuration for the background tracker
 pub struct GitTrackerConfig {
@@ -17,6 +17,8 @@ pub struct GitTrackerConfig {
     pub git_status_poll_interval: Duration,
     /// How often to poll for PR updates (default: 20 seconds)
     pub pr_poll_interval: Duration,
+    /// How often to poll for ahead/behind counts (default: 30 seconds)
+    pub ahead_behind_poll_interval: Duration,
 }
 
 impl Default for GitTrackerConfig {
@@ -24,6 +26,7 @@ impl Default for GitTrackerConfig {
         Self {
             git_status_poll_interval: Duration::from_secs(2),
             pr_poll_interval: Duration::from_secs(20),
+            ahead_behind_poll_interval: Duration::from_secs(30),
         }
     }
 }
@@ -34,6 +37,8 @@ struct WorkspaceGitState {
     pr_status: Option<PrStatus>,
     diff_stats: GitDiffStats,
     branch_name: Option<String>,
+    commits_ahead: usize,
+    commits_behind: usize,
     #[allow(dead_code)]
     last_pr_check: Option<Instant>,
     #[allow(dead_code)]
@@ -61,6 +66,12 @@ pub enum GitTrackerUpdate {
     BranchChanged {
         workspace_id: Uuid,
         branch: Option<String>,
+    },
+    /// Ahead/behind counts changed relative to origin main branch
+    AheadBehindChanged {
+        workspace_id: Uuid,
+        commits_ahead: usize,
+        commits_behind: usize,
     },
 }
 
@@ -177,10 +188,13 @@ impl GitTracker {
     async fn run(mut self) {
         let mut git_interval = tokio::time::interval(self.config.git_status_poll_interval);
         let mut pr_interval = tokio::time::interval(self.config.pr_poll_interval);
+        let mut ahead_behind_interval =
+            tokio::time::interval(self.config.ahead_behind_poll_interval);
 
         // Skip the first immediate tick
         git_interval.tick().await;
         pr_interval.tick().await;
+        ahead_behind_interval.tick().await;
 
         loop {
             tokio::select! {
@@ -210,6 +224,10 @@ impl GitTracker {
                 // PR polling (slow)
                 _ = pr_interval.tick() => {
                     self.poll_pr_status().await;
+                }
+                // Ahead/behind polling (medium)
+                _ = ahead_behind_interval.tick() => {
+                    self.poll_ahead_behind().await;
                 }
             }
         }
@@ -319,6 +337,37 @@ impl GitTracker {
         }
     }
 
+    /// Check ahead/behind counts for all tracked workspaces
+    async fn poll_ahead_behind(&mut self) {
+        let workspace_ids: Vec<_> = self.workspaces.keys().copied().collect();
+        let update_tx = self.update_tx.clone();
+
+        for workspace_id in workspace_ids {
+            if let Some((working_dir, state)) = self.workspaces.get_mut(&workspace_id) {
+                let dir = working_dir.clone();
+
+                let (new_ahead, new_behind) =
+                    tokio::task::spawn_blocking(move || get_ahead_behind(&dir))
+                        .await
+                        .unwrap_or((0, 0));
+
+                if new_ahead != state.commits_ahead || new_behind != state.commits_behind {
+                    state.commits_ahead = new_ahead;
+                    state.commits_behind = new_behind;
+                    send_update(
+                        &update_tx,
+                        GitTrackerUpdate::AheadBehindChanged {
+                            workspace_id,
+                            commits_ahead: new_ahead,
+                            commits_behind: new_behind,
+                        },
+                        "ahead_behind_changed",
+                    );
+                }
+            }
+        }
+    }
+
     /// Check a single workspace immediately (both git and PR)
     async fn check_workspace(&mut self, workspace_id: Uuid, working_dir: &Path) {
         let dir = working_dir.to_path_buf();
@@ -342,16 +391,27 @@ impl GitTracker {
         .flatten();
 
         // Get PR status
-        let new_pr_status = tokio::task::spawn_blocking(move || PrManager::get_existing_pr(&dir))
-            .await
-            .ok()
-            .flatten();
+        let new_pr_status = tokio::task::spawn_blocking({
+            let dir = dir.clone();
+            move || PrManager::get_existing_pr(&dir)
+        })
+        .await
+        .ok()
+        .flatten();
+
+        // Get ahead/behind counts
+        let (new_ahead, new_behind) =
+            tokio::task::spawn_blocking(move || get_ahead_behind(&dir))
+                .await
+                .unwrap_or((0, 0));
 
         // Update state and send updates
         if let Some((_, state)) = self.workspaces.get_mut(&workspace_id) {
             state.diff_stats = new_stats.clone();
             state.branch_name = new_branch.clone();
             state.pr_status = new_pr_status.clone();
+            state.commits_ahead = new_ahead;
+            state.commits_behind = new_behind;
             state.last_git_check = Some(Instant::now());
             state.last_pr_check = Some(Instant::now());
         }
@@ -391,6 +451,16 @@ impl GitTracker {
                 status: new_pr_status,
             },
             "pr_status_changed",
+        );
+
+        send_update(
+            &update_tx,
+            GitTrackerUpdate::AheadBehindChanged {
+                workspace_id,
+                commits_ahead: new_ahead,
+                commits_behind: new_behind,
+            },
+            "ahead_behind_changed",
         );
     }
 }
