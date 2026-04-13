@@ -5,8 +5,13 @@ use ratatui::{
     text::{Line, Span},
 };
 
-/// Spinner animation frames (Claude Code style)
-const SPINNER_FRAMES: &[&str] = &["·", "✢", "✳", "∗", "✻", "✽"];
+use crate::config::ThinkingSpinnerStyle;
+
+/// Spinner animation frames (Claude Code star style)
+const SPINNER_FRAMES_STAR: &[&str] = &["·", "✢", "✳", "∗", "✻", "✽"];
+
+/// Spinner animation frames (Braille dots, matches tab-bar processing indicator)
+const SPINNER_FRAMES_BRAILLE: &[&str] = &["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"];
 
 /// Shimmer gradient colors (bright orange to very dark)
 const SHIMMER_BRIGHT: (u8, u8, u8) = (255, 180, 80); // Bright orange
@@ -64,7 +69,8 @@ impl ThinkingIndicator {
 
     /// Advance the spinner and shimmer animations
     pub fn tick(&mut self) {
-        self.spinner_frame = (self.spinner_frame + 1) % SPINNER_FRAMES.len();
+        self.spinner_frame =
+            (self.spinner_frame + 1) % SPINNER_FRAMES_BRAILLE.len().max(SPINNER_FRAMES_STAR.len());
         // Move shimmer by ~1.5 characters per tick (at ~10 ticks/sec = 15 chars/sec)
         self.shimmer_offset += 1.5;
         // Wrap around when the wave has fully passed the text
@@ -139,19 +145,29 @@ impl ThinkingIndicator {
     }
 
     /// Render as a Line for display in chat view
-    pub fn render(&self, shimmer: bool) -> Line<'static> {
+    pub fn render(
+        &self,
+        shimmer: bool,
+        spinner_style: ThinkingSpinnerStyle,
+        label: &str,
+    ) -> Line<'static> {
         let elapsed = self.elapsed();
         let duration_str = format_duration(elapsed);
 
-        let spinner = SPINNER_FRAMES[self.spinner_frame];
+        let frames = match spinner_style {
+            ThinkingSpinnerStyle::Star => SPINNER_FRAMES_STAR,
+            ThinkingSpinnerStyle::Braille => SPINNER_FRAMES_BRAILLE,
+        };
+        let spinner = frames[self.spinner_frame % frames.len()];
         let state = self.state.as_str();
+        let label = label.to_string();
 
         let mut spans: Vec<Span<'static>> = if shimmer {
-            let shimmer_text = format!("{} Working… ", spinner);
+            let shimmer_text = format!("{spinner} {label}… ");
             self.render_shimmer_text(&shimmer_text)
         } else {
             vec![Span::styled(
-                format!("{} Working… ", spinner),
+                format!("{spinner} {label}… "),
                 Style::default().fg(Color::Gray),
             )]
         };

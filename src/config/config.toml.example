@@ -90,8 +90,12 @@
 # show_chat_scrollbar = false
 # # Keep the sidebar always visible; Ctrl+T toggles focus instead of show/hide
 # always_show_sidebar = false
-# # Show animated shimmer on the thinking indicator; set false for plain "Working" text
+# # Show animated shimmer on the thinking indicator (default: true)
 # thinking_indicator_shimmer = true
+# # Label shown in the thinking indicator (default: "Working")
+# thinking_indicator_label = "Working"
+# # Spinner animation style: "star" (Claude Code ✻ style) or "braille" (⣾ dot style)
+# thinking_indicator_spinner = "star"
 #
 # ============================================================================
 # Web Workspace Status
