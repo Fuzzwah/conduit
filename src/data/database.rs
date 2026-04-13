@@ -542,10 +542,7 @@ CREATE TABLE IF NOT EXISTS fork_seeds_new (
             .unwrap_or(false);
 
         if !has_position {
-            conn.execute(
-                "ALTER TABLE repositories ADD COLUMN position INTEGER",
-                [],
-            )?;
+            conn.execute("ALTER TABLE repositories ADD COLUMN position INTEGER", [])?;
             // Initialize positions in alphabetical order so existing ordering is preserved
             conn.execute(
                 "UPDATE repositories SET position = (

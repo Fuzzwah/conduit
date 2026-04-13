@@ -10,7 +10,10 @@ use std::time::{Duration, Instant};
 use anyhow::anyhow;
 use chrono::Utc;
 use crossterm::{
-    event::{EnableBracketedPaste, EnableMouseCapture, Event, EventStream, KeyCode, KeyModifiers, MouseEventKind},
+    event::{
+        EnableBracketedPaste, EnableMouseCapture, Event, EventStream, KeyCode, KeyModifiers,
+        MouseEventKind,
+    },
     execute,
     terminal::{enable_raw_mode, EnterAlternateScreen},
 };
@@ -972,7 +975,12 @@ impl App {
         // Create terminal guard AFTER enabling features - Drop will clean up on any exit path
         let mut guard = TerminalGuard::new(keyboard_enhancement_enabled);
 
-        execute!(stdout, EnterAlternateScreen, EnableMouseCapture, EnableBracketedPaste)?;
+        execute!(
+            stdout,
+            EnterAlternateScreen,
+            EnableMouseCapture,
+            EnableBracketedPaste
+        )?;
 
         let backend = CrosstermBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;
@@ -3184,7 +3192,9 @@ impl App {
             })
             .collect();
         self.state.close_overlays();
-        self.state.file_mention_state.show_with_entries('@', entries);
+        self.state
+            .file_mention_state
+            .show_with_entries('@', entries);
         self.state.input_mode = InputMode::FileMention;
     }
 
@@ -3227,9 +3237,7 @@ impl App {
                 let name = entry.file_name();
                 let name_str = name.to_string_lossy();
                 if path.is_dir() {
-                    if !EXCLUDED_DIRS.contains(&name_str.as_ref())
-                        && !name_str.starts_with('.')
-                    {
+                    if !EXCLUDED_DIRS.contains(&name_str.as_ref()) && !name_str.starts_with('.') {
                         dirs_to_visit.push_back((path, depth + 1));
                     }
                 } else if path.is_file() {
@@ -4480,12 +4488,18 @@ impl App {
             | Some(ConfirmationContext::ForkSession { .. })
             | Some(ConfirmationContext::ForkSessionPreflightInProgress { .. })
             | Some(ConfirmationContext::SteerFallback { .. }) => InputMode::Normal,
-            // Sidebar operations return to sidebar navigation
+            // Sidebar operations return to the mode that was active when the
+            // archive was initiated (Normal if triggered from a workspace tab,
+            // SidebarNavigation if triggered from the sidebar).
             Some(ConfirmationContext::ArchiveWorkspace(_))
             | Some(ConfirmationContext::ArchiveWorkspaceRemoteDelete { .. })
             | Some(ConfirmationContext::ArchiveWorkspacePreflightInProgress { .. })
-            | Some(ConfirmationContext::ArchiveWorkspaceInProgress { .. })
-            | Some(ConfirmationContext::RemoveProject(_))
+            | Some(ConfirmationContext::ArchiveWorkspaceInProgress { .. }) => self
+                .state
+                .archive_return_mode
+                .take()
+                .unwrap_or(InputMode::SidebarNavigation),
+            Some(ConfirmationContext::RemoveProject(_))
             | Some(ConfirmationContext::RemoveProjectPreflightInProgress { .. })
             | Some(ConfirmationContext::SelectWorkspaceMode { .. }) => InputMode::SidebarNavigation,
             // No context: return to Normal if tabs exist, otherwise SidebarNavigation
@@ -4559,7 +4573,11 @@ impl App {
             );
         if is_matching_archive_progress {
             self.state.confirmation_dialog_state.hide();
-            self.state.input_mode = InputMode::SidebarNavigation;
+            self.state.input_mode = self
+                .state
+                .archive_return_mode
+                .take()
+                .unwrap_or(InputMode::SidebarNavigation);
         }
     }
 
@@ -4571,6 +4589,13 @@ impl App {
                 Duration::from_secs(3),
             );
             return;
+        }
+
+        // Save the current mode so we can restore it when the dialog flow ends.
+        // Only overwrite a previously-saved mode if none is set (avoids stomping
+        // if somehow called while another archive is in-flight).
+        if self.state.archive_return_mode.is_none() {
+            self.state.archive_return_mode = Some(self.state.input_mode);
         }
 
         self.show_blocking_confirmation_loading(
@@ -8751,7 +8776,12 @@ impl App {
     ) -> anyhow::Result<()> {
         enable_raw_mode()?;
         let mut stdout = io::stdout();
-        execute!(stdout, EnterAlternateScreen, EnableMouseCapture, EnableBracketedPaste)?;
+        execute!(
+            stdout,
+            EnterAlternateScreen,
+            EnableMouseCapture,
+            EnableBracketedPaste
+        )?;
         terminal.clear()?;
         Ok(())
     }

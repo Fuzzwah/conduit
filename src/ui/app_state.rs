@@ -230,6 +230,8 @@ pub struct AppState {
     pub busy_footer_message: Option<String>,
     /// Pending branch updates captured while workspaces are busy
     pub pending_branch_updates: HashMap<Uuid, Option<String>>,
+    /// Input mode to restore after the archive workspace dialog flow completes
+    pub archive_return_mode: Option<InputMode>,
     /// Pending Ctrl+N flow target while onboarding gates are being completed
     pub pending_new_project_target: Option<NewProjectTarget>,
     /// Current behavior context for the model picker
@@ -409,6 +411,7 @@ impl AppState {
             busy_footer_message_active: false,
             busy_footer_message: None,
             pending_branch_updates: HashMap::new(),
+            archive_return_mode: None,
             pending_new_project_target: None,
             model_picker_context: ModelPickerContext::SessionSelection,
             settings_menu_return: false,

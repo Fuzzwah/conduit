@@ -391,6 +391,7 @@ impl Action {
                 | Action::OpenCommandPalette
                 | Action::ForkSession
                 | Action::HandoffSession
+                | Action::ArchiveCurrentWorkspace
         )
     }
 
