@@ -46,6 +46,8 @@ pub struct BranchStatus {
     pub commits_ahead: usize,
     /// Number of commits behind the main branch
     pub commits_behind: usize,
+    /// Whether the branch appears to have been squash-merged (commits ahead but diff vs main is empty)
+    pub likely_squash_merged: bool,
 }
 
 /// Manager for git worktree operations
@@ -611,6 +613,20 @@ impl WorktreeManager {
                 if parts.len() == 2 {
                     status.commits_ahead = parts[0].parse().unwrap_or(0);
                     status.commits_behind = parts[1].parse().unwrap_or(0);
+                }
+            }
+        }
+
+        // Detect squash-merge: branch has commits not in main's ancestry, but the
+        // actual diff vs main is empty — meaning the content was already merged via squash.
+        if !status.is_merged && status.commits_ahead > 0 {
+            let diff_output = Command::new("git")
+                .args(["diff", &format!("origin/{}", main_branch), "HEAD"])
+                .current_dir(worktree_path)
+                .output();
+            if let Ok(diff_output) = diff_output {
+                if diff_output.status.success() && diff_output.stdout.is_empty() {
+                    status.likely_squash_merged = true;
                 }
             }
         }

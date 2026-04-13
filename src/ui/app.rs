@@ -4645,14 +4645,21 @@ impl App {
                     }
 
                     if !status.is_merged {
-                        has_unmerged = true;
-                        if status.commits_ahead > 0 {
+                        if status.likely_squash_merged {
                             warnings.push(format!(
-                                "Branch not merged ({} commits ahead)",
+                                "Squash-merged ({} commits ahead, diff already in main)",
                                 status.commits_ahead
                             ));
                         } else {
-                            warnings.push("Branch not merged into main".to_string());
+                            has_unmerged = true;
+                            if status.commits_ahead > 0 {
+                                warnings.push(format!(
+                                    "Branch not merged ({} commits ahead)",
+                                    status.commits_ahead
+                                ));
+                            } else {
+                                warnings.push("Branch not merged into main".to_string());
+                            }
                         }
                     }
 
