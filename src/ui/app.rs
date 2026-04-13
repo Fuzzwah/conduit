@@ -1962,6 +1962,7 @@ impl App {
                                 session.input_box.backspace();
                             }
                             session.input_box.insert_str(&path);
+                            session.input_box.insert_char(' ');
                         }
                     }
                 } else if self.state.input_mode == InputMode::CommandPalette {
