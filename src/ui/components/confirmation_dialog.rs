@@ -256,6 +256,29 @@ impl<'a> ConfirmationDialog<'a> {
         msg_len.div_ceil(available_width).max(1) as u16
     }
 
+    /// Calculate the minimum dialog width needed to display all warnings without truncation.
+    ///
+    /// Overhead breakdown:
+    ///   - 2 (left + right borders)
+    ///   - 2 (DIALOG_CONTENT_PADDING_X * 2)
+    ///   - 5 ("  ⚠ " prefix, treating ⚠ as 2 cells wide for safety)
+    /// = 9 total, plus 1 margin = 10
+    fn calculate_min_width(&self) -> u16 {
+        const BASE_MIN: u16 = 50;
+        const MAX_WIDTH: u16 = 72;
+        const WARNING_OVERHEAD: usize = 10;
+
+        let min_for_warnings = self
+            .state
+            .warnings
+            .iter()
+            .map(|w| (w.len() + WARNING_OVERHEAD) as u16)
+            .max()
+            .unwrap_or(0);
+
+        BASE_MIN.max(min_for_warnings).min(MAX_WIDTH)
+    }
+
     /// Calculate the required dialog height based on content
     fn calculate_height(&self, dialog_width: u16) -> u16 {
         // Layout:
@@ -341,8 +364,8 @@ impl Widget for ConfirmationDialog<'_> {
             return;
         }
 
-        // Normal confirmation dialog
-        let dialog_width: u16 = 50;
+        // Normal confirmation dialog — width expands to fit the longest warning line
+        let dialog_width: u16 = self.calculate_min_width();
         let dialog_height = self.calculate_height(dialog_width);
 
         // Render dialog frame (instructions on bottom border)
