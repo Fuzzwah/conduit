@@ -10,7 +10,7 @@ use ratatui::{
 };
 
 use super::{
-    agent_claude, agent_codex, agent_gemini, agent_opencode, bg_highlight, dialog_bg,
+    agent_claude, agent_codex, agent_copilot, agent_gemini, agent_opencode, bg_highlight, dialog_bg,
     dialog_content_area, ensure_contrast_bg, ensure_contrast_fg, render_minimal_scrollbar,
     selected_bg, text_muted, text_primary, DialogFrame, ScrollbarMetrics, SearchableListState,
 };
@@ -45,6 +45,8 @@ pub enum AgentFilter {
     Gemini,
     /// Show only OpenCode sessions
     Opencode,
+    /// Show only GitHub Copilot sessions
+    Copilot,
 }
 
 impl AgentFilter {
@@ -55,7 +57,8 @@ impl AgentFilter {
             AgentFilter::Claude => AgentFilter::Codex,
             AgentFilter::Codex => AgentFilter::Gemini,
             AgentFilter::Gemini => AgentFilter::Opencode,
-            AgentFilter::Opencode => AgentFilter::All,
+            AgentFilter::Opencode => AgentFilter::Copilot,
+            AgentFilter::Copilot => AgentFilter::All,
         }
     }
 
@@ -67,6 +70,7 @@ impl AgentFilter {
             AgentFilter::Codex => "Codex",
             AgentFilter::Gemini => "Gemini",
             AgentFilter::Opencode => "OpenCode",
+            AgentFilter::Copilot => "Copilot",
         }
     }
 }
@@ -203,6 +207,7 @@ impl SessionImportPickerState {
                     AgentFilter::Codex => matches!(s.agent_type, AgentType::Codex),
                     AgentFilter::Gemini => matches!(s.agent_type, AgentType::Gemini),
                     AgentFilter::Opencode => matches!(s.agent_type, AgentType::Opencode),
+                    AgentFilter::Copilot => matches!(s.agent_type, AgentType::Copilot),
                 }
             })
             .filter(|(_, s)| {
@@ -477,6 +482,7 @@ impl SessionImportPicker {
             AgentFilter::Codex,
             AgentFilter::Gemini,
             AgentFilter::Opencode,
+            AgentFilter::Copilot,
         ] {
             let is_selected = state.agent_filter == filter;
             let label = format!(" {} ", filter.label());
@@ -488,6 +494,7 @@ impl SessionImportPicker {
                 AgentFilter::Codex => agent_codex(),
                 AgentFilter::Gemini => agent_gemini(),
                 AgentFilter::Opencode => agent_opencode(),
+                AgentFilter::Copilot => agent_copilot(),
             };
             let style = if is_selected {
                 let fg = ensure_contrast_fg(base_fg, tab_selected_bg, 4.5);
@@ -559,12 +566,14 @@ impl SessionImportPicker {
                 AgentType::Codex => "X",
                 AgentType::Gemini => "G",
                 AgentType::Opencode => "O",
+                AgentType::Copilot => "P",
             };
             let agent_color = match session.agent_type {
                 AgentType::Claude => agent_claude(),
                 AgentType::Codex => agent_codex(),
                 AgentType::Gemini => agent_gemini(),
                 AgentType::Opencode => agent_opencode(),
+                AgentType::Copilot => agent_copilot(),
             };
 
             // Calculate widths

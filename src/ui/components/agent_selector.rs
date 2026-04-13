@@ -63,6 +63,11 @@ impl AgentSelectorState {
                 name: "OpenCode",
                 description: "OpenCode multi-provider assistant",
             },
+            AgentType::Copilot => AgentOption {
+                agent_type: AgentType::Copilot,
+                name: "GitHub Copilot",
+                description: "GitHub's AI coding assistant",
+            },
         }
     }
 
@@ -72,6 +77,7 @@ impl AgentSelectorState {
             AgentType::Claude => Tool::Claude,
             AgentType::Gemini => Tool::Gemini,
             AgentType::Opencode => Tool::Opencode,
+            AgentType::Copilot => Tool::Copilot,
         }
     }
 
@@ -195,7 +201,7 @@ impl AgentSelector {
         }
 
         // Render dialog frame (instructions on bottom border)
-        let frame = DialogFrame::new("Select Agent", 44, 12).instructions(vec![
+        let frame = DialogFrame::new("Select Agent", 44, 16).instructions(vec![
             ("↑↓", "select"),
             ("Enter", "confirm"),
             ("Esc", "cancel"),
@@ -206,10 +212,11 @@ impl AgentSelector {
         let chunks = Layout::vertical([
             Constraint::Length(1), // Header
             Constraint::Length(1), // Spacing
-            Constraint::Length(2), // Claude option
             Constraint::Length(2), // Codex option
+            Constraint::Length(2), // Claude option
             Constraint::Length(2), // Gemini option
             Constraint::Length(2), // OpenCode option
+            Constraint::Length(2), // GitHub Copilot option
         ])
         .split(inner);
 
@@ -222,7 +229,7 @@ impl AgentSelector {
         let selected_fg = ensure_contrast_fg(text_primary(), selected_bg, 4.5);
         for (i, agent) in state.agents.iter().enumerate() {
             let chunk_idx = i + 2; // Skip header and spacing
-            if chunk_idx >= chunks.len() - 1 {
+            if chunk_idx >= chunks.len() {
                 break;
             }
 

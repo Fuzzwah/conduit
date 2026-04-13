@@ -75,6 +75,9 @@ impl ModelRegistry {
     /// Default context window for OpenCode models (approximate)
     pub const OPENCODE_CONTEXT_WINDOW: i64 = 200_000;
 
+    /// Default context window for GitHub Copilot models (conservative estimate)
+    pub const COPILOT_CONTEXT_WINDOW: i64 = 128_000;
+
     const OPENCODE_DEFAULT_MODEL_ID: &'static str = "default";
 
     fn opencode_store() -> &'static RwLock<Vec<ModelInfo>> {
@@ -333,12 +336,68 @@ impl ModelRegistry {
         ]
     }
 
+    /// Get available models for GitHub Copilot
+    pub fn copilot_models() -> Vec<ModelInfo> {
+        vec![
+            ModelInfo::new(
+                AgentType::Copilot,
+                "gpt-5.3-codex",
+                "GPT-5.3-Codex",
+                "gpt-5.3-codex",
+                "Frontier Codex-optimized agentic coding model",
+                Self::CODEX_GPT53_CONTEXT_WINDOW,
+            )
+            .as_default(),
+            ModelInfo::new(
+                AgentType::Copilot,
+                "gpt-5.3-codex-spark",
+                "GPT-5.3-Codex-Spark",
+                "gpt-5.3-codex-spark",
+                "Ultra-fast Codex model",
+                Self::CODEX_GPT53_SPARK_CONTEXT_WINDOW,
+            ),
+            ModelInfo::new(
+                AgentType::Copilot,
+                "gpt-5.4",
+                "GPT-5.4",
+                "gpt-5.4",
+                "Latest frontier agentic coding model",
+                Self::CODEX_CONTEXT_WINDOW,
+            ),
+            ModelInfo::new(
+                AgentType::Copilot,
+                "claude-sonnet-4-5",
+                "Claude Sonnet 4.5",
+                "sonnet",
+                "Anthropic Claude Sonnet 4.5",
+                Self::CLAUDE_CONTEXT_WINDOW,
+            ),
+            ModelInfo::new(
+                AgentType::Copilot,
+                "gpt-4o",
+                "GPT-4o",
+                "gpt-4o",
+                "OpenAI GPT-4o",
+                Self::COPILOT_CONTEXT_WINDOW,
+            ),
+            ModelInfo::new(
+                AgentType::Copilot,
+                "o3-mini",
+                "o3-mini",
+                "o3-mini",
+                "OpenAI o3-mini (reasoning)",
+                Self::COPILOT_CONTEXT_WINDOW,
+            ),
+        ]
+    }
+
     /// Get all models grouped by agent type
     pub fn all_models() -> Vec<ModelInfo> {
         let mut models = Self::claude_models();
         models.extend(Self::codex_models());
         models.extend(Self::gemini_models());
         models.extend(Self::opencode_models());
+        models.extend(Self::copilot_models());
         models
     }
 
@@ -349,6 +408,7 @@ impl ModelRegistry {
             AgentType::Codex => Self::codex_models(),
             AgentType::Gemini => Self::gemini_models(),
             AgentType::Opencode => Self::opencode_models(),
+            AgentType::Copilot => Self::copilot_models(),
         }
     }
 
@@ -359,6 +419,7 @@ impl ModelRegistry {
             AgentType::Codex => "gpt-5.4".to_string(),
             AgentType::Gemini => "gemini-2.5-pro".to_string(),
             AgentType::Opencode => Self::OPENCODE_DEFAULT_MODEL_ID.to_string(),
+            AgentType::Copilot => "gpt-5.3-codex".to_string(),
         }
     }
 
@@ -397,6 +458,7 @@ impl ModelRegistry {
             AgentType::Codex => "◎",
             AgentType::Gemini => "◆",
             AgentType::Opencode => "◍",
+            AgentType::Copilot => "⊙",
         }
     }
 
@@ -407,6 +469,7 @@ impl ModelRegistry {
             AgentType::Codex => "Codex",
             AgentType::Gemini => "Gemini",
             AgentType::Opencode => "OpenCode",
+            AgentType::Copilot => "GitHub Copilot",
         }
     }
 
@@ -424,6 +487,7 @@ impl ModelRegistry {
             AgentType::Codex => Self::CODEX_CONTEXT_WINDOW,
             AgentType::Gemini => Self::GEMINI_CONTEXT_WINDOW,
             AgentType::Opencode => Self::OPENCODE_CONTEXT_WINDOW,
+            AgentType::Copilot => Self::COPILOT_CONTEXT_WINDOW,
         }
     }
 }
