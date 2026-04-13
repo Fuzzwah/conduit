@@ -121,13 +121,28 @@ pub struct SelectionConfig {
     pub clear_selection_after_copy: bool,
 }
 
-#[derive(Debug, Clone, Copy)]
+/// Spinner animation style for the thinking indicator
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum ThinkingSpinnerStyle {
+    /// Claude Code-style rotating star frames (·, ✢, ✳, ∗, ✻, ✽)
+    #[default]
+    Star,
+    /// Braille dot spinner (⣾, ⣽, ⣻, ⢿, ⡿, ⣟, ⣯, ⣷)
+    Braille,
+}
+
+#[derive(Debug, Clone)]
 pub struct UiConfig {
     pub show_chat_scrollbar: bool,
     /// Keep the sidebar always visible; Ctrl+T toggles focus instead of show/hide
     pub always_show_sidebar: bool,
-    /// Show animated shimmer on the thinking indicator; set false for plain "Working" text
+    /// Show animated shimmer on the thinking indicator (default: true)
     pub thinking_indicator_shimmer: bool,
+    /// Label shown in the thinking indicator (default: "Working")
+    pub thinking_indicator_label: String,
+    /// Spinner animation style: Star (·✻ Claude Code style) or Braille (⣾ dot style)
+    pub thinking_indicator_spinner: ThinkingSpinnerStyle,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -141,6 +156,8 @@ pub struct TomlUiConfig {
     pub show_chat_scrollbar: Option<bool>,
     pub always_show_sidebar: Option<bool>,
     pub thinking_indicator_shimmer: Option<bool>,
+    pub thinking_indicator_label: Option<String>,
+    pub thinking_indicator_spinner: Option<ThinkingSpinnerStyle>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -227,6 +244,8 @@ impl Default for Config {
                 show_chat_scrollbar: false,
                 always_show_sidebar: false,
                 thinking_indicator_shimmer: true,
+                thinking_indicator_label: "Working".to_string(),
+                thinking_indicator_spinner: ThinkingSpinnerStyle::Star,
             },
             web_status: WebStatusConfig {
                 initial_scan: true,
@@ -734,6 +753,12 @@ impl Config {
                         }
                         if let Some(thinking_indicator_shimmer) = ui.thinking_indicator_shimmer {
                             config.ui.thinking_indicator_shimmer = thinking_indicator_shimmer;
+                        }
+                        if let Some(label) = ui.thinking_indicator_label {
+                            config.ui.thinking_indicator_label = label;
+                        }
+                        if let Some(spinner) = ui.thinking_indicator_spinner {
+                            config.ui.thinking_indicator_spinner = spinner;
                         }
                     }
                     // Load web status configuration

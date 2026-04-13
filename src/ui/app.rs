@@ -4686,7 +4686,11 @@ impl App {
                             warnings.push(format!(
                                 "Squash-merged ({} {} ahead, diff already in main)",
                                 status.commits_ahead,
-                                if status.commits_ahead == 1 { "commit" } else { "commits" }
+                                if status.commits_ahead == 1 {
+                                    "commit"
+                                } else {
+                                    "commits"
+                                }
                             ));
                         } else {
                             has_unmerged = true;
@@ -4694,7 +4698,11 @@ impl App {
                                 warnings.push(format!(
                                     "Branch not merged ({} {} ahead)",
                                     status.commits_ahead,
-                                    if status.commits_ahead == 1 { "commit" } else { "commits" }
+                                    if status.commits_ahead == 1 {
+                                        "commit"
+                                    } else {
+                                        "commits"
+                                    }
                                 ));
                             } else {
                                 warnings.push("Branch not merged into main".to_string());
@@ -4706,7 +4714,11 @@ impl App {
                         warnings.push(format!(
                             "Branch is {} {} behind main",
                             status.commits_behind,
-                            if status.commits_behind == 1 { "commit" } else { "commits" }
+                            if status.commits_behind == 1 {
+                                "commit"
+                            } else {
+                                "commits"
+                            }
                         ));
                     }
                 }
@@ -10512,6 +10524,9 @@ impl App {
                     let is_command_mode = self.state.input_mode == InputMode::Command;
                     let show_chat_scrollbar = self.config().ui.show_chat_scrollbar;
                     let thinking_indicator_shimmer = self.config().ui.thinking_indicator_shimmer;
+                    let thinking_indicator_spinner = self.config().ui.thinking_indicator_spinner;
+                    let thinking_indicator_label =
+                        self.config().ui.thinking_indicator_label.clone();
                     if let Some(session) = self.state.tab_manager.active_session_mut() {
                         // Use full chat area - prompt is now rendered as part of scrollable content
                         let chat_area = chat_chunk;
@@ -10525,11 +10540,11 @@ impl App {
                         // Render chat with thinking indicator if processing (but not during inline prompt)
                         let thinking_line =
                             if session.is_processing && session.inline_prompt.is_none() {
-                                Some(
-                                    session
-                                        .thinking_indicator
-                                        .render(thinking_indicator_shimmer),
-                                )
+                                Some(session.thinking_indicator.render(
+                                    thinking_indicator_shimmer,
+                                    thinking_indicator_spinner,
+                                    &thinking_indicator_label,
+                                ))
                             } else {
                                 None
                             };

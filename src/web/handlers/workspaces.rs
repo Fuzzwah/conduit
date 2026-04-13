@@ -233,13 +233,21 @@ pub async fn get_workspace_archive_preflight(
                     warnings.push(format!(
                         "Squash-merged ({} {} ahead, diff already in main)",
                         status.commits_ahead,
-                        if status.commits_ahead == 1 { "commit" } else { "commits" }
+                        if status.commits_ahead == 1 {
+                            "commit"
+                        } else {
+                            "commits"
+                        }
                     ));
                 } else if status.commits_ahead > 0 {
                     warnings.push(format!(
                         "Branch not merged ({} {} ahead)",
                         status.commits_ahead,
-                        if status.commits_ahead == 1 { "commit" } else { "commits" }
+                        if status.commits_ahead == 1 {
+                            "commit"
+                        } else {
+                            "commits"
+                        }
                     ));
                 } else {
                     warnings.push("Branch not merged into main".to_string());
@@ -250,7 +258,11 @@ pub async fn get_workspace_archive_preflight(
                 warnings.push(format!(
                     "Branch is {} {} behind main",
                     status.commits_behind,
-                    if status.commits_behind == 1 { "commit" } else { "commits" }
+                    if status.commits_behind == 1 {
+                        "commit"
+                    } else {
+                        "commits"
+                    }
                 ));
             }
         }
