@@ -341,19 +341,43 @@ impl ModelRegistry {
         vec![
             ModelInfo::new(
                 AgentType::Copilot,
-                "gpt-4o",
-                "GPT-4o",
-                "gpt-4o",
-                "OpenAI GPT-4o",
-                Self::COPILOT_CONTEXT_WINDOW,
+                "gpt-5.3-codex",
+                "GPT-5.3-Codex",
+                "gpt-5.3-codex",
+                "Frontier Codex-optimized agentic coding model",
+                Self::CODEX_GPT53_CONTEXT_WINDOW,
             )
             .as_default(),
+            ModelInfo::new(
+                AgentType::Copilot,
+                "gpt-5.3-codex-spark",
+                "GPT-5.3-Codex-Spark",
+                "gpt-5.3-codex-spark",
+                "Ultra-fast Codex model",
+                Self::CODEX_GPT53_SPARK_CONTEXT_WINDOW,
+            ),
+            ModelInfo::new(
+                AgentType::Copilot,
+                "gpt-5.4",
+                "GPT-5.4",
+                "gpt-5.4",
+                "Latest frontier agentic coding model",
+                Self::CODEX_CONTEXT_WINDOW,
+            ),
             ModelInfo::new(
                 AgentType::Copilot,
                 "claude-sonnet-4-5",
                 "Claude Sonnet 4.5",
                 "sonnet",
                 "Anthropic Claude Sonnet 4.5",
+                Self::CLAUDE_CONTEXT_WINDOW,
+            ),
+            ModelInfo::new(
+                AgentType::Copilot,
+                "gpt-4o",
+                "GPT-4o",
+                "gpt-4o",
+                "OpenAI GPT-4o",
                 Self::COPILOT_CONTEXT_WINDOW,
             ),
             ModelInfo::new(
@@ -395,7 +419,7 @@ impl ModelRegistry {
             AgentType::Codex => "gpt-5.4".to_string(),
             AgentType::Gemini => "gemini-2.5-pro".to_string(),
             AgentType::Opencode => Self::OPENCODE_DEFAULT_MODEL_ID.to_string(),
-            AgentType::Copilot => "gpt-4o".to_string(),
+            AgentType::Copilot => "gpt-5.3-codex".to_string(),
         }
     }
 
