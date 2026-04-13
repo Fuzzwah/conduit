@@ -617,16 +617,23 @@ impl WorktreeManager {
             }
         }
 
-        // Detect squash-merge: branch has commits not in main's ancestry, but the
-        // actual diff vs main is empty — meaning the content was already merged via squash.
+        // Detect squash-merge: use `git cherry` which compares patch IDs rather than
+        // commit ancestry, so it correctly identifies commits whose content has already
+        // landed in main via a squash merge (where the SHA differs but the diff matches).
         if !status.is_merged && status.commits_ahead > 0 {
-            let diff_output = Command::new("git")
-                .args(["diff", &format!("origin/{}", main_branch), "HEAD"])
+            let cherry_output = Command::new("git")
+                .args(["cherry", &format!("origin/{}", main_branch), "HEAD"])
                 .current_dir(worktree_path)
                 .output();
-            if let Ok(diff_output) = diff_output {
-                if diff_output.status.success() && diff_output.stdout.is_empty() {
-                    status.likely_squash_merged = true;
+            if let Ok(cherry_output) = cherry_output {
+                if cherry_output.status.success() {
+                    let stdout = String::from_utf8_lossy(&cherry_output.stdout);
+                    // Lines prefixed with '+' are commits not yet applied upstream.
+                    // If there are none, all commits have been applied (squash merged).
+                    let has_unmerged_commits = stdout.lines().any(|line| line.starts_with('+'));
+                    if !has_unmerged_commits {
+                        status.likely_squash_merged = true;
+                    }
                 }
             }
         }
