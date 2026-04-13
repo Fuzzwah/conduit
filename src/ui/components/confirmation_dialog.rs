@@ -116,6 +116,8 @@ pub struct ConfirmationDialogState {
     pub message: String,
     /// List of warning messages to display
     pub warnings: Vec<String>,
+    /// Informational items to display with a green tick (not warnings)
+    pub info_items: Vec<String>,
     /// Confirmation type (affects appearance)
     pub confirmation_type: ConfirmationType,
     /// Text for the confirm button
@@ -139,6 +141,7 @@ impl ConfirmationDialogState {
             title: String::new(),
             message: String::new(),
             warnings: Vec::new(),
+            info_items: Vec::new(),
             confirmation_type: ConfirmationType::Info,
             confirm_text: "Confirm".to_string(),
             cancel_text: "Cancel".to_string(),
@@ -166,6 +169,7 @@ impl ConfirmationDialogState {
         self.title = title.into();
         self.message = String::new();
         self.warnings = Vec::new();
+        self.info_items = Vec::new();
         self.confirmation_type = ConfirmationType::Info;
         self.context = context;
     }
@@ -192,6 +196,7 @@ impl ConfirmationDialogState {
         self.title = title.into();
         self.message = message.into();
         self.warnings = warnings;
+        self.info_items = Vec::new();
         self.confirmation_type = confirmation_type;
         self.confirm_text = confirm_text.into();
         self.cancel_text = "Cancel".to_string();
@@ -256,24 +261,25 @@ impl<'a> ConfirmationDialog<'a> {
         msg_len.div_ceil(available_width).max(1) as u16
     }
 
-    /// Calculate the minimum dialog width needed to display all warnings without truncation.
+    /// Calculate the minimum dialog width needed to display all extra lines without truncation.
     ///
     /// Overhead breakdown:
     ///   - 2 (left + right borders)
     ///   - 2 (DIALOG_CONTENT_PADDING_X * 2)
-    ///   - 5 ("  ⚠ " prefix, treating ⚠ as 2 cells wide for safety)
+    ///   - 5 ("  ⚠ " or "  ✓ " prefix, treating the icon as 2 cells wide for safety)
     ///
     /// Total: 9, plus 1 margin = 10
     fn calculate_min_width(&self) -> u16 {
         const BASE_MIN: u16 = 50;
         const MAX_WIDTH: u16 = 72;
-        const WARNING_OVERHEAD: usize = 10;
+        const LINE_OVERHEAD: usize = 10;
 
         let min_for_warnings = self
             .state
             .warnings
             .iter()
-            .map(|w| (w.len() + WARNING_OVERHEAD) as u16)
+            .chain(self.state.info_items.iter())
+            .map(|w| (w.len() + LINE_OVERHEAD) as u16)
             .max()
             .unwrap_or(0);
 
@@ -287,16 +293,17 @@ impl<'a> ConfirmationDialog<'a> {
         // - Empty line (1)
         // - Message lines
         // - Empty line after message (1)
-        // - Warnings (if any)
+        // - Info items + warnings (if any), with 1 line of spacing before the block
         // - Empty line before buttons (1)
         // - Buttons (1)
         // - Empty line (1)
         // - Bottom border (1) - instructions render on border
         let message_lines = self.calculate_message_lines(dialog_width);
-        let warnings_height = if self.state.warnings.is_empty() {
+        let extra_items_count = self.state.warnings.len() + self.state.info_items.len();
+        let warnings_height = if extra_items_count == 0 {
             0
         } else {
-            self.state.warnings.len() as u16 + 1 // warnings + spacing before them
+            extra_items_count as u16 + 1 // items + spacing before them
         };
         let base_height: u16 = 10; // borders(2) + top_padding(1) + spacing + buttons + spacing
         base_height + message_lines + warnings_height
@@ -408,22 +415,38 @@ impl Widget for ConfirmationDialog<'_> {
         // Add spacing after message
         y_offset += 1;
 
-        // Render warnings
-        if !self.state.warnings.is_empty() {
-            // Spacing before warnings already included in y_offset
-
+        // Render info items (green tick) then warnings (yellow/red warning icon)
+        let has_extra_items = !self.state.info_items.is_empty() || !self.state.warnings.is_empty();
+        if has_extra_items {
             let warning_color = self.state.confirmation_type.warning_color();
+            for info in &self.state.info_items {
+                if inner.y + y_offset >= inner.y + inner.height.saturating_sub(2) {
+                    break;
+                }
+                let info_line = Line::from(vec![
+                    Span::styled("  ✓ ", Style::default().fg(Color::Green)),
+                    Span::styled(info.as_str(), Style::default().fg(Color::Green)),
+                ]);
+                Paragraph::new(info_line).render(
+                    Rect {
+                        x: inner.x,
+                        y: inner.y + y_offset,
+                        width: inner.width,
+                        height: 1,
+                    },
+                    buf,
+                );
+                y_offset += 1;
+            }
             for warning in &self.state.warnings {
                 if inner.y + y_offset >= inner.y + inner.height.saturating_sub(2) {
                     break;
                 }
-
                 let warning_line = Line::from(vec![
                     Span::styled("  ⚠ ", Style::default().fg(warning_color)),
                     Span::styled(warning.as_str(), Style::default().fg(warning_color)),
                 ]);
-                let warning_para = Paragraph::new(warning_line);
-                warning_para.render(
+                Paragraph::new(warning_line).render(
                     Rect {
                         x: inner.x,
                         y: inner.y + y_offset,

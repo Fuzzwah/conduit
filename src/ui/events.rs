@@ -220,6 +220,8 @@ pub struct ArchiveWorkspaceDialogPreflightResult {
     pub workspace_name: String,
     pub message: String,
     pub warnings: Vec<String>,
+    /// Informational items shown with a green tick (not warnings)
+    pub info_items: Vec<String>,
     pub has_dirty: bool,
     pub has_unmerged: bool,
 }

@@ -4668,6 +4668,7 @@ impl App {
 
                 let branch_status = worktree_manager.get_branch_status(&workspace.path);
                 let mut warnings = Vec::new();
+                let mut info_items = Vec::new();
                 let mut has_dirty = false;
                 let mut has_unmerged = false;
 
@@ -4683,10 +4684,14 @@ impl App {
 
                     if !status.is_merged {
                         if status.likely_squash_merged {
-                            warnings.push(format!(
+                            info_items.push(format!(
                                 "Squash-merged ({} {} ahead, diff already in main)",
                                 status.commits_ahead,
-                                if status.commits_ahead == 1 { "commit" } else { "commits" }
+                                if status.commits_ahead == 1 {
+                                    "commit"
+                                } else {
+                                    "commits"
+                                }
                             ));
                         } else {
                             has_unmerged = true;
@@ -4694,7 +4699,11 @@ impl App {
                                 warnings.push(format!(
                                     "Branch not merged ({} {} ahead)",
                                     status.commits_ahead,
-                                    if status.commits_ahead == 1 { "commit" } else { "commits" }
+                                    if status.commits_ahead == 1 {
+                                        "commit"
+                                    } else {
+                                        "commits"
+                                    }
                                 ));
                             } else {
                                 warnings.push("Branch not merged into main".to_string());
@@ -4706,7 +4715,11 @@ impl App {
                         warnings.push(format!(
                             "Branch is {} {} behind main",
                             status.commits_behind,
-                            if status.commits_behind == 1 { "commit" } else { "commits" }
+                            if status.commits_behind == 1 {
+                                "commit"
+                            } else {
+                                "commits"
+                            }
                         ));
                     }
                 }
@@ -4720,13 +4733,25 @@ impl App {
                     message.push_str(" The local branch will be deleted.");
                 }
                 if settings.archive_delete_branch && settings.archive_remote_prompt {
-                    message.push_str(" You'll be asked about deleting the remote branch.");
+                    let remote_exists = repo
+                        .base_path
+                        .as_ref()
+                        .and_then(|base_path| {
+                            worktree_manager
+                                .remote_branch_exists(base_path, &workspace.branch)
+                                .ok()
+                        })
+                        .unwrap_or(false);
+                    if remote_exists {
+                        message.push_str(" You'll be asked about deleting the remote branch.");
+                    }
                 }
 
                 Ok(ArchiveWorkspaceDialogPreflightResult {
                     workspace_name: workspace.name,
                     message,
                     warnings,
+                    info_items,
                     has_dirty,
                     has_unmerged,
                 })
@@ -6400,6 +6425,7 @@ impl App {
                             "Archive",
                             Some(ConfirmationContext::ArchiveWorkspace(workspace_id)),
                         );
+                        self.state.confirmation_dialog_state.info_items = preflight.info_items;
                         self.state.input_mode = InputMode::Confirming;
                     }
                     Err(err) => {
@@ -12751,6 +12777,7 @@ mod tests {
                 workspace_name: "free-rain".to_string(),
                 message: "This will remove the worktree.".to_string(),
                 warnings: vec!["Uncommitted changes".to_string()],
+                info_items: vec![],
                 has_dirty: true,
                 has_unmerged: false,
             }),
