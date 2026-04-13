@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use crate::agent::{
-    ClaudeCodeRunner, CodexCliRunner, GeminiCliRunner, ModelRegistry, OpencodeRunner,
+    ClaudeCodeRunner, CodexCliRunner, CopilotRunner, GeminiCliRunner, ModelRegistry, OpencodeRunner,
 };
 use crate::config::Config;
 use crate::data::{
@@ -44,6 +44,8 @@ pub struct ConduitCore {
     gemini_runner: Arc<GeminiCliRunner>,
     /// OpenCode runner
     opencode_runner: Arc<OpencodeRunner>,
+    /// GitHub Copilot runner
+    copilot_runner: Arc<CopilotRunner>,
     /// Worktree manager
     worktree_manager: WorkspaceRepoManager,
 }
@@ -105,6 +107,10 @@ impl ConduitCore {
             Some(path) => Arc::new(OpencodeRunner::with_path(path.clone())),
             None => Arc::new(OpencodeRunner::new()),
         };
+        let copilot_runner = match tools.get_path(Tool::Copilot) {
+            Some(path) => Arc::new(CopilotRunner::with_path(path.clone())),
+            None => Arc::new(CopilotRunner::new()),
+        };
 
         if tools.is_available(Tool::Opencode) {
             let models = crate::agent::opencode::load_opencode_models(
@@ -128,6 +134,7 @@ impl ConduitCore {
             codex_runner,
             gemini_runner,
             opencode_runner,
+            copilot_runner,
             worktree_manager,
         }
     }
@@ -212,6 +219,11 @@ impl ConduitCore {
         &self.opencode_runner
     }
 
+    /// Get the GitHub Copilot runner.
+    pub fn copilot_runner(&self) -> &Arc<CopilotRunner> {
+        &self.copilot_runner
+    }
+
     /// Get the worktree manager.
     pub fn worktree_manager(&self) -> &WorkspaceRepoManager {
         &self.worktree_manager
@@ -252,6 +264,10 @@ impl ConduitCore {
         self.opencode_runner = match self.tools.get_path(Tool::Opencode) {
             Some(path) => Arc::new(OpencodeRunner::with_path(path.clone())),
             None => Arc::new(OpencodeRunner::new()),
+        };
+        self.copilot_runner = match self.tools.get_path(Tool::Copilot) {
+            Some(path) => Arc::new(CopilotRunner::with_path(path.clone())),
+            None => Arc::new(CopilotRunner::new()),
         };
 
         if self.tools.is_available(Tool::Opencode) {

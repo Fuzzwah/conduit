@@ -108,6 +108,7 @@ pub use theme::{
     // Agent colors (functions)
     agent_claude,
     agent_codex,
+    agent_copilot,
     agent_gemini,
     agent_opencode,
     // Background colors (functions)

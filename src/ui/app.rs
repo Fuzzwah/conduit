@@ -35,8 +35,8 @@ use crate::agent::{
     load_claude_history_with_debug, load_codex_history_with_debug,
     load_opencode_history_for_dir_with_debug, load_opencode_history_with_debug, AgentEvent,
     AgentInput, AgentMode, AgentRunner, AgentStartConfig, AgentType, ClaudeCodeRunner,
-    CodexCliRunner, GeminiCliRunner, HistoryDebugEntry, MessageDisplay, ModelRegistry,
-    OpencodeRunner, SessionId,
+    CodexCliRunner, CopilotRunner, GeminiCliRunner, HistoryDebugEntry, MessageDisplay,
+    ModelRegistry, OpencodeRunner, SessionId,
 };
 use crate::command_resolver::{
     CommandResolver, ConduitCommand, MenuEntryKind, ResolveResult, ResolvedPrompt,
@@ -278,6 +278,12 @@ impl App {
     #[inline]
     fn opencode_runner(&self) -> &Arc<OpencodeRunner> {
         self.core.opencode_runner()
+    }
+
+    /// Get the GitHub Copilot runner.
+    #[inline]
+    fn copilot_runner(&self) -> &Arc<CopilotRunner> {
+        self.core.copilot_runner()
     }
 
     /// Get the worktree manager.
@@ -550,6 +556,14 @@ impl App {
                                 session.chat_view.push(msg);
                             }
                         }
+                    }
+                    AgentType::Copilot => {
+                        session.chat_view.push(
+                            MessageDisplay::System {
+                                content: "GitHub Copilot history import isn't supported yet, so previous messages won't be shown.".to_string(),
+                            }
+                            .to_chat_message(),
+                        );
                     }
                 }
             } else if tab.agent_type == AgentType::Opencode {
@@ -2126,6 +2140,7 @@ impl App {
                         AgentType::Codex => self.codex_runner().clone(),
                         AgentType::Gemini => self.gemini_runner().clone(),
                         AgentType::Opencode => self.opencode_runner().clone(),
+                        AgentType::Copilot => self.copilot_runner().clone(),
                     };
 
                     let event_tx = self.event_tx.clone();
@@ -3768,6 +3783,14 @@ impl App {
                                 }
                             }
                         }
+                        AgentType::Copilot => {
+                            session.chat_view.push(
+                                MessageDisplay::System {
+                                    content: "GitHub Copilot history import isn't supported yet, so previous messages won't be shown.".to_string(),
+                                }
+                                .to_chat_message(),
+                            );
+                        }
                     }
                 } else if saved.agent_type == AgentType::Opencode {
                     if let Some(working_dir) = session.working_dir.as_ref() {
@@ -3862,6 +3885,7 @@ impl App {
             AgentType::Codex => crate::util::Tool::Codex,
             AgentType::Gemini => crate::util::Tool::Gemini,
             AgentType::Opencode => crate::util::Tool::Opencode,
+            AgentType::Copilot => crate::util::Tool::Copilot,
         }
     }
 
@@ -5170,6 +5194,16 @@ impl App {
                         session.chat_view.push(msg);
                     }
                 }
+            }
+            AgentType::Copilot => {
+                session.resume_session_id = None;
+                session.agent_session_id = None;
+                session.chat_view.push(
+                    MessageDisplay::System {
+                        content: "GitHub Copilot session import isn't supported yet.".to_string(),
+                    }
+                    .to_chat_message(),
+                );
             }
         }
 

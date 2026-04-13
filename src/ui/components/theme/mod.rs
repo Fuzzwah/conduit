@@ -334,6 +334,12 @@ pub fn agent_opencode() -> Color {
     current_theme().agent_opencode
 }
 
+#[inline]
+pub fn agent_copilot() -> Color {
+    // Reuse the Claude color for now; a dedicated theme field can be added later
+    current_theme().agent_claude
+}
+
 // PR State Colors
 #[inline]
 pub fn pr_open_bg() -> Color {

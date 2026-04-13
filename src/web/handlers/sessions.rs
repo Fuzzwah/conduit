@@ -233,7 +233,7 @@ fn load_history_for_session(session: &SessionTab) -> Vec<ChatMessage> {
                 tracing::warn!("Failed to load Codex history: {}", e);
                 Vec::new()
             }),
-        AgentType::Gemini => Vec::new(),
+        AgentType::Gemini | AgentType::Copilot => Vec::new(),
         AgentType::Opencode => load_opencode_history_with_debug(agent_session_id)
             .map(|(messages, _, _)| messages)
             .unwrap_or_else(|e| {
@@ -394,8 +394,8 @@ pub async fn get_session_events(
                 vec![]
             }
         },
-        AgentType::Gemini => {
-            // Gemini history loading not supported yet
+        AgentType::Gemini | AgentType::Copilot => {
+            // History loading not supported for this agent
             vec![]
         }
         AgentType::Opencode => match load_opencode_history_with_debug(&agent_session_id) {

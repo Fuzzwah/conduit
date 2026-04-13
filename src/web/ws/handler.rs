@@ -170,6 +170,7 @@ impl SessionManager {
             AgentType::Codex => core.codex_runner().clone(),
             AgentType::Gemini => core.gemini_runner().clone(),
             AgentType::Opencode => core.opencode_runner().clone(),
+            AgentType::Copilot => core.copilot_runner().clone(),
         };
 
         if !runner.is_available() {
@@ -448,7 +449,10 @@ impl SessionManager {
         // Send as appropriate input type based on agent
         let agent_input = match agent_type {
             AgentType::Claude => AgentInput::ClaudeJsonl(input),
-            AgentType::Codex | AgentType::Gemini | AgentType::Opencode => AgentInput::CodexPrompt {
+            AgentType::Codex
+            | AgentType::Gemini
+            | AgentType::Opencode
+            | AgentType::Copilot => AgentInput::CodexPrompt {
                 text: input,
                 images,
                 model,
@@ -1134,11 +1138,11 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                             }
                             continue;
                         }
-                        AgentType::Opencode => {
+                        AgentType::Opencode | AgentType::Copilot => {
                             if let Err(send_err) = tx
                                 .send(ServerMessage::session_error(
                                     session_id,
-                                    "Image attachments are not supported for OpenCode sessions",
+                                    "Image attachments are not supported for this agent",
                                 ))
                                 .await
                             {
@@ -1506,11 +1510,11 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                             }
                             continue;
                         }
-                        Some(AgentType::Opencode) => {
+                        Some(AgentType::Opencode) | Some(AgentType::Copilot) => {
                             if let Err(send_err) = tx
                                 .send(ServerMessage::session_error(
                                     session_id,
-                                    "Image attachments are not supported for OpenCode sessions",
+                                    "Image attachments are not supported for this agent",
                                 ))
                                 .await
                             {

@@ -622,6 +622,7 @@ impl Config {
             "codex" => Some(AgentType::Codex),
             "gemini" => Some(AgentType::Gemini),
             "opencode" => Some(AgentType::Opencode),
+            "copilot" => Some(AgentType::Copilot),
             _ => None,
         }
     }
@@ -799,6 +800,7 @@ impl Config {
             AgentType::Codex => Tool::Codex,
             AgentType::Gemini => Tool::Gemini,
             AgentType::Opencode => Tool::Opencode,
+            AgentType::Copilot => Tool::Copilot,
         }
     }
 

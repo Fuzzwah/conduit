@@ -22,6 +22,8 @@ pub enum Tool {
     Gemini,
     /// OpenCode CLI agent
     Opencode,
+    /// GitHub Copilot CLI agent
+    Copilot,
 }
 
 impl Tool {
@@ -34,6 +36,7 @@ impl Tool {
             Tool::Codex => "codex",
             Tool::Gemini => "gemini",
             Tool::Opencode => "opencode",
+            Tool::Copilot => "copilot",
         }
     }
 
@@ -46,6 +49,7 @@ impl Tool {
             Tool::Codex => "Codex CLI",
             Tool::Gemini => "Gemini CLI",
             Tool::Opencode => "OpenCode",
+            Tool::Copilot => "GitHub Copilot",
         }
     }
 
@@ -58,6 +62,7 @@ impl Tool {
             Tool::Codex => "npm install -g @openai/codex\nhttps://github.com/openai/codex-cli",
             Tool::Gemini => "npm install -g @google/gemini-cli\nhttps://github.com/google-gemini/gemini-cli",
             Tool::Opencode => "brew install anomalyco/tap/opencode\nhttps://opencode.ai/docs",
+            Tool::Copilot => "https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli",
         }
     }
 
@@ -70,6 +75,7 @@ impl Tool {
             Tool::Codex => "Codex is an AI coding assistant from OpenAI.",
             Tool::Gemini => "Gemini CLI is an AI coding assistant from Google.",
             Tool::Opencode => "OpenCode is a multi-provider AI coding assistant.",
+            Tool::Copilot => "GitHub Copilot CLI is an AI coding assistant from GitHub.",
         }
     }
 
@@ -82,7 +88,7 @@ impl Tool {
     pub fn is_agent(&self) -> bool {
         matches!(
             self,
-            Tool::Claude | Tool::Codex | Tool::Gemini | Tool::Opencode
+            Tool::Claude | Tool::Codex | Tool::Gemini | Tool::Opencode | Tool::Copilot
         )
     }
 
@@ -95,6 +101,7 @@ impl Tool {
             Tool::Codex,
             Tool::Gemini,
             Tool::Opencode,
+            Tool::Copilot,
         ]
     }
 }
@@ -141,6 +148,7 @@ pub struct ToolPaths {
     pub codex: Option<PathBuf>,
     pub gemini: Option<PathBuf>,
     pub opencode: Option<PathBuf>,
+    pub copilot: Option<PathBuf>,
 }
 
 impl ToolPaths {
@@ -153,6 +161,7 @@ impl ToolPaths {
             Tool::Codex => self.codex.as_ref(),
             Tool::Gemini => self.gemini.as_ref(),
             Tool::Opencode => self.opencode.as_ref(),
+            Tool::Copilot => self.copilot.as_ref(),
         }
     }
 
@@ -165,6 +174,7 @@ impl ToolPaths {
             Tool::Codex => self.codex = Some(path),
             Tool::Gemini => self.gemini = Some(path),
             Tool::Opencode => self.opencode = Some(path),
+            Tool::Copilot => self.copilot = Some(path),
         }
     }
 }
@@ -178,6 +188,7 @@ pub struct ToolAvailability {
     codex: ToolStatus,
     gemini: ToolStatus,
     opencode: ToolStatus,
+    copilot: ToolStatus,
 }
 
 impl ToolAvailability {
@@ -195,6 +206,7 @@ impl ToolAvailability {
             codex: Self::detect_tool(Tool::Codex, configured_paths.codex.as_ref()),
             gemini: Self::detect_tool(Tool::Gemini, configured_paths.gemini.as_ref()),
             opencode: Self::detect_tool(Tool::Opencode, configured_paths.opencode.as_ref()),
+            copilot: Self::detect_tool(Tool::Copilot, configured_paths.copilot.as_ref()),
         }
     }
 
@@ -258,6 +270,7 @@ impl ToolAvailability {
             Tool::Codex => &self.codex,
             Tool::Gemini => &self.gemini,
             Tool::Opencode => &self.opencode,
+            Tool::Copilot => &self.copilot,
         }
     }
 
@@ -294,6 +307,7 @@ impl ToolAvailability {
             || self.is_available(Tool::Codex)
             || self.is_available(Tool::Gemini)
             || self.is_available(Tool::Opencode)
+            || self.is_available(Tool::Copilot)
     }
 
     /// Get list of available agents
@@ -324,6 +338,7 @@ impl ToolAvailability {
             Tool::Codex => self.codex = status,
             Tool::Gemini => self.gemini = status,
             Tool::Opencode => self.opencode = status,
+            Tool::Copilot => self.copilot = status,
         }
 
         is_available
