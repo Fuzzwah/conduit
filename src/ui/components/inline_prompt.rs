@@ -720,7 +720,7 @@ impl InlinePromptState {
 
                 if self.input_mode {
                     lines.push(Line::from("")); // blank line
-                    lines.push(self.text_input_line());
+                    lines.extend(self.text_input_lines_wrapped(width));
                     lines.push(Line::from("")); // blank line
                     lines.push(
                         self.instruction_bar_line(&[("Enter", "submit"), ("Esc", "go back")]),
@@ -995,6 +995,88 @@ impl InlinePromptState {
             Span::styled(format!("{}. ", index + 1), number_style),
             Span::styled(label, label_style),
         ])
+    }
+
+    /// Build wrapped text input lines for render_as_lines.
+    ///
+    /// Returns one `Line` per terminal row needed, splitting the input text
+    /// at `width` columns so it doesn't push off the right edge.
+    fn text_input_lines_wrapped(&self, width: usize) -> Vec<Line<'static>> {
+        let prompt_style = Style::default().fg(accent_primary());
+        let input_style = Style::default().fg(text_primary());
+        let cursor_style = Style::default().add_modifier(Modifier::REVERSED);
+
+        let input = &self.text_input.input;
+        let cursor_byte = self.text_input.cursor.min(input.len());
+
+        // Convert byte cursor offset to char index
+        let cursor_char_idx = input[..cursor_byte].chars().count();
+        let chars: Vec<char> = input.chars().collect();
+        let total = chars.len();
+
+        let prefix_width = 2usize; // "> "
+        let mut rows: Vec<Line<'static>> = Vec::new();
+        let mut char_start = 0usize;
+        let mut first = true;
+
+        loop {
+            // Columns available for text on this row
+            let text_capacity = if first {
+                width.saturating_sub(prefix_width).max(1)
+            } else {
+                width.max(1)
+            };
+
+            let char_end = (char_start + text_capacity).min(total);
+            let is_last = char_end >= total;
+
+            // The cursor belongs to this row if it falls within [char_start, char_end),
+            // or — for the very last row — at char_end (end-of-input position).
+            let cursor_in_row = if is_last {
+                cursor_char_idx >= char_start
+            } else {
+                cursor_char_idx >= char_start && cursor_char_idx < char_end
+            };
+
+            let mut spans: Vec<Span<'static>> = Vec::new();
+            if first {
+                spans.push(Span::styled("> ".to_string(), prompt_style));
+            }
+
+            if cursor_in_row {
+                let rel = cursor_char_idx - char_start;
+                let before: String = chars[char_start..char_start + rel].iter().collect();
+                if !before.is_empty() {
+                    spans.push(Span::styled(before, input_style));
+                }
+                if cursor_char_idx < total {
+                    let cc: String = std::iter::once(chars[cursor_char_idx]).collect();
+                    let after: String = chars[cursor_char_idx + 1..char_end].iter().collect();
+                    spans.push(Span::styled(cc, cursor_style));
+                    if !after.is_empty() {
+                        spans.push(Span::styled(after, input_style));
+                    }
+                } else {
+                    // Cursor sits after the last character
+                    spans.push(Span::styled(" ", cursor_style));
+                }
+            } else {
+                let text: String = chars[char_start..char_end].iter().collect();
+                if !text.is_empty() {
+                    spans.push(Span::styled(text, input_style));
+                }
+            }
+
+            rows.push(Line::from(spans));
+
+            if is_last {
+                break;
+            }
+            char_start = char_end;
+            first = false;
+        }
+
+        rows
     }
 
     /// Build the text input line with cursor
