@@ -387,9 +387,10 @@ impl ReasoningSelector {
         let hint = match state.agent_type {
             Some(AgentType::Claude) => "Claude supports: auto, low, medium, high",
             Some(AgentType::Codex) => "Codex supports: auto, minimal, low, medium, high, xhigh",
-            Some(AgentType::Gemini) | Some(AgentType::Opencode) | Some(AgentType::Copilot) | None => {
-                "Reasoning effort is not available for this agent"
-            }
+            Some(AgentType::Gemini)
+            | Some(AgentType::Opencode)
+            | Some(AgentType::Copilot)
+            | None => "Reasoning effort is not available for this agent",
         };
         Paragraph::new(hint)
             .style(Style::default().fg(accent_primary()))

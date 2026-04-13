@@ -449,15 +449,14 @@ impl SessionManager {
         // Send as appropriate input type based on agent
         let agent_input = match agent_type {
             AgentType::Claude => AgentInput::ClaudeJsonl(input),
-            AgentType::Codex
-            | AgentType::Gemini
-            | AgentType::Opencode
-            | AgentType::Copilot => AgentInput::CodexPrompt {
-                text: input,
-                images,
-                model,
-                skill,
-            },
+            AgentType::Codex | AgentType::Gemini | AgentType::Opencode | AgentType::Copilot => {
+                AgentInput::CodexPrompt {
+                    text: input,
+                    images,
+                    model,
+                    skill,
+                }
+            }
         };
 
         input_tx
