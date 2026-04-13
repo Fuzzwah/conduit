@@ -16,6 +16,8 @@ pub enum Action {
     Quit,
     /// Toggle sidebar visibility
     ToggleSidebar,
+    /// Force-hide sidebar (overrides always_show_sidebar, for copy-paste)
+    HideSidebar,
     /// Open new project dialog
     NewProject,
     /// Create a new workspace for the project under cursor
@@ -251,6 +253,7 @@ impl Action {
             // Global
             Action::Quit => "Quit application",
             Action::ToggleSidebar => "Toggle sidebar",
+            Action::HideSidebar => "Hide sidebar",
             Action::NewProject => "New project",
             Action::NewWorkspaceUnderCursor => "New workspace (current project)",
             Action::OpenPr => "Open/create PR",
@@ -409,6 +412,7 @@ impl Action {
             // Global
             Action::Quit
                 | Action::ToggleSidebar
+                | Action::HideSidebar
                 | Action::NewProject
                 | Action::NewWorkspaceUnderCursor
                 | Action::OpenPr

@@ -1798,6 +1798,7 @@ impl App {
         match action {
             // ========== Global Actions ==========
             Action::ToggleSidebar
+            | Action::HideSidebar
             | Action::EnterSidebarMode
             | Action::ExitSidebarMode
             | Action::ExpandOrSelect
