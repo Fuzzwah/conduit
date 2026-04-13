@@ -5,71 +5,6 @@ use ratatui::{
     text::{Line, Span},
 };
 
-/// Processing words used by Claude Code (subset of ~90 words)
-const PROCESSING_WORDS: &[&str] = &[
-    "Accomplishing",
-    "Baking",
-    "Booping",
-    "Brewing",
-    "Calculating",
-    "Cerebrating",
-    "Churning",
-    "Clauding",
-    "Cogitating",
-    "Combobulating",
-    "Computing",
-    "Concocting",
-    "Conjuring",
-    "Contemplating",
-    "Cooking",
-    "Crafting",
-    "Crunching",
-    "Deciphering",
-    "Deliberating",
-    "Divining",
-    "Enchanting",
-    "Finagling",
-    "Forging",
-    "Frolicking",
-    "Generating",
-    "Hatching",
-    "Hustling",
-    "Ideating",
-    "Imagining",
-    "Incubating",
-    "Inferring",
-    "Manifesting",
-    "Marinating",
-    "Meandering",
-    "Mulling",
-    "Musing",
-    "Noodling",
-    "Percolating",
-    "Pondering",
-    "Pontificating",
-    "Processing",
-    "Puzzling",
-    "Ruminating",
-    "Scheming",
-    "Shimmying",
-    "Simmering",
-    "Spelunking",
-    "Spinning",
-    "Stewing",
-    "Sussing",
-    "Synthesizing",
-    "Thinking",
-    "Tinkering",
-    "Transmuting",
-    "Unfurling",
-    "Vibing",
-    "Wandering",
-    "Whirring",
-    "Wizarding",
-    "Working",
-    "Wrangling",
-];
-
 /// Spinner animation frames (Claude Code style)
 const SPINNER_FRAMES: &[&str] = &["·", "✢", "✳", "∗", "✻", "✽"];
 
@@ -104,8 +39,6 @@ impl ProcessingState {
 
 /// Thinking indicator that shows while agent is processing
 pub struct ThinkingIndicator {
-    /// Current processing word
-    word: &'static str,
     /// Spinner frame index
     spinner_frame: usize,
     /// Shimmer animation offset (moves the gradient)
@@ -119,33 +52,14 @@ pub struct ThinkingIndicator {
 }
 
 impl ThinkingIndicator {
-    /// Create a new thinking indicator with a random word
     pub fn new() -> Self {
         Self {
-            word: Self::random_word(),
             spinner_frame: 0,
-            shimmer_offset: -SHIMMER_WIDTH, // Start from before the text
+            shimmer_offset: -SHIMMER_WIDTH,
             start_time: Instant::now(),
             tokens: 0,
             state: ProcessingState::Thinking,
         }
-    }
-
-    /// Get a random processing word
-    fn random_word() -> &'static str {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
-        use std::time::SystemTime;
-
-        // Simple pseudo-random selection based on current time
-        let mut hasher = DefaultHasher::new();
-        SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos()
-            .hash(&mut hasher);
-        let index = (hasher.finish() as usize) % PROCESSING_WORDS.len();
-        PROCESSING_WORDS[index]
     }
 
     /// Advance the spinner and shimmer animations
@@ -176,9 +90,7 @@ impl ThinkingIndicator {
         self.start_time.elapsed()
     }
 
-    /// Reset with a new random word
     pub fn reset(&mut self) {
-        self.word = Self::random_word();
         self.spinner_frame = 0;
         self.shimmer_offset = -SHIMMER_WIDTH; // Start from before the text
         self.start_time = Instant::now();
@@ -227,16 +139,22 @@ impl ThinkingIndicator {
     }
 
     /// Render as a Line for display in chat view
-    pub fn render(&self) -> Line<'static> {
+    pub fn render(&self, shimmer: bool) -> Line<'static> {
         let elapsed = self.elapsed();
         let duration_str = format_duration(elapsed);
 
         let spinner = SPINNER_FRAMES[self.spinner_frame];
         let state = self.state.as_str();
 
-        // Build the shimmering part: "✳ Tinkering… "
-        let shimmer_text = format!("{} {}… ", spinner, self.word);
-        let mut spans = self.render_shimmer_text(&shimmer_text);
+        let mut spans: Vec<Span<'static>> = if shimmer {
+            let shimmer_text = format!("{} Working… ", spinner);
+            self.render_shimmer_text(&shimmer_text)
+        } else {
+            vec![Span::styled(
+                format!("{} Working… ", spinner),
+                Style::default().fg(Color::Gray),
+            )]
+        };
 
         // Add the non-shimmering metadata part
         spans.extend(vec![

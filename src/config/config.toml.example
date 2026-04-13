@@ -88,6 +88,10 @@
 # [ui]
 # # Show a minimal scrollbar in the chat view (default: false)
 # show_chat_scrollbar = false
+# # Keep the sidebar always visible; Ctrl+T toggles focus instead of show/hide
+# always_show_sidebar = false
+# # Show animated shimmer on the thinking indicator; set false for plain "Working" text
+# thinking_indicator_shimmer = true
 #
 # ============================================================================
 # Web Workspace Status
