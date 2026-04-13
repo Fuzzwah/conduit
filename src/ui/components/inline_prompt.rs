@@ -3,7 +3,6 @@
 //! Emulates Claude Code CLI's inline UI patterns for interactive tool responses.
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use unicode_width::UnicodeWidthStr;
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
@@ -11,6 +10,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Paragraph, Widget, Wrap},
 };
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use super::{
     accent_primary, accent_secondary, text_faint, text_muted, text_primary, text_secondary,
@@ -1001,15 +1001,27 @@ impl InlinePromptState {
     ///
     /// Returns one `Line` per terminal row needed, splitting the input text
     /// at `width` columns so it doesn't push off the right edge.
+    /// Wrap points are computed by accumulating Unicode display widths
+    /// (`UnicodeWidthChar::width`) so that wide characters (e.g. CJK) are
+    /// handled correctly.
     fn text_input_lines_wrapped(&self, width: usize) -> Vec<Line<'static>> {
         let prompt_style = Style::default().fg(accent_primary());
         let input_style = Style::default().fg(text_primary());
         let cursor_style = Style::default().add_modifier(Modifier::REVERSED);
 
         let input = &self.text_input.input;
-        let cursor_byte = self.text_input.cursor.min(input.len());
 
-        // Convert byte cursor offset to char index
+        // Clamp to the input length and then walk back to the nearest valid
+        // UTF-8 char boundary so that slicing never panics.
+        let cursor_byte = {
+            let mut b = self.text_input.cursor.min(input.len());
+            while b > 0 && !input.is_char_boundary(b) {
+                b -= 1;
+            }
+            b
+        };
+
+        // Convert byte cursor offset to char index.
         let cursor_char_idx = input[..cursor_byte].chars().count();
         let chars: Vec<char> = input.chars().collect();
         let total = chars.len();
@@ -1020,14 +1032,31 @@ impl InlinePromptState {
         let mut first = true;
 
         loop {
-            // Columns available for text on this row
+            // Columns available for text on this row.
             let text_capacity = if first {
                 width.saturating_sub(prefix_width).max(1)
             } else {
                 width.max(1)
             };
 
-            let char_end = (char_start + text_capacity).min(total);
+            // Advance char_end by accumulating Unicode column widths so that
+            // wide characters (e.g. CJK) don't overflow the terminal column.
+            let mut col_width = 0usize;
+            let mut char_end = char_start;
+            while char_end < total {
+                let ch_cols = UnicodeWidthChar::width(chars[char_end]).unwrap_or(0);
+                if col_width + ch_cols > text_capacity {
+                    break;
+                }
+                col_width += ch_cols;
+                char_end += 1;
+            }
+            // Always consume at least one character to guarantee termination
+            // even when a single char is wider than the available columns.
+            if char_end == char_start && char_start < total {
+                char_end = char_start + 1;
+            }
+
             let is_last = char_end >= total;
 
             // The cursor belongs to this row if it falls within [char_start, char_end),

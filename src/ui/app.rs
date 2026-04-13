@@ -10,7 +10,10 @@ use std::time::{Duration, Instant};
 use anyhow::anyhow;
 use chrono::Utc;
 use crossterm::{
-    event::{EnableBracketedPaste, EnableMouseCapture, Event, EventStream, KeyCode, KeyModifiers, MouseEventKind},
+    event::{
+        EnableBracketedPaste, EnableMouseCapture, Event, EventStream, KeyCode, KeyModifiers,
+        MouseEventKind,
+    },
     execute,
     terminal::{enable_raw_mode, EnterAlternateScreen},
 };
@@ -972,7 +975,12 @@ impl App {
         // Create terminal guard AFTER enabling features - Drop will clean up on any exit path
         let mut guard = TerminalGuard::new(keyboard_enhancement_enabled);
 
-        execute!(stdout, EnterAlternateScreen, EnableMouseCapture, EnableBracketedPaste)?;
+        execute!(
+            stdout,
+            EnterAlternateScreen,
+            EnableMouseCapture,
+            EnableBracketedPaste
+        )?;
 
         let backend = CrosstermBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;
@@ -3183,7 +3191,9 @@ impl App {
             })
             .collect();
         self.state.close_overlays();
-        self.state.file_mention_state.show_with_entries('@', entries);
+        self.state
+            .file_mention_state
+            .show_with_entries('@', entries);
         self.state.input_mode = InputMode::FileMention;
     }
 
@@ -3226,9 +3236,7 @@ impl App {
                 let name = entry.file_name();
                 let name_str = name.to_string_lossy();
                 if path.is_dir() {
-                    if !EXCLUDED_DIRS.contains(&name_str.as_ref())
-                        && !name_str.starts_with('.')
-                    {
+                    if !EXCLUDED_DIRS.contains(&name_str.as_ref()) && !name_str.starts_with('.') {
                         dirs_to_visit.push_back((path, depth + 1));
                     }
                 } else if path.is_file() {
@@ -8750,7 +8758,12 @@ impl App {
     ) -> anyhow::Result<()> {
         enable_raw_mode()?;
         let mut stdout = io::stdout();
-        execute!(stdout, EnterAlternateScreen, EnableMouseCapture, EnableBracketedPaste)?;
+        execute!(
+            stdout,
+            EnterAlternateScreen,
+            EnableMouseCapture,
+            EnableBracketedPaste
+        )?;
         terminal.clear()?;
         Ok(())
     }
