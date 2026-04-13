@@ -653,7 +653,7 @@ impl InlinePromptState {
                     self.append_submit_view_lines(&mut lines, questions);
                 } else if let Some(question) = self.current_question() {
                     // Question content
-                    self.append_question_lines(&mut lines, question, questions.len() > 1);
+                    self.append_question_lines(&mut lines, question, questions.len() > 1, width);
                 }
             }
             InlinePromptType::ExitPlanMode {
@@ -864,12 +864,15 @@ impl InlinePromptState {
         lines: &mut Vec<Line<'static>>,
         question: &UserQuestion,
         is_multi_question: bool,
+        width: usize,
     ) {
-        // Question text
-        lines.push(Line::from(Span::styled(
-            question.question.clone(),
-            Style::default().fg(text_primary()),
-        )));
+        // Question text (word-wrapped to terminal width)
+        for wrapped in word_wrap_line(&question.question, width) {
+            lines.push(Line::from(Span::styled(
+                wrapped,
+                Style::default().fg(text_primary()),
+            )));
+        }
         lines.push(Line::from("")); // blank line
 
         if self.input_mode {
