@@ -117,3 +117,38 @@ Each workspace in the sidebar now shows `↑N` (yellow) and `↓N` (red) indicat
 ## 15. Full Plan Content in Chat
 
 The plan review step no longer caps plan content at 15 lines. The full plan is now rendered inline as part of the scrollable chat history, so long plans can be read in their entirety by scrolling back.
+
+---
+
+## 16. Companion tmux Configuration (`~/.tmux.conf`)
+
+A tmux status bar tuned to complement Conduit's Night Owl colour scheme. Key settings:
+
+```tmux
+set -g set-clipboard on
+
+# Match the Night Owl background
+set -g status-style "bg=#011627,fg=#5f7e97"
+
+# Align everything to the left
+set -g status-justify left
+
+# Left side: teal icon + bold current command name
+set -g status-left "#[fg=#7fdbca]   #[fg=#d6deeb,bold]#{pane_current_command}  "
+set -g status-left-length 50
+
+# Hide the default window list (command name in status-left is sufficient)
+setw -g window-status-current-format ""
+setw -g window-status-format ""
+
+# Right side: minimalist time with dim blue pill
+set -g status-right "#[fg=#1d3b53]#[fg=#d6deeb,bg=#1d3b53] %H:%M #[fg=#1d3b53,bg=default]"
+
+set -g status-left-style default
+```
+
+- Background `#011627` matches Night Owl's editor background.
+- Left segment shows `#{pane_current_command}` (e.g. `conduit`) in off-white bold, prefixed by a teal icon.
+- The window list is suppressed entirely — the active command name is context enough.
+- Right segment shows `HH:MM` inside a dim blue `#1d3b53` pill with powerline-style end caps.
+- `set-clipboard on` allows tmux to sync with the system clipboard, which pairs well with Conduit's `Alt+y` copy shortcut.
