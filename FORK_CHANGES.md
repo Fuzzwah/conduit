@@ -67,3 +67,23 @@ Typing `@` in the TUI chat input triggers an autocomplete menu that lists files 
 The theme picker now ships with 30 built-in themes, including a full set of iTerm2-compatible colour palettes. Themes can be switched live from the command palette (`Ctrl+P` → `theme`) without restarting.
 
 ![The theme picker showing the 30 built-in themes](docs/screenshots/builtin-themes.png)
+
+---
+
+## 10. Archive Workspace from Inside a Tab
+
+**`Alt+Shift+X`** archives the current workspace from anywhere — both from within a workspace tab and from the sidebar. Previously archiving required navigating to the sidebar and pressing `x`; both contexts now use the same hotkey.
+
+The archive hint appears in the chat footer, and the action is available in the command palette.
+
+---
+
+## 11. Sidebar Selection Tracks Active Tab When Hidden
+
+When switching or closing tabs with the sidebar hidden, the sidebar selection now stays in sync with the active workspace. Previously, opening the sidebar after a tab change would still show the previously-selected workspace highlighted.
+
+---
+
+## 12. Squash-Merge Detection in Archive Preflight
+
+The archive preflight check now distinguishes between genuinely unmerged branches and branches that were squash-merged. When a branch has commits not in main's ancestry but the diff against main is empty, the dialog shows "Squash-merged (N commits ahead, diff already in main)" at informational severity rather than the alarming "Branch not merged" warning.
