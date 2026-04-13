@@ -4,25 +4,25 @@ use rand::prelude::IndexedRandom;
 
 /// Short adjectives (max 4 chars) for workspace names
 const ADJECTIVES: &[&str] = &[
-    "able", "aged", "airy", "bare", "blue", "bold", "buff", "calm", "cool", "cute",
-    "damp", "dark", "dear", "deep", "deft", "dull", "easy", "even", "fair", "fast",
-    "fine", "firm", "flat", "fond", "free", "full", "glad", "gold", "good", "gray",
-    "grim", "hale", "hard", "hazy", "high", "holy", "huge", "icy", "idle", "just",
-    "keen", "kind", "lazy", "lean", "live", "lone", "lost", "loud", "lush", "mild",
-    "mute", "near", "neat", "new", "nice", "old", "pale", "pink", "posh", "pure",
-    "rare", "raw", "red", "rich", "rosy", "safe", "shy", "slim", "slow", "snug",
-    "soft", "sour", "spry", "sure", "tall", "tame", "taut", "thin", "tidy", "tiny",
-    "trim", "true", "vain", "vast", "vile", "warm", "wavy", "weak", "wide", "wild",
-    "wise", "worn", "zany",
+    "able", "aged", "airy", "bare", "blue", "bold", "buff", "calm", "cool", "cute", "damp", "dark",
+    "dear", "deep", "deft", "dull", "easy", "even", "fair", "fast", "fine", "firm", "flat", "fond",
+    "free", "full", "glad", "gold", "good", "gray", "grim", "hale", "hard", "hazy", "high", "holy",
+    "huge", "icy", "idle", "just", "keen", "kind", "lazy", "lean", "live", "lone", "lost", "loud",
+    "lush", "mild", "mute", "near", "neat", "new", "nice", "old", "pale", "pink", "posh", "pure",
+    "rare", "raw", "red", "rich", "rosy", "safe", "shy", "slim", "slow", "snug", "soft", "sour",
+    "spry", "sure", "tall", "tame", "taut", "thin", "tidy", "tiny", "trim", "true", "vain", "vast",
+    "vile", "warm", "wavy", "weak", "wide", "wild", "wise", "worn", "zany",
 ];
 
 /// Short nouns (max 4 chars) for workspace names
 const NOUNS: &[&str] = &[
-    "ash", "bay", "bear", "bee", "colt", "cove", "crow", "dale", "dawn", "deer", "dove", "duck", "dune", "dusk", "elk", "elm",
-    "fawn", "fern", "fox", "gale", "gull", "hare", "hawk", "hill", "iris", "ivy", "jade", "kite", "lake", "lamb", "lark", "leaf",
-    "loon", "lynx", "mare", "mead", "mesa", "mill", "mist", "moon", "moss", "moth", "newt", "nook", "oak", "owl", "peak", "peat",
-    "pike", "pine", "plum", "pond", "pool", "rain", "reef", "reed", "rock", "rook", "rose", "rune", "rush", "sage", "sand", "seal",
-    "snow", "star", "sun", "swan", "tern", "tide", "toad", "tuft", "turf", "vale", "vole", "wave", "wind", "wolf", "wren", "yew",
+    "ash", "bay", "bear", "bee", "colt", "cove", "crow", "dale", "dawn", "deer", "dove", "duck",
+    "dune", "dusk", "elk", "elm", "fawn", "fern", "fox", "gale", "gull", "hare", "hawk", "hill",
+    "iris", "ivy", "jade", "kite", "lake", "lamb", "lark", "leaf", "loon", "lynx", "mare", "mead",
+    "mesa", "mill", "mist", "moon", "moss", "moth", "newt", "nook", "oak", "owl", "peak", "peat",
+    "pike", "pine", "plum", "pond", "pool", "rain", "reef", "reed", "rock", "rook", "rose", "rune",
+    "rush", "sage", "sand", "seal", "snow", "star", "sun", "swan", "tern", "tide", "toad", "tuft",
+    "turf", "vale", "vole", "wave", "wind", "wolf", "wren", "yew",
 ];
 
 /// Generate a unique workspace name not in the existing list

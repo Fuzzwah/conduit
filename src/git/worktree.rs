@@ -623,8 +623,21 @@ impl WorktreeManager {
         // works where `git cherry` fails because squash merges produce a combined patch
         // whose ID does not match any individual commit.
         if !status.is_merged && status.commits_ahead > 0 {
+            // Fetch so origin/main reflects the latest remote state. Without this,
+            // a squash-merged PR won't be detected because the local origin/main
+            // ref still points to the pre-merge commit and the diff is non-empty.
+            let _ = Command::new("git")
+                .args(["fetch", "origin", "--quiet"])
+                .current_dir(worktree_path)
+                .output();
+
             let diff_output = Command::new("git")
-                .args(["diff", "--quiet", &format!("origin/{}", main_branch), "HEAD"])
+                .args([
+                    "diff",
+                    "--quiet",
+                    &format!("origin/{}", main_branch),
+                    "HEAD",
+                ])
                 .current_dir(worktree_path)
                 .output();
             if let Ok(diff_output) = diff_output {

@@ -7069,9 +7069,11 @@ impl App {
                 commits_ahead,
                 commits_behind,
             } => {
-                self.state
-                    .sidebar_data
-                    .update_workspace_ahead_behind(workspace_id, commits_ahead, commits_behind);
+                self.state.sidebar_data.update_workspace_ahead_behind(
+                    workspace_id,
+                    commits_ahead,
+                    commits_behind,
+                );
             }
             GitTrackerUpdate::BranchChanged {
                 workspace_id,
@@ -10520,7 +10522,11 @@ impl App {
                         // Render chat with thinking indicator if processing (but not during inline prompt)
                         let thinking_line =
                             if session.is_processing && session.inline_prompt.is_none() {
-                                Some(session.thinking_indicator.render(thinking_indicator_shimmer))
+                                Some(
+                                    session
+                                        .thinking_indicator
+                                        .render(thinking_indicator_shimmer),
+                                )
                             } else {
                                 None
                             };

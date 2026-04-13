@@ -74,6 +74,18 @@ gh pr create --repo Fuzzwah/conduit
 
 PRs must pass: `cargo check` → `cargo fmt --check` → `cargo clippy -- -D warnings` → `cargo test`.
 
+**Before declaring any code change complete, always run all four commands:**
+
+```bash
+cargo fmt --check
+cargo clippy -- -D warnings
+cargo test
+```
+
+(`cargo clippy` implies `cargo check`, so running all three above covers the full CI gate.)
+
+Do not substitute `cargo build` for these — it skips format, lint, and test verification.
+
 ---
 
 ## Rules of Engagement
@@ -83,7 +95,7 @@ PRs must pass: `cargo check` → `cargo fmt --check` → `cargo clippy -- -D war
 3. Prefer small, local edits over broad refactors unless the task requires it.
 4. Prefer dedicated tools for reading, editing, searching, and testing.
 5. If multiple reads or searches are independent, run them in parallel.
-6. Before reporting success, verify with the cheapest meaningful check.
+6. Before reporting success, run `cargo fmt --check && cargo clippy -- -D warnings && cargo test` and confirm all pass.
 7. Never claim tests passed unless output confirms it.
 8. Ask before taking destructive or externally visible actions.
 

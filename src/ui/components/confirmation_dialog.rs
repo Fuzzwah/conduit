@@ -262,7 +262,8 @@ impl<'a> ConfirmationDialog<'a> {
     ///   - 2 (left + right borders)
     ///   - 2 (DIALOG_CONTENT_PADDING_X * 2)
     ///   - 5 ("  ⚠ " prefix, treating ⚠ as 2 cells wide for safety)
-    /// = 9 total, plus 1 margin = 10
+    ///
+    /// Total: 9, plus 1 margin = 10
     fn calculate_min_width(&self) -> u16 {
         const BASE_MIN: u16 = 50;
         const MAX_WIDTH: u16 = 72;

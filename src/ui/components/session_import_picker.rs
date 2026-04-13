@@ -10,9 +10,10 @@ use ratatui::{
 };
 
 use super::{
-    agent_claude, agent_codex, agent_copilot, agent_gemini, agent_opencode, bg_highlight, dialog_bg,
-    dialog_content_area, ensure_contrast_bg, ensure_contrast_fg, render_minimal_scrollbar,
-    selected_bg, text_muted, text_primary, DialogFrame, ScrollbarMetrics, SearchableListState,
+    agent_claude, agent_codex, agent_copilot, agent_gemini, agent_opencode, bg_highlight,
+    dialog_bg, dialog_content_area, ensure_contrast_bg, ensure_contrast_fg,
+    render_minimal_scrollbar, selected_bg, text_muted, text_primary, DialogFrame, ScrollbarMetrics,
+    SearchableListState,
 };
 use crate::agent::AgentType;
 use crate::session::ExternalSession;
