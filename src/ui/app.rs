@@ -10506,6 +10506,7 @@ impl App {
                     // Draw active session components
                     let is_command_mode = self.state.input_mode == InputMode::Command;
                     let show_chat_scrollbar = self.config().ui.show_chat_scrollbar;
+                    let thinking_indicator_shimmer = self.config().ui.thinking_indicator_shimmer;
                     if let Some(session) = self.state.tab_manager.active_session_mut() {
                         // Use full chat area - prompt is now rendered as part of scrollable content
                         let chat_area = chat_chunk;
@@ -10519,7 +10520,7 @@ impl App {
                         // Render chat with thinking indicator if processing (but not during inline prompt)
                         let thinking_line =
                             if session.is_processing && session.inline_prompt.is_none() {
-                                Some(session.thinking_indicator.render())
+                                Some(session.thinking_indicator.render(thinking_indicator_shimmer))
                             } else {
                                 None
                             };

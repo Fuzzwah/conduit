@@ -126,6 +126,8 @@ pub struct UiConfig {
     pub show_chat_scrollbar: bool,
     /// Keep the sidebar always visible; Ctrl+T toggles focus instead of show/hide
     pub always_show_sidebar: bool,
+    /// Show animated shimmer on the thinking indicator; set false for plain "Working" text
+    pub thinking_indicator_shimmer: bool,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -138,6 +140,7 @@ pub struct TomlSelectionConfig {
 pub struct TomlUiConfig {
     pub show_chat_scrollbar: Option<bool>,
     pub always_show_sidebar: Option<bool>,
+    pub thinking_indicator_shimmer: Option<bool>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -223,6 +226,7 @@ impl Default for Config {
             ui: UiConfig {
                 show_chat_scrollbar: false,
                 always_show_sidebar: false,
+                thinking_indicator_shimmer: true,
             },
             web_status: WebStatusConfig {
                 initial_scan: true,
@@ -727,6 +731,9 @@ impl Config {
                         }
                         if let Some(always_show_sidebar) = ui.always_show_sidebar {
                             config.ui.always_show_sidebar = always_show_sidebar;
+                        }
+                        if let Some(thinking_indicator_shimmer) = ui.thinking_indicator_shimmer {
+                            config.ui.thinking_indicator_shimmer = thinking_indicator_shimmer;
                         }
                     }
                     // Load web status configuration
