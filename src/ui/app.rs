@@ -6238,6 +6238,10 @@ impl App {
                         // Open workspace, close sidebar (unless always_show_sidebar), and focus prompt box
                         let close_sidebar = !self.config().ui.always_show_sidebar;
                         self.open_workspace_with_options(created.workspace_id, close_sidebar);
+                        // Always focus the prompt input after creating a new workspace,
+                        // even when always_show_sidebar keeps the sidebar visible.
+                        self.state.input_mode = InputMode::Normal;
+                        self.state.sidebar_state.set_focused(false);
                     }
                     Err(err) => {
                         self.show_error("Workspace Creation Failed", &err);
