@@ -124,7 +124,6 @@ impl GitTrackerHandle {
     }
 
     /// Force an immediate refresh for a workspace
-    #[allow(dead_code)]
     pub fn refresh_now(&self, workspace_id: Uuid) {
         if self
             .cmd_tx
@@ -373,37 +372,26 @@ impl GitTracker {
         let dir = working_dir.to_path_buf();
         let update_tx = self.update_tx.clone();
 
-        // Get git diff stats
-        let new_stats = tokio::task::spawn_blocking({
-            let dir = dir.clone();
-            move || GitDiffStats::from_working_dir(&dir)
-        })
-        .await
-        .unwrap_or_default();
+        let (stats_result, branch_result, pr_result, ahead_behind_result) = tokio::join!(
+            tokio::task::spawn_blocking({
+                let dir = dir.clone();
+                move || GitDiffStats::from_working_dir(&dir)
+            }),
+            tokio::task::spawn_blocking({
+                let dir = dir.clone();
+                move || PrManager::get_current_branch(&dir)
+            }),
+            tokio::task::spawn_blocking({
+                let dir = dir.clone();
+                move || PrManager::get_existing_pr(&dir)
+            }),
+            tokio::task::spawn_blocking(move || get_ahead_behind(&dir)),
+        );
 
-        // Get branch name
-        let new_branch = tokio::task::spawn_blocking({
-            let dir = dir.clone();
-            move || PrManager::get_current_branch(&dir)
-        })
-        .await
-        .ok()
-        .flatten();
-
-        // Get PR status
-        let new_pr_status = tokio::task::spawn_blocking({
-            let dir = dir.clone();
-            move || PrManager::get_existing_pr(&dir)
-        })
-        .await
-        .ok()
-        .flatten();
-
-        // Get ahead/behind counts
-        let (new_ahead, new_behind) =
-            tokio::task::spawn_blocking(move || get_ahead_behind(&dir))
-                .await
-                .unwrap_or((0, 0));
+        let new_stats = stats_result.unwrap_or_default();
+        let new_branch = branch_result.ok().flatten();
+        let new_pr_status = pr_result.ok().flatten();
+        let (new_ahead, new_behind) = ahead_behind_result.unwrap_or((0, 0));
 
         // Update state and send updates
         if let Some((_, state)) = self.workspaces.get_mut(&workspace_id) {

@@ -4594,6 +4594,11 @@ impl App {
             return;
         }
 
+        // Refresh immediately so the sidebar shows current merge state before the preflight dialog.
+        if let Some(ref tracker) = self.git_tracker {
+            tracker.refresh_now(workspace_id);
+        }
+
         // Save the current mode so we can restore it when the dialog flow ends.
         // Only overwrite a previously-saved mode if none is set (avoids stomping
         // if somehow called while another archive is in-flight).
