@@ -10,7 +10,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Paragraph, Widget, Wrap},
 };
-use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+use unicode_width::UnicodeWidthStr;
 
 use super::{
     accent_primary, accent_secondary, text_faint, text_muted, text_primary, text_secondary,

@@ -129,6 +129,7 @@ impl CommandPaletteState {
             Action::AddRepository,
             Action::OpenSettings,
             Action::ArchiveOrRemove,
+            Action::ArchiveCurrentWorkspace,
             Action::ToggleAgentMode,
             Action::OpenSessionImport,
             Action::ShowHelp,

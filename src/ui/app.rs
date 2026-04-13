@@ -1970,6 +1970,7 @@ impl App {
                                 session.input_box.backspace();
                             }
                             session.input_box.insert_str(&path);
+                            session.input_box.insert_char(' ');
                         }
                     }
                 } else if self.state.input_mode == InputMode::CommandPalette {
@@ -2014,7 +2015,8 @@ impl App {
             Action::Cancel
             | Action::AddRepository
             | Action::OpenSettings
-            | Action::ArchiveOrRemove => {
+            | Action::ArchiveOrRemove
+            | Action::ArchiveCurrentWorkspace => {
                 self.handle_dialog_action(action);
             }
 
@@ -4487,12 +4489,18 @@ impl App {
             | Some(ConfirmationContext::ForkSession { .. })
             | Some(ConfirmationContext::ForkSessionPreflightInProgress { .. })
             | Some(ConfirmationContext::SteerFallback { .. }) => InputMode::Normal,
-            // Sidebar operations return to sidebar navigation
+            // Sidebar operations return to the mode that was active when the
+            // archive was initiated (Normal if triggered from a workspace tab,
+            // SidebarNavigation if triggered from the sidebar).
             Some(ConfirmationContext::ArchiveWorkspace(_))
             | Some(ConfirmationContext::ArchiveWorkspaceRemoteDelete { .. })
             | Some(ConfirmationContext::ArchiveWorkspacePreflightInProgress { .. })
-            | Some(ConfirmationContext::ArchiveWorkspaceInProgress { .. })
-            | Some(ConfirmationContext::RemoveProject(_))
+            | Some(ConfirmationContext::ArchiveWorkspaceInProgress { .. }) => self
+                .state
+                .archive_return_mode
+                .take()
+                .unwrap_or(InputMode::SidebarNavigation),
+            Some(ConfirmationContext::RemoveProject(_))
             | Some(ConfirmationContext::RemoveProjectPreflightInProgress { .. })
             | Some(ConfirmationContext::SelectWorkspaceMode { .. }) => InputMode::SidebarNavigation,
             // No context: return to Normal if tabs exist, otherwise SidebarNavigation
@@ -4566,7 +4574,11 @@ impl App {
             );
         if is_matching_archive_progress {
             self.state.confirmation_dialog_state.hide();
-            self.state.input_mode = InputMode::SidebarNavigation;
+            self.state.input_mode = self
+                .state
+                .archive_return_mode
+                .take()
+                .unwrap_or(InputMode::SidebarNavigation);
         }
     }
 
@@ -4578,6 +4590,13 @@ impl App {
                 Duration::from_secs(3),
             );
             return;
+        }
+
+        // Save the current mode so we can restore it when the dialog flow ends.
+        // Only overwrite a previously-saved mode if none is set (avoids stomping
+        // if somehow called while another archive is in-flight).
+        if self.state.archive_return_mode.is_none() {
+            self.state.archive_return_mode = Some(self.state.input_mode);
         }
 
         self.show_blocking_confirmation_loading(
