@@ -739,6 +739,10 @@ pub fn default_keybindings() -> KeybindingConfig {
         Action::Confirm,
     );
     palette.insert(
+        KeyCombo::new(KeyCode::Tab, KeyModifiers::NONE),
+        Action::Confirm,
+    );
+    palette.insert(
         KeyCombo::new(KeyCode::Esc, KeyModifiers::NONE),
         Action::Cancel,
     );
