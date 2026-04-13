@@ -89,6 +89,55 @@ impl GitDiffStats {
     }
 }
 
+/// Get the number of commits HEAD is ahead/behind its origin main branch.
+///
+/// Returns `(commits_ahead, commits_behind)`. Both are 0 on any failure (e.g., no
+/// remote, detached HEAD). This compares against the locally-cached remote ref so
+/// it does not perform a network fetch.
+pub fn get_ahead_behind(working_dir: &Path) -> (usize, usize) {
+    // Detect the default branch name (e.g. "main" or "master") from the origin remote.
+    let main_branch = Command::new("git")
+        .args(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"])
+        .current_dir(working_dir)
+        .output()
+        .ok()
+        .and_then(|o| {
+            if o.status.success() {
+                let s = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                // Strip "origin/" prefix → e.g. "origin/main" → "main"
+                s.strip_prefix("origin/").map(|b| b.to_string())
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| "main".to_string());
+
+    let output = Command::new("git")
+        .args([
+            "rev-list",
+            "--left-right",
+            "--count",
+            &format!("HEAD...origin/{}", main_branch),
+        ])
+        .current_dir(working_dir)
+        .output();
+
+    match output {
+        Ok(o) if o.status.success() => {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            let parts: Vec<&str> = stdout.split_whitespace().collect();
+            if parts.len() == 2 {
+                let ahead = parts[0].parse().unwrap_or(0);
+                let behind = parts[1].parse().unwrap_or(0);
+                return (ahead, behind);
+            }
+        }
+        _ => {}
+    }
+
+    (0, 0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

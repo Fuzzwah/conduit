@@ -96,6 +96,10 @@ pub struct TreeNode {
     pub git_stats: Option<GitDiffStats>,
     /// PR status for workspaces (updated by background tracker or session updates)
     pub pr_status: Option<PrStatus>,
+    /// Commits ahead of origin main branch (updated by background tracker)
+    pub commits_ahead: usize,
+    /// Commits behind origin main branch (updated by background tracker)
+    pub commits_behind: usize,
     /// Whether this node is busy (operation in progress)
     pub is_busy: bool,
 }
@@ -115,6 +119,8 @@ impl TreeNode {
             node_type: NodeType::Repository,
             git_stats: None,
             pr_status: None,
+            commits_ahead: 0,
+            commits_behind: 0,
             is_busy: false,
         }
     }
@@ -132,6 +138,8 @@ impl TreeNode {
             node_type: NodeType::Workspace,
             git_stats: None,
             pr_status: None,
+            commits_ahead: 0,
+            commits_behind: 0,
             is_busy: false,
         }
     }
@@ -152,6 +160,8 @@ impl TreeNode {
             node_type: NodeType::Action(action_type),
             git_stats: None,
             pr_status: None,
+            commits_ahead: 0,
+            commits_behind: 0,
             is_busy: false,
         }
     }
@@ -877,6 +887,26 @@ impl SidebarData {
         );
     }
 
+    /// Update ahead/behind counts for a workspace by its ID
+    pub fn update_workspace_ahead_behind(
+        &mut self,
+        workspace_id: Uuid,
+        commits_ahead: usize,
+        commits_behind: usize,
+    ) {
+        for node in &mut self.nodes {
+            if node.node_type == NodeType::Repository {
+                for child in &mut node.children {
+                    if child.id == workspace_id && child.node_type == NodeType::Workspace {
+                        child.commits_ahead = commits_ahead;
+                        child.commits_behind = commits_behind;
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
     /// Update PR status for a workspace by its ID.
     ///
     /// If `status` is `None`, the existing status is preserved (no-op).
@@ -1159,6 +1189,11 @@ fn build_right_side_spans(node: &TreeNode, spinner_frame: usize) -> Vec<Span<'st
             stats.map(|s| s.deletions).unwrap_or(0),
         )
     };
+    let (commits_ahead, commits_behind): (usize, usize) = if MOCK_SIDEBAR_PR_DISPLAY {
+        (2, 1)
+    } else {
+        (node.commits_ahead, node.commits_behind)
+    };
     let pr_status: Option<&PrStatus> = if MOCK_SIDEBAR_PR_DISPLAY {
         mock_status.as_ref()
     } else {
@@ -1166,6 +1201,7 @@ fn build_right_side_spans(node: &TreeNode, spinner_frame: usize) -> Vec<Span<'st
     };
 
     let has_git_changes = additions > 0 || deletions > 0;
+    let has_ahead_behind = commits_ahead > 0 || commits_behind > 0;
     let has_pr = matches!(pr_status, Some(status) if status.exists && status.number.is_some());
 
     // Git stats: +N -N
@@ -1187,8 +1223,30 @@ fn build_right_side_spans(node: &TreeNode, spinner_frame: usize) -> Vec<Span<'st
         }
     }
 
-    // Space between git stats and PR (no separator)
-    if has_git_changes && has_pr {
+    // Ahead/behind: ↑N ↓N
+    if has_ahead_behind {
+        if has_git_changes {
+            spans.push(Span::styled(" ", Style::default()));
+        }
+        if commits_ahead > 0 {
+            spans.push(Span::styled(
+                format!("↑{}", commits_ahead),
+                Style::default().fg(Color::Yellow),
+            ));
+        }
+        if commits_ahead > 0 && commits_behind > 0 {
+            spans.push(Span::styled(" ", Style::default()));
+        }
+        if commits_behind > 0 {
+            spans.push(Span::styled(
+                format!("↓{}", commits_behind),
+                Style::default().fg(accent_error()),
+            ));
+        }
+    }
+
+    // Space between (git stats / ahead-behind) and PR (no separator)
+    if (has_git_changes || has_ahead_behind) && has_pr {
         spans.push(Span::styled(" ", Style::default()));
     }
 

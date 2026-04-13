@@ -7005,6 +7005,15 @@ impl App {
                     .sidebar_data
                     .update_workspace_git_stats(workspace_id, stats);
             }
+            GitTrackerUpdate::AheadBehindChanged {
+                workspace_id,
+                commits_ahead,
+                commits_behind,
+            } => {
+                self.state
+                    .sidebar_data
+                    .update_workspace_ahead_behind(workspace_id, commits_ahead, commits_behind);
+            }
             GitTrackerUpdate::BranchChanged {
                 workspace_id,
                 branch,
