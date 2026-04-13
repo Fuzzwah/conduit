@@ -387,6 +387,11 @@ impl App {
         // Restore session state
         app.restore_session_state();
 
+        // Honour always_show_sidebar: force visible regardless of saved state
+        if app.config().ui.always_show_sidebar {
+            app.state.sidebar_state.visible = true;
+        }
+
         app
     }
 

@@ -12,21 +12,17 @@ impl App {
         match action {
             Action::ToggleSidebar => {
                 if self.config().ui.always_show_sidebar {
-                    // Always-visible mode: Ctrl+T toggles focus without hiding
+                    // Always-visible mode: Ctrl+T always focuses the sidebar.
+                    // Use Escape (ExitSidebarMode) to return focus to the chat input.
                     self.state.sidebar_state.visible = true;
-                    if self.state.sidebar_state.focused {
-                        self.state.sidebar_state.set_focused(false);
-                        self.state.input_mode = InputMode::Normal;
-                    } else {
-                        self.state.sidebar_state.set_focused(true);
-                        self.state.input_mode = InputMode::SidebarNavigation;
-                        if let Some(session) = self.state.tab_manager.active_session() {
-                            if let Some(workspace_id) = session.workspace_id {
-                                if let Some(index) =
-                                    self.state.sidebar_data.focus_workspace(workspace_id)
-                                {
-                                    self.state.sidebar_state.tree_state.selected = index;
-                                }
+                    self.state.sidebar_state.set_focused(true);
+                    self.state.input_mode = InputMode::SidebarNavigation;
+                    if let Some(session) = self.state.tab_manager.active_session() {
+                        if let Some(workspace_id) = session.workspace_id {
+                            if let Some(index) =
+                                self.state.sidebar_data.focus_workspace(workspace_id)
+                            {
+                                self.state.sidebar_state.tree_state.selected = index;
                             }
                         }
                     }
