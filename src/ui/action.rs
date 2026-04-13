@@ -238,6 +238,10 @@ pub enum Action {
     // ========== Command Palette ==========
     /// Open command palette
     OpenCommandPalette,
+
+    // ========== Sidebar ==========
+    /// Refresh sidebar workspace list from database
+    RefreshSidebar,
 }
 
 impl Action {
@@ -371,6 +375,9 @@ impl Action {
 
             // Command palette
             Action::OpenCommandPalette => "Command palette",
+
+            // Sidebar
+            Action::RefreshSidebar => "Refresh sidebar",
         }
     }
 
@@ -440,6 +447,7 @@ impl Action {
                 | Action::OpenQueueEditor
                 | Action::OpenSessionImport
                 | Action::ShowHelp
+                | Action::RefreshSidebar
         )
     }
 
