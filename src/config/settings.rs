@@ -124,6 +124,8 @@ pub struct SelectionConfig {
 #[derive(Debug, Clone, Copy)]
 pub struct UiConfig {
     pub show_chat_scrollbar: bool,
+    /// Keep the sidebar always visible; Ctrl+T toggles focus instead of show/hide
+    pub always_show_sidebar: bool,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -135,6 +137,7 @@ pub struct TomlSelectionConfig {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct TomlUiConfig {
     pub show_chat_scrollbar: Option<bool>,
+    pub always_show_sidebar: Option<bool>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -219,6 +222,7 @@ impl Default for Config {
             },
             ui: UiConfig {
                 show_chat_scrollbar: false,
+                always_show_sidebar: false,
             },
             web_status: WebStatusConfig {
                 initial_scan: true,
@@ -717,6 +721,9 @@ impl Config {
                     if let Some(ui) = toml_config.ui {
                         if let Some(show_chat_scrollbar) = ui.show_chat_scrollbar {
                             config.ui.show_chat_scrollbar = show_chat_scrollbar;
+                        }
+                        if let Some(always_show_sidebar) = ui.always_show_sidebar {
+                            config.ui.always_show_sidebar = always_show_sidebar;
                         }
                     }
                     // Load web status configuration

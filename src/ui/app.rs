@@ -3817,9 +3817,10 @@ impl App {
         }
     }
 
-    /// Open a workspace (create or switch to tab), closing the sidebar
+    /// Open a workspace (create or switch to tab), closing the sidebar unless always_show_sidebar is set
     fn open_workspace(&mut self, workspace_id: uuid::Uuid) {
-        self.open_workspace_with_options(workspace_id, true);
+        let close_sidebar = !self.config().ui.always_show_sidebar;
+        self.open_workspace_with_options(workspace_id, close_sidebar);
     }
 
     /// Clamp unsupported agent modes to a safe default.
@@ -6198,8 +6199,9 @@ impl App {
                         if let Some(index) = self.find_workspace_index(created.workspace_id) {
                             self.state.sidebar_state.tree_state.selected = index;
                         }
-                        // Open workspace, close sidebar, and focus prompt box
-                        self.open_workspace_with_options(created.workspace_id, true);
+                        // Open workspace, close sidebar (unless always_show_sidebar), and focus prompt box
+                        let close_sidebar = !self.config().ui.always_show_sidebar;
+                        self.open_workspace_with_options(created.workspace_id, close_sidebar);
                     }
                     Err(err) => {
                         self.show_error("Workspace Creation Failed", &err);
@@ -9014,7 +9016,10 @@ impl App {
 
         self.state.tab_manager.switch_to(new_index);
         self.sync_footer_spinner();
-        self.state.sidebar_state.hide();
+        if !self.config().ui.always_show_sidebar {
+            self.state.sidebar_state.hide();
+        }
+        self.state.sidebar_state.set_focused(false);
         self.state.input_mode = InputMode::Normal;
 
         let rollback = |app: &mut Self| {
@@ -9279,7 +9284,10 @@ impl App {
             tracker.track_workspace(workspace_id, workspace.path.clone());
         }
 
-        self.state.sidebar_state.hide();
+        if !self.config().ui.always_show_sidebar {
+            self.state.sidebar_state.hide();
+        }
+        self.state.sidebar_state.set_focused(false);
         self.state.input_mode = InputMode::Normal;
 
         // Note: suppress flags already set on session before add_session, no need to set again
