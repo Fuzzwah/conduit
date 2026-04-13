@@ -6558,17 +6558,21 @@ impl App {
                         let current_selection = self.state.sidebar_state.tree_state.selected;
                         self.refresh_sidebar_data();
 
-                        let visible_count = self.state.sidebar_data.visible_nodes().len();
-                        if visible_count > 0 {
-                            let new_selection = if current_selection > 0 {
-                                current_selection - 1
-                            } else {
-                                0
-                            };
-                            self.state.sidebar_state.tree_state.selected =
-                                new_selection.min(visible_count - 1);
+                        if !self.state.tab_manager.is_empty() {
+                            self.sync_sidebar_to_active_tab();
                         } else {
-                            self.state.sidebar_state.tree_state.selected = 0;
+                            let visible_count = self.state.sidebar_data.visible_nodes().len();
+                            if visible_count > 0 {
+                                let new_selection = if current_selection > 0 {
+                                    current_selection - 1
+                                } else {
+                                    0
+                                };
+                                self.state.sidebar_state.tree_state.selected =
+                                    new_selection.min(visible_count - 1);
+                            } else {
+                                self.state.sidebar_state.tree_state.selected = 0;
+                            }
                         }
 
                         if archived.warnings.is_empty() {
