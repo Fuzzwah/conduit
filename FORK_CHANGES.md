@@ -120,7 +120,21 @@ The plan review step no longer caps plan content at 15 lines. The full plan is n
 
 ---
 
-## 16. Companion tmux Configuration (`~/.tmux.conf`)
+## 16. GitHub Copilot CLI as a 5th Agent
+
+The standalone `copilot` CLI is now supported as a 5th agent alongside Claude, Codex, Gemini, and OpenCode. This provides access to GitHub Copilot's model lineup — including the Codex models — for users with a GitHub Copilot subscription but no direct OpenAI API key.
+
+**Invocation:** `copilot -p "PROMPT" -s --allow-all [--model=MODEL]` (single-shot programmatic mode)
+
+**Available models:** `gpt-5.3-codex` (default), `gpt-5.3-codex-spark`, `gpt-5.4`, `claude-sonnet-4-5`, `gpt-4o`, `o3-mini`
+
+**Known limitation:** The `copilot` CLI has no session resumption flag, so each turn within a Conduit session starts a fresh process with no conversation history.
+
+Copilot appears in the agent selector, model selector (`Ctrl+O`), provider selector, and session import picker. It must be enabled via the provider selector before it appears in the model list.
+
+---
+
+## 17. Companion tmux Configuration (`~/.tmux.conf`)
 
 A tmux status bar tuned to complement Conduit's Night Owl colour scheme. Key settings:
 
