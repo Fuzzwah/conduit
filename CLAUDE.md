@@ -48,6 +48,20 @@ tests/        Integration and E2E tests
 - Property-based tests use `proptest` (JSONL parsing).
 - E2E tests use `termwright`.
 
+## Manual Testing a Branch
+
+Conduit manages its own git worktrees under `~/.conduit/workspaces/`. When a branch is active in conduit, it is already checked out there — attempting `git checkout <branch>` in `~/code/conduit` will fail with "already used by worktree".
+
+To manually test a branch, build and run from the worktree directly:
+
+```bash
+cd ~/.conduit/workspaces/conduit/<worktree-name>
+cargo build
+./target/debug/conduit
+```
+
+`cargo build` (without `--release`) outputs to `target/debug/` and does not overwrite any installed release binary.
+
 ## PRs
 
 Always target `Fuzzwah/conduit` (not the upstream `conduit-cli/conduit`):

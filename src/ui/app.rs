@@ -8333,7 +8333,11 @@ impl App {
         }
 
         // Start agent
-        if matches!(agent_type, AgentType::Gemini | AgentType::Opencode) && !images.is_empty() {
+        if matches!(
+            agent_type,
+            AgentType::Gemini | AgentType::Opencode | AgentType::Copilot
+        ) && !images.is_empty()
+        {
             if let Some(session) = self.state.tab_manager.session_mut(tab_index) {
                 session.stop_processing();
                 session.pending_user_message = None;
@@ -8345,6 +8349,10 @@ impl App {
                         }
                         AgentType::Opencode => {
                             "Image attachments aren't supported for OpenCode in Conduit yet."
+                                .to_string()
+                        }
+                        AgentType::Copilot => {
+                            "Image attachments aren't supported for GitHub Copilot in Conduit yet."
                                 .to_string()
                         }
                         _ => "Image attachments aren't supported for this agent.".to_string(),
@@ -8361,7 +8369,11 @@ impl App {
         // Strip placeholders for agents that send images out-of-band.
         if matches!(
             agent_type,
-            AgentType::Codex | AgentType::Claude | AgentType::Gemini | AgentType::Opencode
+            AgentType::Codex
+                | AgentType::Claude
+                | AgentType::Gemini
+                | AgentType::Opencode
+                | AgentType::Copilot
         ) {
             agent_prompt = Self::strip_image_placeholders(agent_prompt, &image_placeholders);
         }

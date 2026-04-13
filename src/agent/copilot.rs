@@ -68,12 +68,26 @@ impl AgentRunner for CopilotRunner {
         tokio::spawn(async move {
             let _ = tx.send(AgentEvent::TurnStarted).await;
 
+            // Drain stderr concurrently to prevent pipe-full deadlocks.
+            let stderr_task = tokio::spawn(async move {
+                let mut buf = String::new();
+                if let Some(mut stderr) = stderr {
+                    if let Err(e) = stderr.read_to_string(&mut buf).await {
+                        tracing::debug!(error = %e, "Failed to read copilot stderr");
+                    }
+                }
+                buf
+            });
+
             let reader = BufReader::new(stdout);
             let mut lines = reader.lines();
             while let Ok(Some(line)) = lines.next_line().await {
+                // Re-append the newline stripped by the line reader so that
+                // markdown, code blocks, and lists render correctly in the TUI.
+                let text = line + "\n";
                 if tx
                     .send(AgentEvent::AssistantMessage(AssistantMessageEvent {
-                        text: line,
+                        text,
                         is_final: false,
                     }))
                     .await
@@ -91,15 +105,7 @@ impl AgentRunner for CopilotRunner {
                 }))
                 .await;
 
-            let stderr_content = if let Some(mut stderr) = stderr {
-                let mut buf = String::new();
-                if let Err(e) = stderr.read_to_string(&mut buf).await {
-                    tracing::debug!(error = %e, "Failed to read copilot stderr");
-                }
-                buf
-            } else {
-                String::new()
-            };
+            let stderr_content = stderr_task.await.unwrap_or_default();
 
             match child.wait().await {
                 Ok(status) if status.success() => {
