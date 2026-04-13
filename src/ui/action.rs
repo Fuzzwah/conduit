@@ -162,6 +162,8 @@ pub enum Action {
     OpenSettings,
     /// Archive workspace or remove project
     ArchiveOrRemove,
+    /// Archive the current workspace (from within a workspace tab)
+    ArchiveCurrentWorkspace,
     /// Move selected project up in sidebar
     ProjectMoveUp,
     /// Move selected project down in sidebar
@@ -323,6 +325,7 @@ impl Action {
             Action::AddRepository => "Add repository",
             Action::OpenSettings => "Open settings",
             Action::ArchiveOrRemove => "Archive/remove",
+            Action::ArchiveCurrentWorkspace => "Archive current workspace",
             Action::ProjectMoveUp => "Move project up",
             Action::ProjectMoveDown => "Move project down",
 
@@ -388,6 +391,7 @@ impl Action {
                 | Action::OpenCommandPalette
                 | Action::ForkSession
                 | Action::HandoffSession
+                | Action::ArchiveCurrentWorkspace
         )
     }
 
@@ -430,6 +434,7 @@ impl Action {
                 | Action::AddRepository
                 | Action::OpenSettings
                 | Action::ArchiveOrRemove
+                | Action::ArchiveCurrentWorkspace
                 // Agent/Session
                 | Action::ToggleAgentMode
                 | Action::OpenQueueEditor

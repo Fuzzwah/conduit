@@ -37,6 +37,8 @@ impl FooterContext {
             ViewMode::Chat => {
                 if input_mode == InputMode::SidebarNavigation {
                     FooterContext::Sidebar
+                } else if input_mode == InputMode::FileViewer {
+                    FooterContext::FileViewer
                 } else {
                     FooterContext::Chat
                 }
@@ -118,6 +120,7 @@ impl<'a> GlobalFooter<'a> {
             ("C-t", "sidebar"),
             ("C-n", "new project"),
             ("M-S-w", "close"),
+            ("M-S-x", "archive"),
             ("C-c", "stop"),
             ("C-q", "quit"),
         ]

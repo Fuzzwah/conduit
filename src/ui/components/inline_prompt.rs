@@ -3,7 +3,6 @@
 //! Emulates Claude Code CLI's inline UI patterns for interactive tool responses.
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use unicode_width::UnicodeWidthStr;
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
@@ -11,6 +10,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Paragraph, Widget, Wrap},
 };
+use unicode_width::UnicodeWidthStr;
 
 use super::{
     accent_primary, accent_secondary, text_faint, text_muted, text_primary, text_secondary,
