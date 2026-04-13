@@ -401,6 +401,7 @@ pub fn parse_action(name: &str) -> Option<Action> {
         // Global
         "quit" => Some(Action::Quit),
         "toggle_sidebar" => Some(Action::ToggleSidebar),
+        "hide_sidebar" => Some(Action::HideSidebar),
         "new_project" => Some(Action::NewProject),
         "open_pr" => Some(Action::OpenPr),
         "fork_session" => Some(Action::ForkSession),
@@ -516,6 +517,7 @@ pub const COMMAND_NAMES: &[&str] = &[
     // Global
     "quit",
     "toggle_sidebar",
+    "hide_sidebar",
     "new_project",
     "open_pr",
     "fork_session",

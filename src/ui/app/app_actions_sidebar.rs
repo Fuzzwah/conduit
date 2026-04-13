@@ -10,6 +10,12 @@ impl App {
         effects: &mut Vec<crate::ui::effect::Effect>,
     ) {
         match action {
+            Action::HideSidebar => {
+                // Force-hide regardless of always_show_sidebar (e.g. to copy text)
+                self.state.sidebar_state.hide();
+                self.state.sidebar_state.set_focused(false);
+                self.state.input_mode = InputMode::Normal;
+            }
             Action::ToggleSidebar => {
                 if self.config().ui.always_show_sidebar {
                     // Always-visible mode: Ctrl+T always focuses the sidebar.
