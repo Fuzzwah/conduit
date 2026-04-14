@@ -567,6 +567,66 @@ impl WorktreeManager {
             .any(|line| line.trim().trim_start_matches("* ") == current_branch))
     }
 
+    fn ref_exists(&self, worktree_path: &Path, git_ref: &str) -> Result<bool, WorktreeError> {
+        let output = Command::new("git")
+            .args(["rev-parse", "--verify", git_ref])
+            .current_dir(worktree_path)
+            .output()?;
+        Ok(output.status.success())
+    }
+
+    fn branch_changes_present_in_ref(
+        &self,
+        worktree_path: &Path,
+        target_ref: &str,
+    ) -> Result<bool, WorktreeError> {
+        // Step 1: find the common ancestor of HEAD and target ref.
+        let merge_base_out = Command::new("git")
+            .args(["merge-base", "HEAD", target_ref])
+            .current_dir(worktree_path)
+            .output()?;
+
+        if !merge_base_out.status.success() {
+            return Ok(false);
+        }
+
+        let merge_base = String::from_utf8_lossy(&merge_base_out.stdout)
+            .trim()
+            .to_string();
+        if merge_base.is_empty() {
+            return Ok(false);
+        }
+
+        // Step 2: list files the branch changed relative to the merge base.
+        let files_out = Command::new("git")
+            .args(["diff", "--name-only", &merge_base, "HEAD"])
+            .current_dir(worktree_path)
+            .output()?;
+
+        if !files_out.status.success() {
+            return Ok(false);
+        }
+
+        let files_str = String::from_utf8_lossy(&files_out.stdout).into_owned();
+        let files: Vec<&str> = files_str.lines().filter(|l| !l.is_empty()).collect();
+
+        if files.is_empty() {
+            // Branch introduces no changes vs merge base.
+            return Ok(true);
+        }
+
+        // Step 3: check those specific files are identical in HEAD and target ref.
+        // Other files changed in target ref (unrelated progress) are intentionally ignored.
+        let mut args = vec!["diff", "--quiet", "HEAD", target_ref, "--"];
+        args.extend(files.iter().copied());
+        let diff_out = Command::new("git")
+            .args(&args)
+            .current_dir(worktree_path)
+            .output()?;
+
+        Ok(diff_out.status.success())
+    }
+
     /// Get the full branch status for archiving decisions
     pub fn get_branch_status(&self, worktree_path: &Path) -> Result<BranchStatus, WorktreeError> {
         let mut status = BranchStatus::default();
@@ -592,90 +652,85 @@ impl WorktreeManager {
             }
         }
 
-        // Get ahead/behind counts
+        // Best-effort refresh of origin refs (if origin exists) so status uses
+        // the latest remote state when available.
+        match Command::new("git")
+            .args(["fetch", "origin", "--quiet"])
+            .current_dir(worktree_path)
+            .output()
+        {
+            Ok(output) if !output.status.success() => {
+                tracing::debug!(
+                    stderr = %String::from_utf8_lossy(&output.stderr),
+                    "git fetch origin failed during branch status refresh"
+                );
+            }
+            Ok(_) => {}
+            Err(e) => {
+                tracing::debug!(error = %e, "Unable to run git fetch origin during status refresh");
+            }
+        }
+
+        // Get ahead/behind counts.
+        // Prefer origin/<main> when available, but fall back to local <main>
+        // so local-only squash merges are detected before pushing.
         let main_branch = self
             .get_main_branch(worktree_path)
             .unwrap_or_else(|_| "main".to_string());
-        let output = Command::new("git")
-            .args([
-                "rev-list",
-                "--left-right",
-                "--count",
-                &format!("HEAD...origin/{}", main_branch),
-            ])
-            .current_dir(worktree_path)
-            .output();
+        let remote_ref = format!("origin/{}", main_branch);
+        for compare_ref in [&remote_ref, main_branch.as_str()] {
+            let output = Command::new("git")
+                .args([
+                    "rev-list",
+                    "--left-right",
+                    "--count",
+                    &format!("HEAD...{compare_ref}"),
+                ])
+                .current_dir(worktree_path)
+                .output();
 
-        if let Ok(output) = output {
-            if output.status.success() {
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                let parts: Vec<&str> = stdout.split_whitespace().collect();
-                if parts.len() == 2 {
-                    status.commits_ahead = parts[0].parse().unwrap_or(0);
-                    status.commits_behind = parts[1].parse().unwrap_or(0);
+            if let Ok(output) = output {
+                if output.status.success() {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    let parts: Vec<&str> = stdout.split_whitespace().collect();
+                    if parts.len() == 2 {
+                        status.commits_ahead = parts[0].parse().unwrap_or(0);
+                        status.commits_behind = parts[1].parse().unwrap_or(0);
+                        break;
+                    }
                 }
             }
         }
 
-        // Detect squash-merge: check whether the files this branch changed have the same
-        // content in HEAD as in origin/main. A full `git diff origin/main HEAD` would
-        // fail whenever master has moved since the branch was created (extra commits on
-        // master appear as differences even though the branch's own changes are already
-        // there). Using the merge-base scopes the file list to only what the branch
-        // touched, so other master progress is ignored.
+        // Detect squash-merge by checking whether files changed by this branch now match
+        // either local <main> or origin/<main>. Checking both avoids false warnings when
+        // a squash merge has been done locally but not pushed yet.
         if !status.is_merged && status.commits_ahead > 0 {
-            // Fetch so origin/main reflects the latest remote state. Without this,
-            // a squash-merged PR won't be detected because the local origin/main
-            // ref still points to the pre-merge commit.
-            let _ = Command::new("git")
-                .args(["fetch", "origin", "--quiet"])
-                .current_dir(worktree_path)
-                .output();
-
-            let remote_ref = format!("origin/{}", main_branch);
-
-            // Step 1: find the common ancestor of HEAD and origin/main.
-            let merge_base_out = Command::new("git")
-                .args(["merge-base", "HEAD", &remote_ref])
-                .current_dir(worktree_path)
-                .output();
-
-            if let Ok(mb) = merge_base_out {
-                if mb.status.success() {
-                    let merge_base = String::from_utf8_lossy(&mb.stdout).trim().to_string();
-
-                    // Step 2: list files the branch changed relative to the merge base.
-                    let files_out = Command::new("git")
-                        .args(["diff", "--name-only", &merge_base, "HEAD"])
-                        .current_dir(worktree_path)
-                        .output();
-
-                    if let Ok(files_out) = files_out {
-                        if files_out.status.success() {
-                            let files_str = String::from_utf8_lossy(&files_out.stdout).into_owned();
-                            let files: Vec<&str> =
-                                files_str.lines().filter(|l| !l.is_empty()).collect();
-
-                            if files.is_empty() {
-                                // Branch introduces no changes vs merge base.
+            for candidate in [main_branch.as_str(), remote_ref.as_str()] {
+                match self.ref_exists(worktree_path, candidate) {
+                    Ok(true) => {
+                        match self.branch_changes_present_in_ref(worktree_path, candidate) {
+                            Ok(true) => {
                                 status.likely_squash_merged = true;
-                            } else {
-                                // Step 3: check those specific files are identical in
-                                // HEAD and origin/main. Other files that changed on
-                                // master (unrelated PRs) are intentionally ignored.
-                                let mut args = vec!["diff", "--quiet", "HEAD", &remote_ref, "--"];
-                                args.extend(files.iter().copied());
-                                let diff_out = Command::new("git")
-                                    .args(&args)
-                                    .current_dir(worktree_path)
-                                    .output();
-                                if let Ok(diff_out) = diff_out {
-                                    if diff_out.status.success() {
-                                        status.likely_squash_merged = true;
-                                    }
-                                }
+                                break;
+                            }
+                            Ok(false) => {}
+                            Err(e) => {
+                                tracing::debug!(
+                                    error = %e,
+                                    ref_name = %candidate,
+                                    "Failed to compare branch changes for squash-merge detection"
+                                );
                             }
                         }
+                    }
+                    Ok(false) => {}
+                    Err(e) => {
+                        tracing::debug!(
+                            error = %e,
+                            ref_name = %candidate,
+                            "Failed to verify git ref for squash-merge detection"
+                        );
                     }
                 }
             }
@@ -812,6 +867,21 @@ mod tests {
         Ok(())
     }
 
+    fn run_git(path: &Path, args: &[&str]) {
+        let output = Command::new("git")
+            .args(args)
+            .current_dir(path)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "git {:?} failed in {}: {}",
+            args,
+            path.display(),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
     #[test]
     fn test_is_git_repo() {
         let dir = tempdir().unwrap();
@@ -873,5 +943,29 @@ mod tests {
 
         let worktrees = manager.list_worktrees(&repo_path).unwrap();
         assert_eq!(worktrees.len(), 1);
+    }
+
+    #[test]
+    fn test_get_branch_status_detects_local_squash_merge_before_push() {
+        let dir = tempdir().unwrap();
+        init_git_repo(dir.path()).unwrap();
+
+        let manager = WorktreeManager::new();
+        let main_branch = manager.get_current_branch(dir.path()).unwrap();
+
+        run_git(dir.path(), &["checkout", "-b", "feature/local-squash"]);
+        std::fs::write(dir.path().join("README.md"), "# Test\n\nfeature change\n").unwrap();
+        run_git(dir.path(), &["add", "README.md"]);
+        run_git(dir.path(), &["commit", "-m", "feature work"]);
+
+        run_git(dir.path(), &["checkout", &main_branch]);
+        run_git(dir.path(), &["merge", "--squash", "feature/local-squash"]);
+        run_git(dir.path(), &["commit", "-m", "squash merge feature"]);
+        run_git(dir.path(), &["checkout", "feature/local-squash"]);
+
+        let status = manager.get_branch_status(dir.path()).unwrap();
+        assert!(!status.is_merged);
+        assert!(status.commits_ahead > 0);
+        assert!(status.likely_squash_merged);
     }
 }

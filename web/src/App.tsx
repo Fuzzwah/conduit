@@ -1117,6 +1117,7 @@ function AppContent() {
         description={archiveDescription}
         confirmLabel="Archive"
         onConfirm={handleConfirmArchive}
+        infoItems={archivePreflight?.info_items}
         warnings={archivePreflight?.warnings}
         error={archivePreflight?.error}
         isPending={archiveWorkspace.isPending}

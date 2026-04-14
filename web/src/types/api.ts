@@ -35,6 +35,7 @@ export interface ArchivePreflightResponse {
   is_merged: boolean;
   commits_ahead: number;
   commits_behind: number;
+  info_items: string[];
   warnings: string[];
   severity: 'info' | 'warning' | 'danger';
   error: string | null;
