@@ -10,8 +10,8 @@ use crate::config::ThinkingSpinnerStyle;
 /// Spinner animation frames (Claude Code star style)
 const SPINNER_FRAMES_STAR: &[&str] = &["·", "✢", "✳", "∗", "✻", "✽"];
 
-/// Spinner animation frames (Braille dots, matches tab-bar processing indicator)
-const SPINNER_FRAMES_BRAILLE: &[&str] = &["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"];
+/// Spinner animation frames (clockwise braille, matches archive dialog and tab-bar)
+const SPINNER_FRAMES_BRAILLE: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 /// Shimmer gradient colors (bright orange to very dark)
 const SHIMMER_BRIGHT: (u8, u8, u8) = (255, 180, 80); // Bright orange
