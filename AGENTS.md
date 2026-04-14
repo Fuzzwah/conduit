@@ -1,38 +1,113 @@
-# AGENTS.md
+# Conduit — Claude Code Instructions
 
-Project-specific instructions for agents working in this repo.
+This is a personal fork of [conduit-cli/conduit](https://github.com/conduit-cli/conduit). Fork-specific changes are documented in `FORK_CHANGES.md`.
 
-## Commit Message Guidelines
+## Tech Stack
 
-- Use Angular-style commit messages (e.g., `feat: ...`, `chore: ...`) and include a short detail summary in the body.
+- **TUI:** Rust (2021) + Ratatui + Crossterm
+- **Web UI backend:** Axum (Rust)
+- **Web UI frontend:** React/TypeScript (compiled and embedded into the binary)
+- **Database:** SQLite via rusqlite
 
-## Changes routine
+## Common Commands
 
-- Based on complexity and affected surface, decide whether to follow the TDD red-green approach or not.
-- Always run `cargo check --all` after making changes and before the last test cycle.
-- Always run all tests after finishing the changes with `cargo nextest run --all`. If execution fails, also try `cargo test --all` before reporting the test failure.
-- Always run the Code Hygiene routine after finishing the changes.
+```bash
+# Build
+cargo build                   # debug
+cargo build --release         # release
 
-## Code hygiene
+# Run
+cargo run                     # TUI
+cargo run -- serve            # web UI (default: 127.0.0.1:3000)
 
-- After each feature implementation, run `cargo fmt --all` and `cargo clippy -- -D warnings`.
-  - Fix all the reported issues.
+# Test
+cargo test
+cargo test -- --nocapture
 
-## Web interface testing (agent-browser)
+# Lint / format
+cargo fmt --all
+cargo clippy -- -D warnings
+```
 
-- Start the server in tmux (background) and keep logs visible:
-  - `tmux new -d -s codex-shell -n shell`
-  - `tmux send-keys -t codex-shell:0.0 -- 'RUST_LOG=conduit=debug cargo run -- --data-dir /tmp/test-conduit-1 serve --host 0.0.0.0' Enter`
-  - Logs: `tmux capture-pane -p -J -t codex-shell:0.0 -S -200`
-- Use `agent-browser` (not Playwright directly) for UI automation:
-  - `agent-browser open http://0.0.0.0:3000/`
-  - `agent-browser snapshot -i` to get refs, then `agent-browser click @eX`, `fill`, `press Enter`.
-- Suggested flow for OpenCode sessions:
-  - Create a new workspace, open model picker, choose `opencode/glm-4.7`, send prompts.
-  - Check message ordering and tool rendering live.
-  - Reload (`agent-browser reload`) and compare ordering/history to the live view.
-  - If ordering or duplication issues appear live but not after reload, inspect SSE handling in `src/agent/opencode.rs`.
+The build script automatically runs `npm install && npm run build` in `web/` when web assets are stale.
 
-## Error handling
+## Project Layout
 
-- Do not swallow errors. Avoid `let _ =` or `_ =` to discard `Result` values; handle them explicitly or log the failure with context.
+```
+src/          TUI, agent runners, workspace logic, web server
+src/web/      Axum API handlers and WebSocket endpoints
+web/          React/TypeScript frontend
+website/      Astro marketing site (getconduit.sh)
+docs/         mdBook documentation
+tests/        Integration and E2E tests
+```
+
+## Testing Notes
+
+- Snapshot tests use `insta` — run `cargo insta review` to accept updated snapshots.
+- Property-based tests use `proptest` (JSONL parsing).
+- E2E tests use `termwright`.
+
+## Manual Testing a Branch
+
+Conduit manages its own git worktrees under `~/.conduit/workspaces/`. When a branch is active in conduit, it is already checked out there — attempting `git checkout <branch>` in `~/code/conduit` will fail with "already used by worktree".
+
+To manually test a branch, build and run from the worktree directly:
+
+```bash
+cd ~/.conduit/workspaces/conduit/<worktree-name>
+cargo build
+./target/debug/conduit
+```
+
+`cargo build` (without `--release`) outputs to `target/debug/` and does not overwrite any installed release binary.
+
+## PRs
+
+Always target `Fuzzwah/conduit` (not the upstream `conduit-cli/conduit`):
+
+```bash
+gh pr create --repo Fuzzwah/conduit
+```
+
+## CI Checks
+
+PRs must pass: `cargo check` → `cargo fmt --check` → `cargo clippy -- -D warnings` → `cargo test`.
+
+**Before declaring any code change complete, always run all four commands:**
+
+```bash
+cargo fmt --check
+cargo clippy -- -D warnings
+cargo test
+```
+
+(`cargo clippy` implies `cargo check`, so running all three above covers the full CI gate.)
+
+Do not substitute `cargo build` for these — it skips format, lint, and test verification.
+
+---
+
+## Rules of Engagement
+
+1. Read relevant files before proposing or making changes.
+2. Do not make speculative improvements outside the request.
+3. Prefer small, local edits over broad refactors unless the task requires it.
+4. Prefer dedicated tools for reading, editing, searching, and testing.
+5. If multiple reads or searches are independent, run them in parallel.
+6. Before reporting success, run `cargo fmt --check && cargo clippy -- -D warnings && cargo test` and confirm all pass.
+7. Never claim tests passed unless output confirms it.
+8. Ask before taking destructive or externally visible actions.
+
+## Known Failure Patterns to Avoid
+
+- Reading code and then claiming the behavior is verified.
+- Cleaning up unrelated code while "already in there."
+- Reporting a task complete without running the relevant check.
+- Treating a likely fix as a confirmed fix.
+
+## Response Style
+
+- Before the first tool call, state your plan in one or two sentences.
+- During execution, provide brief progress updates at natural milestones.
+- In the final response, lead with outcome, then verification status, then any remaining risks.
