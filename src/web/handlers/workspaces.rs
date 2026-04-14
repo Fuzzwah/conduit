@@ -84,6 +84,7 @@ pub struct ArchivePreflightResponse {
     pub is_merged: bool,
     pub commits_ahead: usize,
     pub commits_behind: usize,
+    pub info_items: Vec<String>,
     pub warnings: Vec<String>,
     pub severity: String,
     pub error: Option<String>,
@@ -206,6 +207,7 @@ pub async fn get_workspace_archive_preflight(
         .ok_or_else(|| WebError::NotFound(format!("Workspace {} not found", id)))?;
 
     let worktree_manager = core.worktree_manager();
+    let mut info_items = Vec::new();
     let mut warnings = Vec::new();
     let mut error = None;
     let mut is_dirty = false;
@@ -265,6 +267,10 @@ pub async fn get_workspace_archive_preflight(
                     }
                 ));
             }
+
+            if status.commits_ahead == 0 {
+                info_items.push("Branch has no changes (0 commits ahead of main)".to_string());
+            }
         }
         Err(err) => {
             error = Some(format!("Failed to read git status: {}", err));
@@ -306,6 +312,7 @@ pub async fn get_workspace_archive_preflight(
         is_merged,
         commits_ahead,
         commits_behind,
+        info_items,
         warnings,
         severity: severity.to_string(),
         error,

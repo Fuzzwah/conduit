@@ -4722,6 +4722,11 @@ impl App {
                             }
                         ));
                     }
+
+                    if status.commits_ahead == 0 {
+                        info_items
+                            .push("Branch has no changes (0 commits ahead of main)".to_string());
+                    }
                 }
 
                 let mut message = match settings.mode {
