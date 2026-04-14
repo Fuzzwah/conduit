@@ -4822,7 +4822,7 @@ impl App {
             }),
         );
         self.state.confirmation_dialog_state.cancel_text = "Keep Remote".to_string();
-        self.state.confirmation_dialog_state.select_cancel();
+        self.state.confirmation_dialog_state.select_confirm();
         self.state.input_mode = InputMode::Confirming;
     }
 
@@ -6431,6 +6431,7 @@ impl App {
                             Some(ConfirmationContext::ArchiveWorkspace(workspace_id)),
                         );
                         self.state.confirmation_dialog_state.info_items = preflight.info_items;
+                        self.state.confirmation_dialog_state.select_confirm();
                         self.state.input_mode = InputMode::Confirming;
                     }
                     Err(err) => {
