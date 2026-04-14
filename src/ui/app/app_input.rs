@@ -60,6 +60,11 @@ impl App {
             return Ok(Vec::new());
         }
 
+        if self.state.input_mode == InputMode::CloningRepository {
+            // Ignore all input while cloning repository
+            return Ok(Vec::new());
+        }
+
         // Defensive normalization: when an overlay is visible, force the matching
         // input mode so key context lookup targets the active modal.
         if self.state.model_selector_state.is_visible() {

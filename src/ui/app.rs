@@ -5060,6 +5060,70 @@ impl App {
         Some(repo_id)
     }
 
+    /// Return the projects base directory as a PathBuf, defaulting to `~/code`.
+    fn projects_base_dir_path(&self) -> std::path::PathBuf {
+        let base_dir_str = self
+            .app_state_dao()
+            .and_then(|dao| dao.get("projects_base_dir").ok().flatten())
+            .unwrap_or_else(|| "~/code".to_string());
+
+        if base_dir_str.starts_with('~') {
+            dirs::home_dir()
+                .map(|h| h.join(base_dir_str[1..].trim_start_matches('/')))
+                .unwrap_or_else(|| std::path::PathBuf::from(&base_dir_str))
+        } else {
+            std::path::PathBuf::from(&base_dir_str)
+        }
+    }
+
+    /// Clone a remote git repository and add it as a project.
+    ///
+    /// The clone is performed on a background thread so the TUI stays responsive.
+    /// The target directory is `<projects_base_dir>/<repo_name>`.
+    fn clone_repository(&mut self) {
+        use crate::ui::components::RepoInputKind;
+
+        let (url, repo_name) = match &self.state.add_repo_dialog_state.input_kind {
+            RepoInputKind::GitUrl { url } => (
+                url.clone(),
+                self.state
+                    .add_repo_dialog_state
+                    .repo_name
+                    .clone()
+                    .unwrap_or_else(|| "repo".to_string()),
+            ),
+            RepoInputKind::LocalPath => return,
+        };
+
+        let target_path = self.projects_base_dir_path().join(&repo_name);
+
+        self.state.add_repo_dialog_state.hide();
+        self.state.input_mode = InputMode::CloningRepository;
+        self.state
+            .set_timed_footer_message(format!("Cloning {}…", repo_name), Duration::from_secs(300));
+
+        self.spawn_blocking_preflight(
+            move || {
+                let output = std::process::Command::new("git")
+                    .args(["clone", &url, target_path.to_str().unwrap_or("")])
+                    .output()
+                    .map_err(|e| format!("Failed to run git: {e}"))?;
+
+                if output.status.success() {
+                    Ok(target_path)
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    Err(format!(
+                        "git clone failed: {}",
+                        stderr.trim().lines().last().unwrap_or("unknown error")
+                    ))
+                }
+            },
+            |result| AppEvent::RepositoryCloned { result },
+            "repository_cloned",
+        );
+    }
+
     /// Create a new tab with the selected agent type
     fn create_tab_with_agent(&mut self, agent_type: AgentType) {
         let target_provider = if self
@@ -6729,6 +6793,43 @@ impl App {
                     self.state.show_first_time_splash = true;
                     if !has_errors {
                         self.state.input_mode = InputMode::Normal;
+                    }
+                }
+            }
+            AppEvent::RepositoryCloned { result } => {
+                if self.state.input_mode == InputMode::CloningRepository {
+                    match result {
+                        Ok(path) => {
+                            if let Some(repo_id) = self.add_project_to_sidebar(path) {
+                                self.state.sidebar_data.expand_repo(repo_id);
+                                if let Some(repo_index) =
+                                    self.state.sidebar_data.find_repo_index(repo_id)
+                                {
+                                    self.state.sidebar_state.tree_state.selected = repo_index + 1;
+                                }
+                                self.state.sidebar_state.show();
+                                self.state.sidebar_state.set_focused(true);
+                                self.state.show_first_time_splash = false;
+                                self.state.input_mode = InputMode::SidebarNavigation;
+                                self.state.set_timed_footer_message(
+                                    "Repository cloned successfully".to_string(),
+                                    Duration::from_secs(4),
+                                );
+                            } else {
+                                self.state.input_mode = InputMode::Normal;
+                                self.state.set_timed_footer_message(
+                                    "Clone succeeded but failed to add project".to_string(),
+                                    Duration::from_secs(5),
+                                );
+                            }
+                        }
+                        Err(err) => {
+                            self.state.input_mode = InputMode::Normal;
+                            self.state.set_timed_footer_message(
+                                format!("Clone failed: {err}"),
+                                Duration::from_secs(6),
+                            );
+                        }
                     }
                 }
             }
@@ -10817,6 +10918,43 @@ impl App {
                 f.buffer_mut(),
                 &self.state.workspace_defaults_dialog_state,
             );
+        }
+
+        // Draw cloning repository spinner overlay
+        if self.state.input_mode == InputMode::CloningRepository {
+            use crate::ui::components::Spinner;
+            use ratatui::layout::Alignment;
+            use ratatui::style::{Color, Style};
+            use ratatui::symbols::border;
+            use ratatui::text::Line;
+            use ratatui::widgets::{Block, Borders, Clear, Paragraph, Widget};
+
+            let dialog_width: u16 = 30;
+            let dialog_height: u16 = 3;
+
+            let x = size.width.saturating_sub(dialog_width) / 2;
+            let y = size.height.saturating_sub(dialog_height) / 2;
+
+            let dialog_area = Rect::new(x, y, dialog_width, dialog_height);
+
+            Clear.render(dialog_area, f.buffer_mut());
+
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_set(border::ROUNDED)
+                .border_style(Style::default().fg(Color::Rgb(130, 170, 255)));
+
+            let inner = block.inner(dialog_area);
+            block.render(dialog_area, f.buffer_mut());
+
+            let spinner = Spinner::dots();
+            let line = Line::from(vec![
+                spinner.span(Color::Rgb(130, 170, 255)),
+                ratatui::text::Span::raw(" Cloning repository..."),
+            ]);
+
+            let para = Paragraph::new(line).alignment(Alignment::Center);
+            para.render(inner, f.buffer_mut());
         }
 
         // Draw removing project spinner overlay

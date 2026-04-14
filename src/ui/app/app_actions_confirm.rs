@@ -211,19 +211,24 @@ impl App {
             }
             InputMode::AddingRepository => {
                 if self.state.add_repo_dialog_state.is_valid() {
-                    let repo_id = self.add_repository();
-                    self.state.add_repo_dialog_state.hide();
-                    if let Some(id) = repo_id {
-                        self.state.sidebar_data.expand_repo(id);
-                        if let Some(repo_index) = self.state.sidebar_data.find_repo_index(id) {
-                            self.state.sidebar_state.tree_state.selected = repo_index + 1;
-                        }
-                        self.state.sidebar_state.show();
-                        self.state.sidebar_state.set_focused(true);
-                        self.state.show_first_time_splash = false;
-                        self.state.input_mode = InputMode::SidebarNavigation;
+                    if self.state.add_repo_dialog_state.is_url() {
+                        // Kick off background clone; mode will be set to CloningRepository
+                        self.clone_repository();
                     } else {
-                        self.state.input_mode = InputMode::Normal;
+                        let repo_id = self.add_repository();
+                        self.state.add_repo_dialog_state.hide();
+                        if let Some(id) = repo_id {
+                            self.state.sidebar_data.expand_repo(id);
+                            if let Some(repo_index) = self.state.sidebar_data.find_repo_index(id) {
+                                self.state.sidebar_state.tree_state.selected = repo_index + 1;
+                            }
+                            self.state.sidebar_state.show();
+                            self.state.sidebar_state.set_focused(true);
+                            self.state.show_first_time_splash = false;
+                            self.state.input_mode = InputMode::SidebarNavigation;
+                        } else {
+                            self.state.input_mode = InputMode::Normal;
+                        }
                     }
                 }
             }
