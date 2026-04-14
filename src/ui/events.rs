@@ -136,6 +136,11 @@ pub enum AppEvent {
     /// Project removal completed
     ProjectRemoved { result: RemoveProjectResult },
 
+    /// Remote repository clone completed
+    RepositoryCloned {
+        result: Result<std::path::PathBuf, String>,
+    },
+
     /// Cached sessions loaded (fast path from disk cache)
     SessionsCacheLoaded {
         sessions: Vec<crate::session::ExternalSession>,
@@ -291,6 +296,8 @@ pub enum InputMode {
     Confirming,
     /// Removing a project (showing spinner)
     RemovingProject,
+    /// Cloning a remote repository (showing spinner)
+    CloningRepository,
     /// Showing an error dialog
     ShowingError,
     /// Command mode (typing :command)

@@ -45,7 +45,7 @@ mod tree_view;
 mod turn_summary;
 mod workspace_defaults_dialog;
 
-pub use add_repo_dialog::{AddRepoDialog, AddRepoDialogState};
+pub use add_repo_dialog::{AddRepoDialog, AddRepoDialogState, RepoInputKind};
 pub use agent_selector::{AgentSelector, AgentSelectorState};
 pub use base_dir_dialog::{BaseDirDialog, BaseDirDialogState};
 pub use chat_message::{ChatMessage, MessageRole};
