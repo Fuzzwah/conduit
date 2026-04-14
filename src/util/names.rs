@@ -4,14 +4,13 @@ use rand::prelude::IndexedRandom;
 
 /// Short adjectives (max 4 chars) for workspace names
 const ADJECTIVES: &[&str] = &[
-    "able", "aged", "airy", "bare", "blue", "bold", "buff", "calm", "cool", "cute", "damp", "dark",
-    "dear", "deep", "deft", "dull", "easy", "even", "fair", "fast", "fine", "firm", "flat", "fond",
-    "free", "full", "glad", "gold", "good", "gray", "grim", "hale", "hard", "hazy", "high", "holy",
-    "huge", "icy", "idle", "just", "keen", "kind", "lazy", "lean", "live", "lone", "lost", "loud",
-    "lush", "mild", "mute", "near", "neat", "new", "nice", "old", "pale", "pink", "posh", "pure",
-    "rare", "raw", "red", "rich", "rosy", "safe", "shy", "slim", "slow", "snug", "soft", "sour",
-    "spry", "sure", "tall", "tame", "taut", "thin", "tidy", "tiny", "trim", "true", "vain", "vast",
-    "vile", "warm", "wavy", "weak", "wide", "wild", "wise", "worn", "zany",
+    "able", "aged", "airy", "bare", "blue", "bold", "buff", "calm", "cool", "cute", "dark", "dear",
+    "deep", "deft", "easy", "even", "fair", "fast", "fine", "firm", "flat", "fond", "free", "full",
+    "glad", "gold", "good", "gray", "hale", "hard", "hazy", "high", "holy", "huge", "icy", "idle",
+    "just", "keen", "kind", "lazy", "lean", "live", "lone", "loud", "lush", "mild", "mute", "near",
+    "neat", "new", "nice", "old", "pale", "pink", "posh", "pure", "rare", "raw", "red", "rich",
+    "rosy", "safe", "shy", "slim", "slow", "snug", "soft", "spry", "sure", "tall", "tame", "taut",
+    "thin", "tidy", "tiny", "trim", "true", "vast", "warm", "wavy", "wide", "wild", "wise", "zany",
 ];
 
 /// Short nouns (max 4 chars) for workspace names
@@ -28,7 +27,7 @@ const NOUNS: &[&str] = &[
 /// Generate a unique workspace name not in the existing list
 ///
 /// Uses adjective-noun combinations (e.g., "bold-fox", "calm-owl").
-/// With 93 adjectives and 80 nouns, there are 7,440 unique combinations.
+/// With 84 adjectives and 80 nouns, there are 6,720 unique combinations.
 /// If all combinations are exhausted, falls back to UUID suffix.
 pub fn generate_workspace_name(existing: &[String]) -> String {
     let mut rng = rand::rng();
@@ -169,9 +168,9 @@ mod tests {
 
     #[test]
     fn test_total_combinations() {
-        // Verify we have enough combinations (should be 7,440)
+        // Verify we have enough combinations (should be 6,720)
         let total = ADJECTIVES.len() * NOUNS.len();
-        assert_eq!(total, 93 * 80);
+        assert_eq!(total, 84 * 80);
         assert!(
             total > 1500,
             "Should have at least 1500 unique combinations"
