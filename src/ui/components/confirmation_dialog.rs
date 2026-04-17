@@ -322,7 +322,7 @@ impl Widget for ConfirmationDialog<'_> {
         // Loading state - show compact dialog with spinner
         if self.state.loading {
             let dialog_width: u16 = 50;
-            let dialog_height: u16 = 7; // Compact: border(2) + top_padding(1) + spinner area
+            let dialog_height: u16 = 6; // Compact: border(2) + top_padding(1) + spinner area
 
             let instructions = if self
                 .state
