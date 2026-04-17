@@ -42,7 +42,16 @@ enum Commands {
     },
 
     /// Launch TUI with mocked demo workspaces and chat history (no API key needed)
-    Demo,
+    Demo {
+        /// Show splash screen only (no active workspace tab) — for clean-start screenshots
+        #[arg(long)]
+        clean: bool,
+
+        /// Pre-open a UI overlay on startup (for automated screenshots).
+        /// Values: help | model | theme | providers | archive | file-mention
+        #[arg(long, value_name = "OVERLAY")]
+        overlay: Option<String>,
+    },
 
     /// Start the web server
     Serve {
@@ -61,7 +70,7 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     // Demo mode uses an isolated temp directory so it never touches the real database.
-    let data_dir = if matches!(cli.command, Some(Commands::Demo)) {
+    let data_dir = if matches!(cli.command, Some(Commands::Demo { .. })) {
         Some(std::env::temp_dir().join("conduit-demo"))
     } else {
         cli.data_dir
@@ -69,8 +78,8 @@ async fn main() -> Result<()> {
     util::init_data_dir(data_dir);
 
     match cli.command {
-        Some(Commands::Demo) => {
-            run_app_demo().await?;
+        Some(Commands::Demo { clean, overlay }) => {
+            run_app_demo(clean, overlay.as_deref()).await?;
         }
         Some(Commands::DebugKeys) => {
             run_debug_keys()?;
@@ -180,7 +189,7 @@ async fn run_app() -> Result<()> {
 }
 
 /// Run the app pre-loaded with demo data (no API key or real workspaces needed).
-async fn run_app_demo() -> Result<()> {
+async fn run_app_demo(clean: bool, overlay: Option<&str>) -> Result<()> {
     terminal_guard::install_panic_hook();
 
     fs::create_dir_all(util::logs_dir())?;
@@ -206,7 +215,14 @@ async fn run_app_demo() -> Result<()> {
     let tools = ToolAvailability::default();
 
     let mut app = App::new(config, tools);
-    app.load_demo_data();
+    if clean {
+        app.load_demo_data_splash();
+    } else {
+        app.load_demo_data();
+    }
+    if let Some(name) = overlay {
+        app.open_overlay_for_demo(name);
+    }
     app.run().await
 }
 

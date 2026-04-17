@@ -18,6 +18,18 @@ set -e
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
+# Extend PATH with Linuxbrew and common Homebrew locations so tools installed
+# via `brew install vhs` / `brew install ffmpeg` are found even when the script
+# is invoked from a shell that hasn't sourced the Homebrew init file (e.g. bare
+# bash, CI, or a non-interactive terminal session).
+export PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/local/bin:$PATH"
+
+# VHS uses a headless Chromium whose shared-library dependencies (libnss3,
+# libnspr4, libxkbcommon, libasound, etc.) may not be installed system-wide.
+# Point the dynamic linker at the Linuxbrew lib directory so Chromium finds
+# them without requiring sudo / apt-get.
+export LD_LIBRARY_PATH="/home/linuxbrew/.linuxbrew/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
 if ! command -v vhs &>/dev/null; then
   echo "Error: 'vhs' not found. Install it first:" >&2
   echo "  Homebrew:  brew install vhs" >&2
@@ -82,8 +94,16 @@ echo "==> Building conduit binary..."
 cargo build
 
 echo "==> Generating TUI screenshots with VHS..."
-run_tape_and_compose docs/screenshots/tapes/tui-main.tape        docs/screenshots/tui-main.png
-run_tape_and_compose docs/screenshots/tapes/tui-ahead-behind.tape docs/screenshots/tui-ahead-behind.png
+run_tape_and_compose docs/screenshots/tapes/tui-main.tape                   docs/screenshots/tui-main.png
+run_tape_and_compose docs/screenshots/tapes/tui-ahead-behind.tape            docs/screenshots/tui-ahead-behind.png
+run_tape_and_compose docs/screenshots/tapes/clean-start.tape                 docs/screenshots/clean-start.png
+run_tape_and_compose docs/screenshots/tapes/help-screen.tape                 docs/screenshots/help-screen.png
+run_tape_and_compose docs/screenshots/tapes/model-select.tape                docs/screenshots/model-select.png
+run_tape_and_compose docs/screenshots/tapes/provider-select.tape             docs/screenshots/provider-select.png
+run_tape_and_compose docs/screenshots/tapes/theme-selection.tape             docs/screenshots/theme-selection.png
+run_tape_and_compose docs/screenshots/tapes/builtin-themes.tape              docs/screenshots/builtin-themes.png
+run_tape_and_compose docs/screenshots/tapes/file-mention-autocomplete.tape   docs/screenshots/file-mention-autocomplete.png
+run_tape_and_compose docs/screenshots/tapes/workspace-archive.tape           docs/screenshots/workspace-archive.png
 
 echo "==> Generating web UI screenshot with Playwright..."
 cd web
