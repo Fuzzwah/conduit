@@ -378,7 +378,6 @@ pub fn default_keybindings() -> KeybindingConfig {
         KeyCombo::new(KeyCode::BackTab, KeyModifiers::SHIFT),
         Action::ToggleAgentMode,
     );
-    bind(sidebar, "r", Action::AddRepository);
     bind(sidebar, "s", Action::OpenSettings);
     bind(sidebar, "M-S-x", Action::ArchiveOrRemove);
     sidebar.insert(

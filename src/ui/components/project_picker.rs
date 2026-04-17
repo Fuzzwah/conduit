@@ -115,7 +115,7 @@ impl ProjectPickerState {
             return None;
         }
 
-        let list_height = self.list.visible_len() as u16;
+        let list_height = self.effective_visible_len() as u16;
         let dialog_height = 6 + list_height;
         let dialog_width: u16 = 60;
 
@@ -149,7 +149,7 @@ impl ProjectPickerState {
             height: list_height_actual,
         };
 
-        let total = self.list.filtered.len();
+        let total = self.list.filtered.len() + 1; // +1 for "From git URL..." entry
         let visible = list_area.height as usize;
         if total <= visible {
             return None;
@@ -254,12 +254,23 @@ impl ProjectPickerState {
 
     /// Select previous item
     pub fn select_prev(&mut self) {
-        self.list.select_prev();
+        if self.list.selected > 0 {
+            self.list.selected -= 1;
+            if self.list.selected < self.list.scroll_offset {
+                self.list.scroll_offset = self.list.selected;
+            }
+        }
     }
 
-    /// Select next item
+    /// Select next item (includes the "From git URL..." entry beyond the filtered list)
     pub fn select_next(&mut self) {
-        self.list.select_next();
+        let max_idx = self.list.filtered.len(); // git URL is at filtered.len()
+        if self.list.selected < max_idx {
+            self.list.selected += 1;
+            if self.list.selected >= self.list.scroll_offset + self.list.max_visible {
+                self.list.scroll_offset = self.list.selected - self.list.max_visible + 1;
+            }
+        }
     }
 
     /// Page up (move up by visible count)
@@ -267,23 +278,51 @@ impl ProjectPickerState {
         self.list.page_up();
     }
 
-    /// Page down (move down by visible count)
+    /// Page down (move down by visible count, includes the "From git URL..." entry)
     pub fn page_down(&mut self) {
-        self.list.page_down();
+        let page_size = self.list.max_visible;
+        let max_idx = self.list.filtered.len(); // git URL is at filtered.len()
+        if self.list.selected + page_size <= max_idx {
+            self.list.selected += page_size;
+        } else {
+            self.list.selected = max_idx;
+        }
+        if self.list.selected >= self.list.scroll_offset + self.list.max_visible {
+            self.list.scroll_offset = self.list.selected.saturating_sub(self.list.max_visible - 1);
+        }
     }
 
     /// Select item at a given visual row (for mouse clicks)
     /// Returns true if an item was selected
     pub fn select_at_row(&mut self, row: usize) -> bool {
-        self.list.select_at_row(row)
+        let target_idx = self.list.scroll_offset + row;
+        if target_idx <= self.list.filtered.len() {
+            self.list.selected = target_idx;
+            true
+        } else {
+            false
+        }
     }
 
-    /// Get the currently selected project
+    /// Get the currently selected project, or None if "From git URL" is selected
     pub fn selected_project(&self) -> Option<&ProjectEntry> {
+        if self.is_git_url_option_selected() {
+            return None;
+        }
         self.list
             .filtered
             .get(self.list.selected)
             .and_then(|&idx| self.projects.get(idx))
+    }
+
+    /// Whether the "From git URL..." option at the bottom of the list is selected
+    pub fn is_git_url_option_selected(&self) -> bool {
+        self.list.selected == self.list.filtered.len()
+    }
+
+    /// Visible row count including the always-present "From git URL..." entry
+    pub fn effective_visible_len(&self) -> usize {
+        self.list.max_visible.min(self.list.filtered.len() + 1)
     }
 
     /// Check if dialog is visible
@@ -313,8 +352,8 @@ impl ProjectPicker {
             return;
         }
 
-        // Calculate dialog size
-        let list_height = state.list.visible_len() as u16;
+        // Calculate dialog size (+1 for always-present "From git URL..." entry)
+        let list_height = state.effective_visible_len() as u16;
         let dialog_height = 6 + list_height; // border(2) + top_padding(1) + search_label(1) + separator(1) + spacing(1) + list
 
         // Render dialog frame (instructions render on bottom border)
@@ -374,29 +413,19 @@ impl ProjectPicker {
             loading.render(list_area, buf);
         } else if let Some(error) = &state.error {
             let msg = format!("Failed to scan projects: {}", error);
-            let error = Paragraph::new(msg)
+            let error_p = Paragraph::new(msg)
                 .style(Style::default().fg(Color::Red))
                 .alignment(Alignment::Center);
-            error.render(list_area, buf);
-        } else if state.list.filtered.is_empty() {
-            let empty_msg = if state.projects.is_empty() {
-                "No git projects found in this directory"
-            } else {
-                "No projects match your search"
-            };
-            let empty = Paragraph::new(empty_msg)
-                .style(Style::default().fg(Color::DarkGray))
-                .alignment(Alignment::Center);
-            empty.render(list_area, buf);
+            error_p.render(list_area, buf);
         } else {
-            // Compute selected colors once for the list
             let selected_bg_color = ensure_contrast_bg(selected_bg(), dialog_bg(), 2.0);
             let selected_fg_color = ensure_contrast_fg(text_primary(), selected_bg_color, 4.5);
 
-            // Render visible items
             let visible_count = list_area.height as usize;
             let home = dirs::home_dir().unwrap_or_default();
             let home_str = home.to_string_lossy();
+
+            // Render visible project items
             for (i, &project_idx) in state
                 .list
                 .filtered
@@ -413,11 +442,9 @@ impl ProjectPicker {
                     break;
                 }
 
-                // Format: "> name          path"
                 let prefix = if is_selected { "> " } else { "  " };
                 let name = &project.name;
 
-                // Calculate path display (shortened)
                 let path_str = project
                     .path
                     .to_string_lossy()
@@ -447,7 +474,6 @@ impl ProjectPicker {
                     Style::default().fg(text_primary())
                 };
 
-                // Render the line
                 for (j, c) in line_text.chars().enumerate() {
                     if j < list_area.width as usize {
                         buf[(list_area.x + j as u16, y)]
@@ -455,7 +481,6 @@ impl ProjectPicker {
                             .set_style(style);
                     }
                 }
-                // Fill rest of line with style for selected item
                 if is_selected {
                     for j in line_text.len()..list_area.width as usize {
                         buf[(list_area.x + j as u16, y)].set_style(style);
@@ -463,8 +488,39 @@ impl ProjectPicker {
                 }
             }
 
+            // Render "From git URL..." option (always at the bottom of the list)
+            let git_url_logical = state.list.filtered.len();
+            if git_url_logical >= state.list.scroll_offset {
+                let row = git_url_logical - state.list.scroll_offset;
+                if row < visible_count {
+                    let is_selected = state.is_git_url_option_selected();
+                    let y = list_area.y + row as u16;
+                    if y < list_area.y + list_area.height {
+                        let prefix = if is_selected { "> " } else { "  " };
+                        let line_text = format!("{}+ From git URL...", prefix);
+                        let style = if is_selected {
+                            Style::default().fg(selected_fg_color).bg(selected_bg_color)
+                        } else {
+                            Style::default().fg(Color::Cyan)
+                        };
+                        for (j, c) in line_text.chars().enumerate() {
+                            if j < list_area.width as usize {
+                                buf[(list_area.x + j as u16, y)]
+                                    .set_char(c)
+                                    .set_style(style);
+                            }
+                        }
+                        if is_selected {
+                            for j in line_text.len()..list_area.width as usize {
+                                buf[(list_area.x + j as u16, y)].set_style(style);
+                            }
+                        }
+                    }
+                }
+            }
+
             // Render scrollbar
-            let total_filtered = state.list.filtered.len();
+            let total_with_url = state.list.filtered.len() + 1;
             render_minimal_scrollbar(
                 Rect {
                     x: list_area.x + list_area.width - 1,
@@ -473,7 +529,7 @@ impl ProjectPicker {
                     height: list_area.height,
                 },
                 buf,
-                total_filtered,
+                total_with_url,
                 visible_count,
                 state.list.scroll_offset,
             );

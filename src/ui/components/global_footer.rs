@@ -133,7 +133,6 @@ impl<'a> GlobalFooter<'a> {
             ("enter", "select"),
             ("h/l", "collapse/expand"),
             ("M-S-x", "archive"),
-            ("r", "add repo"),
             ("C-n", "new project"),
             ("esc", "exit"),
         ]

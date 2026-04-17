@@ -192,7 +192,12 @@ impl App {
                 }
             }
             InputMode::PickingProject => {
-                if let Some(project) = self.state.project_picker_state.selected_project() {
+                if self.state.project_picker_state.is_git_url_option_selected() {
+                    self.state.project_picker_state.hide();
+                    self.state.close_overlays();
+                    self.state.add_repo_dialog_state.show();
+                    self.state.input_mode = InputMode::AddingRepository;
+                } else if let Some(project) = self.state.project_picker_state.selected_project() {
                     let repo_id = self.add_project_to_sidebar(project.path.clone());
                     self.state.project_picker_state.hide();
                     if let Some(id) = repo_id {
