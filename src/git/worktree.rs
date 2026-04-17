@@ -537,34 +537,22 @@ impl WorktreeManager {
             return Ok(true);
         }
 
-        // Check if current branch is merged into main
-        let output = Command::new("git")
-            .args(["branch", "--merged", &main_branch])
-            .current_dir(worktree_path)
-            .output()?;
+        for target_ref in [format!("origin/{}", main_branch), main_branch.clone()] {
+            if !self.ref_exists(worktree_path, &target_ref)? {
+                continue;
+            }
 
-        if !output.status.success() {
-            // If main branch doesn't exist locally, try with origin/
             let output = Command::new("git")
-                .args(["branch", "--merged", &format!("origin/{}", main_branch)])
+                .args(["merge-base", "--is-ancestor", "HEAD", &target_ref])
                 .current_dir(worktree_path)
                 .output()?;
 
-            if !output.status.success() {
-                // Can't determine, assume not merged
-                return Ok(false);
+            if output.status.success() {
+                return Ok(true);
             }
-
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            return Ok(stdout
-                .lines()
-                .any(|line| line.trim().trim_start_matches("* ") == current_branch));
         }
 
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        Ok(stdout
-            .lines()
-            .any(|line| line.trim().trim_start_matches("* ") == current_branch))
+        Ok(false)
     }
 
     fn ref_exists(&self, worktree_path: &Path, git_ref: &str) -> Result<bool, WorktreeError> {
@@ -627,6 +615,25 @@ impl WorktreeManager {
         Ok(diff_out.status.success())
     }
 
+    fn refresh_origin_refs(&self, worktree_path: &Path) {
+        match Command::new("git")
+            .args(["fetch", "origin", "--quiet"])
+            .current_dir(worktree_path)
+            .output()
+        {
+            Ok(output) if !output.status.success() => {
+                tracing::debug!(
+                    stderr = %String::from_utf8_lossy(&output.stderr),
+                    "git fetch origin failed during branch status refresh"
+                );
+            }
+            Ok(_) => {}
+            Err(e) => {
+                tracing::debug!(error = %e, "Unable to run git fetch origin during status refresh");
+            }
+        }
+    }
+
     /// Get the full branch status for archiving decisions
     pub fn get_branch_status(&self, worktree_path: &Path) -> Result<BranchStatus, WorktreeError> {
         let mut status = BranchStatus::default();
@@ -642,6 +649,10 @@ impl WorktreeManager {
             }
         }
 
+        // Refresh origin refs before merge/ahead/behind checks so archived branch status
+        // reflects remote PR merges that happened outside this clone.
+        self.refresh_origin_refs(worktree_path);
+
         // Check merged status
         match self.is_branch_merged(worktree_path) {
             Ok(is_merged) => {
@@ -649,25 +660,6 @@ impl WorktreeManager {
             }
             Err(e) => {
                 tracing::warn!(error = %e, "Failed to check merged status");
-            }
-        }
-
-        // Best-effort refresh of origin refs (if origin exists) so status uses
-        // the latest remote state when available.
-        match Command::new("git")
-            .args(["fetch", "origin", "--quiet"])
-            .current_dir(worktree_path)
-            .output()
-        {
-            Ok(output) if !output.status.success() => {
-                tracing::debug!(
-                    stderr = %String::from_utf8_lossy(&output.stderr),
-                    "git fetch origin failed during branch status refresh"
-                );
-            }
-            Ok(_) => {}
-            Err(e) => {
-                tracing::debug!(error = %e, "Unable to run git fetch origin during status refresh");
             }
         }
 
@@ -882,6 +874,11 @@ mod tests {
         );
     }
 
+    fn configure_git_user(path: &Path) {
+        run_git(path, &["config", "user.email", "test@test.com"]);
+        run_git(path, &["config", "user.name", "Test"]);
+    }
+
     #[test]
     fn test_is_git_repo() {
         let dir = tempdir().unwrap();
@@ -967,5 +964,84 @@ mod tests {
         assert!(!status.is_merged);
         assert!(status.commits_ahead > 0);
         assert!(status.likely_squash_merged);
+    }
+
+    #[test]
+    fn test_get_branch_status_detects_remote_merge_after_fetch_refresh() {
+        let dir = tempdir().unwrap();
+        let seed_repo = dir.path().join("seed");
+        std::fs::create_dir(&seed_repo).unwrap();
+        init_git_repo(&seed_repo).unwrap();
+
+        let manager = WorktreeManager::new();
+        let main_branch = manager.get_current_branch(&seed_repo).unwrap();
+
+        let remote_repo = dir.path().join("remote.git");
+        run_git(
+            dir.path(),
+            &[
+                "clone",
+                "--bare",
+                seed_repo.to_str().unwrap(),
+                remote_repo.to_str().unwrap(),
+            ],
+        );
+
+        run_git(
+            &seed_repo,
+            &["remote", "add", "origin", remote_repo.to_str().unwrap()],
+        );
+        run_git(&seed_repo, &["push", "-u", "origin", &main_branch]);
+
+        let author_clone = dir.path().join("author");
+        let integrator_clone = dir.path().join("integrator");
+        run_git(
+            dir.path(),
+            &[
+                "clone",
+                remote_repo.to_str().unwrap(),
+                author_clone.to_str().unwrap(),
+            ],
+        );
+        run_git(
+            dir.path(),
+            &[
+                "clone",
+                remote_repo.to_str().unwrap(),
+                integrator_clone.to_str().unwrap(),
+            ],
+        );
+        configure_git_user(&author_clone);
+        configure_git_user(&integrator_clone);
+
+        run_git(&author_clone, &["checkout", "-b", "feature/remote-merge"]);
+        std::fs::write(author_clone.join("README.md"), "# Test\n\nfeature change\n").unwrap();
+        run_git(&author_clone, &["add", "README.md"]);
+        run_git(&author_clone, &["commit", "-m", "feature work"]);
+        run_git(
+            &author_clone,
+            &["push", "-u", "origin", "feature/remote-merge"],
+        );
+
+        run_git(&integrator_clone, &["fetch", "origin"]);
+        run_git(&integrator_clone, &["checkout", &main_branch]);
+        run_git(
+            &integrator_clone,
+            &[
+                "merge",
+                "--no-ff",
+                "origin/feature/remote-merge",
+                "-m",
+                "Merge feature/remote-merge",
+            ],
+        );
+        run_git(&integrator_clone, &["push", "origin", &main_branch]);
+
+        assert!(!manager.is_branch_merged(&author_clone).unwrap());
+
+        let status = manager.get_branch_status(&author_clone).unwrap();
+        assert!(status.is_merged);
+        assert_eq!(status.commits_ahead, 0);
+        assert!(!status.likely_squash_merged);
     }
 }
