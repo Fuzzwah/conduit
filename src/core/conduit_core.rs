@@ -112,6 +112,16 @@ impl ConduitCore {
             None => Arc::new(CopilotRunner::new()),
         };
 
+        if tools.is_available(Tool::Claude) {
+            let models =
+                crate::agent::claude::load_claude_models(tools.get_path(Tool::Claude).cloned());
+            if !models.is_empty() {
+                ModelRegistry::set_claude_models(models);
+            }
+        } else {
+            ModelRegistry::clear_claude_models();
+        }
+
         if tools.is_available(Tool::Opencode) {
             let models = crate::agent::opencode::load_opencode_models(
                 tools.get_path(Tool::Opencode).cloned(),
@@ -269,6 +279,17 @@ impl ConduitCore {
             Some(path) => Arc::new(CopilotRunner::with_path(path.clone())),
             None => Arc::new(CopilotRunner::new()),
         };
+
+        if self.tools.is_available(Tool::Claude) {
+            let models = crate::agent::claude::load_claude_models(
+                self.tools.get_path(Tool::Claude).cloned(),
+            );
+            if !models.is_empty() {
+                ModelRegistry::set_claude_models(models);
+            }
+        } else {
+            ModelRegistry::clear_claude_models();
+        }
 
         if self.tools.is_available(Tool::Opencode) {
             let models = crate::agent::opencode::load_opencode_models(
