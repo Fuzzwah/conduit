@@ -119,6 +119,25 @@ function latestUsageFromEvents(wsEvents: AgentEvent[], historyEvents: SessionEve
   return null;
 }
 
+function latestContextWindowFromEvents(
+  wsEvents: AgentEvent[]
+): { context_window: number; usage_percent: number } | null {
+  for (let index = wsEvents.length - 1; index >= 0; index -= 1) {
+    const event = wsEvents[index];
+    if (
+      event.type === 'TokenUsage' &&
+      event.context_window != null &&
+      event.usage_percent != null
+    ) {
+      return {
+        context_window: event.context_window,
+        usage_percent: event.usage_percent,
+      };
+    }
+  }
+  return null;
+}
+
 function AppContent() {
   const [notice, setNotice] = useState<{ message: string; tone: 'info' | 'error' } | null>(null);
   const noticeTimeout = useRef<number | null>(null);
@@ -209,6 +228,10 @@ function AppContent() {
   const latestUsage = useMemo(
     () => latestUsageFromEvents(wsEvents, historyEvents),
     [wsEvents, historyEvents]
+  );
+  const latestContextWindow = useMemo(
+    () => latestContextWindowFromEvents(wsEvents),
+    [wsEvents]
   );
   const isLoadingSession = openWorkspaceSession.isPending && !activeSessionId;
   const { data: archivePreflight } = useWorkspaceArchivePreflight(
@@ -1013,6 +1036,7 @@ function AppContent() {
         activeWorkspace={activeWorkspace ?? null}
         workspaceStatus={workspaceStatus ?? null}
         latestUsage={latestUsage}
+        latestContextWindow={latestContextWindow}
         isSidebarOpen={isSidebarOpen}
         onToggleSidebar={handleToggleSidebar}
         onImportSession={handleOpenImport}

@@ -10,6 +10,7 @@ interface HeaderProps {
   activeWorkspace?: Workspace | null;
   workspaceStatus?: WorkspaceStatus | null;
   latestUsage?: { input_tokens: number; output_tokens: number } | null;
+  latestContextWindow?: { context_window: number; usage_percent: number } | null;
   isSidebarOpen?: boolean;
   onToggleSidebar?: () => void;
   onImportSession?: () => void;
@@ -21,6 +22,7 @@ export function Header({
   activeWorkspace,
   workspaceStatus,
   latestUsage,
+  latestContextWindow,
   isSidebarOpen = true,
   onToggleSidebar,
   onImportSession,
@@ -95,6 +97,20 @@ export function Header({
                 {latestUsage.input_tokens} in / {latestUsage.output_tokens} out
               </span>
             </div>
+          )}
+          {latestContextWindow && (
+            <span
+              className={cn(
+                'tabular-nums',
+                latestContextWindow.usage_percent >= 0.95
+                  ? 'text-red-400'
+                  : latestContextWindow.usage_percent >= 0.80
+                  ? 'text-yellow-400'
+                  : 'text-text-muted'
+              )}
+            >
+              ctx: {Math.round(latestContextWindow.usage_percent * 100)}%
+            </span>
           )}
           {activeWorkspace?.branch && (
             <div className="flex items-center gap-1">
