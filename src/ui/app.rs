@@ -405,6 +405,137 @@ impl App {
     }
 
     /// Overwrite app state with hardcoded demo data (for `conduit demo`).
+    /// Load a minimal demo state that shows the splash screen with a single repo
+    /// in the sidebar but no active workspace tab — used for clean-start screenshots.
+    pub fn load_demo_data_splash(&mut self) {
+        use crate::ui::demo;
+
+        self.demo_mode = true;
+
+        self.state.show_first_time_splash = false;
+        self.state.sidebar_state.visible = true;
+        self.state.sidebar_data = crate::ui::components::SidebarData::new();
+        while !self.state.tab_manager.is_empty() {
+            self.state.tab_manager.close_tab(0);
+        }
+
+        // One repo with no workspaces — sidebar shows just "New workspace"
+        let splash_repos = vec![demo::DemoRepo {
+            id: uuid::Uuid::new_v4(),
+            name: "conduit".to_string(),
+            workspaces: vec![],
+        }];
+        demo::populate_sidebar(&mut self.state.sidebar_data, &splash_repos);
+
+        // Select "+ New workspace" (index 1 in the visible list)
+        let visible = self.state.sidebar_data.visible_nodes();
+        if visible.len() > 1 {
+            self.state.sidebar_state.tree_state.selected = 1;
+        }
+        // Tab manager remains empty → splash screen renders
+    }
+
+    /// Pre-open a UI overlay so VHS screenshot tapes don't need to drive keyboard input.
+    /// Called immediately after `load_demo_data()` or `load_demo_data_splash()`.
+    pub fn open_overlay_for_demo(&mut self, overlay: &str) {
+        use crate::ui::components::{ConfirmationContext, ConfirmationType};
+
+        match overlay {
+            "help" => {
+                self.state.close_overlays();
+                let keybindings = self.config().keybindings.clone();
+                self.state.help_dialog_state.show(&keybindings);
+                self.state.input_mode = InputMode::ShowingHelp;
+            }
+            "model" => {
+                let has_session = self.state.tab_manager.active_session().is_some();
+                if has_session {
+                    let model = self
+                        .state
+                        .tab_manager
+                        .active_session()
+                        .and_then(|s| s.model.clone());
+                    let agent_type = self
+                        .state
+                        .tab_manager
+                        .active_session()
+                        .map(|s| s.agent_type)
+                        .unwrap_or(crate::agent::AgentType::Claude);
+                    let mut allowed = self.config().effective_enabled_providers(self.tools());
+                    if !allowed.contains(&agent_type) {
+                        let tool = Self::required_tool(agent_type);
+                        if self.tools().is_available(tool) {
+                            allowed.push(agent_type);
+                        }
+                    }
+                    if allowed.is_empty() {
+                        allowed.push(crate::agent::AgentType::Claude);
+                    }
+                    let defaults = self.model_selector_defaults();
+                    self.state.close_overlays();
+                    self.state
+                        .model_selector_state
+                        .set_allowed_providers(Some(allowed));
+                    self.state.model_selector_state.show(model, defaults);
+                    self.state.model_picker_context = ModelPickerContext::SessionSelection;
+                    self.state.input_mode = InputMode::SelectingModel;
+                }
+            }
+            "theme" => {
+                self.state.close_overlays();
+                let theme_path = self.config().theme_path.clone();
+                self.state.theme_picker_state.show(theme_path.as_deref());
+                self.state.input_mode = InputMode::SelectingTheme;
+            }
+            "providers" => {
+                self.state.close_overlays();
+                self.state.pending_new_project_target = None;
+                self.state.provider_selector_state =
+                    crate::ui::components::ProviderSelectorState::configure_for(
+                        self.config(),
+                        self.tools(),
+                    );
+                self.state.provider_selector_state.show();
+                self.state.input_mode = InputMode::SelectingProviders;
+            }
+            "archive" => {
+                let workspace_id = self
+                    .state
+                    .tab_manager
+                    .active_session()
+                    .and_then(|s| s.workspace_id)
+                    .unwrap_or_default();
+                self.state.close_overlays();
+                self.state.confirmation_dialog_state.show(
+                    "Archive 'slow-fern'?",
+                    "This will remove the worktree. The local branch will be deleted.",
+                    vec![
+                        "Branch has 2 commits ahead of main".to_string(),
+                        "Branch is 0 commits behind main".to_string(),
+                    ],
+                    ConfirmationType::Danger,
+                    "Archive",
+                    Some(ConfirmationContext::ArchiveWorkspace(workspace_id)),
+                );
+                self.state.input_mode = InputMode::Confirming;
+            }
+            "file-mention" => {
+                if let Some(session) = self.state.tab_manager.active_session_mut() {
+                    session.working_dir = Some(std::env::current_dir().unwrap_or_default());
+                    session.input_box.insert_char('@');
+                }
+                self.open_file_mention_menu();
+                for c in "docs/".chars() {
+                    self.state.file_mention_state.insert_char(c);
+                    if let Some(session) = self.state.tab_manager.active_session_mut() {
+                        session.input_box.insert_char(c);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
     pub fn load_demo_data(&mut self) {
         use crate::ui::demo;
 

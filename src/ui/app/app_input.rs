@@ -648,11 +648,7 @@ impl App {
             InputMode::Normal => {
                 if let Some(session) = self.state.tab_manager.active_session_mut() {
                     // If an inline prompt is in text-input mode, paste into it instead.
-                    if session
-                        .inline_prompt
-                        .as_ref()
-                        .is_some_and(|p| p.input_mode)
-                    {
+                    if session.inline_prompt.as_ref().is_some_and(|p| p.input_mode) {
                         let sanitized = pasted.replace('\n', " ");
                         if let Some(ref mut prompt) = session.inline_prompt {
                             for ch in sanitized.chars() {
