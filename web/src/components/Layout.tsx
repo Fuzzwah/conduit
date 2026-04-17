@@ -22,6 +22,7 @@ interface LayoutProps {
   activeWorkspace?: Workspace | null;
   workspaceStatus?: WorkspaceStatus | null;
   latestUsage?: { input_tokens: number; output_tokens: number } | null;
+  latestContextWindow?: { context_window: number; usage_percent: number } | null;
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
   isBootstrapping?: boolean;
@@ -52,6 +53,7 @@ export function Layout({
   activeWorkspace,
   workspaceStatus,
   latestUsage,
+  latestContextWindow,
   isSidebarOpen,
   onToggleSidebar,
   isBootstrapping = false,
@@ -129,6 +131,7 @@ export function Layout({
           activeWorkspace={activeWorkspace}
           workspaceStatus={workspaceStatus}
           latestUsage={latestUsage}
+          latestContextWindow={latestContextWindow}
           isSidebarOpen={isSidebarOpen}
           onToggleSidebar={onToggleSidebar}
           onImportSession={onImportSession}
