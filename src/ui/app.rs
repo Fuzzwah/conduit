@@ -10673,11 +10673,18 @@ impl App {
                         let queue_lines =
                             app_queue::build_queue_lines(session, chat_area.width, input_mode);
 
-                        // Build prompt lines from inline_prompt (renders as part of scrollable chat)
+                        // Build prompt lines from inline_prompt (renders as part of scrollable chat).
+                        // Use the content area width (after left margin / scrollbar) so wrap points
+                        // match the actual visible columns. Mirrors ChatView::content_area logic.
+                        let prompt_render_width = if show_chat_scrollbar {
+                            chat_area.width.saturating_sub(6)
+                        } else {
+                            chat_area.width.saturating_sub(4)
+                        } as usize;
                         let prompt_lines = session
                             .inline_prompt
                             .as_ref()
-                            .map(|p| p.render_as_lines(chat_area.width as usize));
+                            .map(|p| p.render_as_lines(prompt_render_width));
 
                         session.chat_view.render_with_indicator(
                             chat_area,
