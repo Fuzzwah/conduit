@@ -185,7 +185,7 @@ impl ModelRegistry {
             ModelInfo::new(
                 AgentType::Claude,
                 "opus",
-                "Opus 4.6",
+                "Opus 4.7",
                 "opus",
                 "Most capable for complex work",
                 Self::CLAUDE_CONTEXT_WINDOW,
@@ -194,9 +194,9 @@ impl ModelRegistry {
             ModelInfo::new(
                 AgentType::Claude,
                 "opus[1m]",
-                "Opus 4.6 [1m]",
+                "Opus 4.7 [1m]",
                 "opus[1m]",
-                "Opus 4.6 with 1M context",
+                "Opus 4.7 with 1M context",
                 Self::CLAUDE_1M_CONTEXT_WINDOW,
             ),
             ModelInfo::new(

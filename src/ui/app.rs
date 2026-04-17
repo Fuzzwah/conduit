@@ -13605,7 +13605,7 @@ mod tests {
         app.state
             .model_selector_state
             .show(None, DefaultModelSelection::default());
-        app.state.model_selector_state.insert_str("Opus 4.6");
+        app.state.model_selector_state.insert_str("Opus 4.7");
         app.state.input_mode = InputMode::SelectingModel;
 
         let mut effects = Vec::new();
@@ -13655,7 +13655,7 @@ mod tests {
         assert_eq!(app.state.input_mode, InputMode::SelectingModel);
         assert!(app.state.model_selector_state.is_visible());
 
-        app.state.model_selector_state.insert_str("Opus 4.6");
+        app.state.model_selector_state.insert_str("Opus 4.7");
         assert!(
             app.state.model_selector_state.selected_model().is_none(),
             "Claude model should be filtered out when only Codex is enabled"
@@ -13691,7 +13691,7 @@ mod tests {
         app.state
             .model_selector_state
             .show(None, app.model_selector_defaults());
-        app.state.model_selector_state.insert_str("Opus 4.6");
+        app.state.model_selector_state.insert_str("Opus 4.7");
 
         let terminal_size = crossterm::terminal::size().unwrap_or((80, 24));
         let dialog_width = 60u16.min(terminal_size.0.saturating_sub(4));
@@ -13759,7 +13759,7 @@ mod tests {
         app.state
             .model_selector_state
             .show(None, DefaultModelSelection::default());
-        app.state.model_selector_state.insert_str("Opus 4.6");
+        app.state.model_selector_state.insert_str("Opus 4.7");
         app.state.input_mode = InputMode::SelectingModel;
 
         let terminal_size = crossterm::terminal::size().unwrap_or((80, 24));
