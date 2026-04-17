@@ -10922,80 +10922,44 @@ impl App {
 
         // Draw cloning repository spinner overlay
         if self.state.input_mode == InputMode::CloningRepository {
-            use crate::ui::components::Spinner;
+            use crate::ui::components::{accent_primary, DialogFrame, Spinner};
             use ratatui::layout::Alignment;
-            use ratatui::style::{Color, Style};
-            use ratatui::symbols::border;
             use ratatui::text::Line;
-            use ratatui::widgets::{Block, Borders, Clear, Paragraph, Widget};
+            use ratatui::widgets::{Paragraph, Widget};
 
-            let dialog_width: u16 = 30;
-            let dialog_height: u16 = 3;
-
-            let x = size.width.saturating_sub(dialog_width) / 2;
-            let y = size.height.saturating_sub(dialog_height) / 2;
-
-            let dialog_area = Rect::new(x, y, dialog_width, dialog_height);
-
-            Clear.render(dialog_area, f.buffer_mut());
-
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_set(border::ROUNDED)
-                .border_style(Style::default().fg(Color::Rgb(130, 170, 255)));
-
-            let inner = block.inner(dialog_area);
-            block.render(dialog_area, f.buffer_mut());
+            let content_area =
+                DialogFrame::new("Cloning Repository", 38, 4).render(size, f.buffer_mut());
 
             let spinner = Spinner::dots();
             let line = Line::from(vec![
-                spinner.span(Color::Rgb(130, 170, 255)),
+                spinner.span(accent_primary()),
                 ratatui::text::Span::raw(" Cloning repository..."),
             ]);
 
-            let para = Paragraph::new(line).alignment(Alignment::Center);
-            para.render(inner, f.buffer_mut());
+            Paragraph::new(line)
+                .alignment(Alignment::Center)
+                .render(content_area, f.buffer_mut());
         }
 
         // Draw removing project spinner overlay
         if self.state.input_mode == InputMode::RemovingProject {
-            use crate::ui::components::Spinner;
+            use crate::ui::components::{accent_primary, DialogFrame, Spinner};
             use ratatui::layout::Alignment;
-            use ratatui::style::{Color, Style};
-            use ratatui::symbols::border;
             use ratatui::text::Line;
-            use ratatui::widgets::{Block, Borders, Clear, Paragraph, Widget};
+            use ratatui::widgets::{Paragraph, Widget};
 
-            let dialog_width: u16 = 30;
-            let dialog_height: u16 = 3;
+            let content_area =
+                DialogFrame::new("Removing Project", 36, 4).render(size, f.buffer_mut());
 
-            // Center the dialog
-            let x = size.width.saturating_sub(dialog_width) / 2;
-            let y = size.height.saturating_sub(dialog_height) / 2;
-
-            let dialog_area = Rect::new(x, y, dialog_width, dialog_height);
-
-            // Clear the area first
-            Clear.render(dialog_area, f.buffer_mut());
-
-            // Render dialog box with rounded corners
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_set(border::ROUNDED)
-                .border_style(Style::default().fg(Color::Rgb(130, 170, 255)));
-
-            let inner = block.inner(dialog_area);
-            block.render(dialog_area, f.buffer_mut());
-
-            // Render spinner and message
             let spinner = Spinner::dots();
             let line = Line::from(vec![
-                spinner.span(Color::Rgb(130, 170, 255)),
+                spinner.span(accent_primary()),
                 ratatui::text::Span::raw(" Removing project..."),
             ]);
 
-            let para = Paragraph::new(line).alignment(Alignment::Center);
-            para.render(inner, f.buffer_mut());
+            Paragraph::new(line)
+                .alignment(Alignment::Center)
+                .render(content_area, f.buffer_mut());
         }
     }
 
