@@ -537,13 +537,14 @@ impl WorktreeManager {
             return Ok(true);
         }
 
-        for target_ref in [format!("origin/{}", main_branch), main_branch.clone()] {
-            if !self.ref_exists(worktree_path, &target_ref)? {
+        let remote_main_ref = format!("origin/{}", main_branch);
+        for target_ref in [remote_main_ref.as_str(), main_branch.as_str()] {
+            if !self.ref_exists(worktree_path, target_ref)? {
                 continue;
             }
 
             let output = Command::new("git")
-                .args(["merge-base", "--is-ancestor", "HEAD", &target_ref])
+                .args(["merge-base", "--is-ancestor", "HEAD", target_ref])
                 .current_dir(worktree_path)
                 .output()?;
 
@@ -1043,5 +1044,6 @@ mod tests {
         assert!(status.is_merged);
         assert_eq!(status.commits_ahead, 0);
         assert!(!status.likely_squash_merged);
+        assert!(manager.is_branch_merged(&author_clone).unwrap());
     }
 }
