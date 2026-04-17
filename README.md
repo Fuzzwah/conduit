@@ -16,6 +16,16 @@ Conduit is a keyboard-first interface for running coding agents inside git-backe
 - Built-in themes plus VS Code theme migration
 - A local web app served by the same binary
 
+## Screenshots
+
+### TUI
+
+![Conduit TUI — chat view with sidebar, tabs, and status bar](docs/screenshots/tui-main.png)
+
+### Web UI
+
+![Conduit web UI — sidebar, tabs, and chat](docs/screenshots/web-main.png)
+
 ## Install
 
 ### Requirements

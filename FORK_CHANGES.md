@@ -112,6 +112,8 @@ Each workspace in the sidebar now shows `↑N` (yellow) and `↓N` (red) indicat
      my-workspace     +3 -1 ↑2 ↓1 #42 ✓
 ```
 
+![Ahead/behind indicators in the sidebar](docs/screenshots/tui-ahead-behind.png)
+
 ---
 
 ## 15. Full Plan Content in Chat
