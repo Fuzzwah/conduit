@@ -45,6 +45,11 @@ impl TerminalGuard {
         self.do_cleanup()
     }
 
+    /// Disable cleanup entirely (used in demo mode where no alternate screen was entered).
+    pub fn skip_cleanup(&mut self) {
+        self.active = false;
+    }
+
     /// Cleanup terminal state for suspend/editor flows while keeping guard active.
     pub fn cleanup_for_suspend(&self) -> anyhow::Result<()> {
         self.do_cleanup()

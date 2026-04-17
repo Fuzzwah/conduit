@@ -6,6 +6,7 @@ pub mod app_state;
 pub mod capabilities;
 pub mod clipboard_paste;
 pub mod components;
+pub mod demo;
 pub mod effect;
 pub mod events;
 pub mod file_viewer;

@@ -78,6 +78,9 @@ run_tape_and_compose() {
   echo "    written: $dest"
 }
 
+echo "==> Building conduit binary..."
+cargo build
+
 echo "==> Generating TUI screenshots with VHS..."
 run_tape_and_compose docs/screenshots/tapes/tui-main.tape        docs/screenshots/tui-main.png
 run_tape_and_compose docs/screenshots/tapes/tui-ahead-behind.tape docs/screenshots/tui-ahead-behind.png

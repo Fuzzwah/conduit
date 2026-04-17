@@ -6,6 +6,6 @@ Set Width 500
 Set Height 340
 Set Padding 10
 
-Type "python3 PROJECT_ROOT/docs/screenshots/scripts/render-tui-ahead-behind.py"
+Type "PROJECT_ROOT/target/debug/conduit demo"
 Enter
-Sleep 4s
+Sleep 15s

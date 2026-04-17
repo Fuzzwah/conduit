@@ -6,6 +6,6 @@ Set Width 1380
 Set Height 820
 Set Padding 10
 
-Type "python3 PROJECT_ROOT/docs/screenshots/scripts/render-tui-main.py"
+Type "PROJECT_ROOT/target/debug/conduit demo"
 Enter
-Sleep 4s
+Sleep 15s
