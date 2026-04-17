@@ -4,6 +4,14 @@ This documents the changes made in [Fuzzwah/conduit](https://github.com/Fuzzwah/
 
 > **Screenshots:** Place image files in `docs/screenshots/` and they will render inline below.
 
+## At A Glance
+
+![Conduit TUI workspace view](docs/screenshots/workspace.png)
+
+![Clean start screen on first launch](docs/screenshots/clean-start.png)
+
+![Built-in help screen](docs/screenshots/help-screen.png)
+
 ---
 
 ## 1. Workspace Setup Script
@@ -68,6 +76,8 @@ The theme picker now ships with 30 built-in themes, including a full set of iTer
 
 ![The theme picker showing the 30 built-in themes](docs/screenshots/builtin-themes.png)
 
+![Switching the active theme live from the theme selector](docs/screenshots/theme-selection.png)
+
 ---
 
 ## 10. Archive Workspace from Inside a Tab
@@ -75,6 +85,8 @@ The theme picker now ships with 30 built-in themes, including a full set of iTer
 **`Alt+Shift+X`** archives the current workspace from anywhere — both from within a workspace tab and from the sidebar. Previously archiving required navigating to the sidebar and pressing `x`; both contexts now use the same hotkey.
 
 The archive hint appears in the chat footer, and the action is available in the command palette.
+
+![Archiving a workspace from inside a tab](docs/screenshots/workspace-archive.png)
 
 ---
 
@@ -133,6 +145,10 @@ The standalone `copilot` CLI is now supported as a 5th agent alongside Claude, C
 **Known limitation:** The `copilot` CLI has no session resumption flag, so each turn within a Conduit session starts a fresh process with no conversation history.
 
 Copilot appears in the agent selector, model selector (`Ctrl+O`), provider selector, and session import picker. It must be enabled via the provider selector before it appears in the model list.
+
+![Provider selector with Copilot enabled alongside the other agents](docs/screenshots/provider-select.png)
+
+![Model selector showing Copilot's model lineup](docs/screenshots/model-select.png)
 
 ---
 
