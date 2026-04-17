@@ -4,6 +4,7 @@ use std::sync::{OnceLock, RwLock};
 
 use tracing::error;
 
+use crate::agent::claude::{load_claude_models, ClaudeModelEntry};
 use crate::agent::opencode::load_opencode_models;
 use crate::agent::AgentType;
 
@@ -179,8 +180,81 @@ impl ModelRegistry {
         }
     }
 
-    /// Get available models for Claude Code
+    fn claude_store() -> &'static RwLock<Vec<ModelInfo>> {
+        static CLAUDE_MODELS: OnceLock<RwLock<Vec<ModelInfo>>> = OnceLock::new();
+        CLAUDE_MODELS.get_or_init(|| RwLock::new(Vec::new()))
+    }
+
+    pub fn set_claude_models(entries: Vec<ClaudeModelEntry>) {
+        let models: Vec<ModelInfo> = entries
+            .into_iter()
+            .enumerate()
+            .map(|(i, entry)| {
+                let context_window = if entry.id.contains("1m") || entry.id.contains("1M") {
+                    Self::CLAUDE_1M_CONTEXT_WINDOW
+                } else {
+                    Self::CLAUDE_CONTEXT_WINDOW
+                };
+                let mut info = ModelInfo::new(
+                    AgentType::Claude,
+                    &entry.id,
+                    &entry.display_name,
+                    &entry.id,
+                    "",
+                    context_window,
+                );
+                if i == 0 {
+                    info = info.as_default();
+                }
+                info
+            })
+            .collect();
+        let mut store = match Self::claude_store().write() {
+            Ok(guard) => guard,
+            Err(err) => {
+                error!(error = %err, "claude_store poisoned in set_claude_models");
+                err.into_inner()
+            }
+        };
+        *store = models;
+    }
+
+    pub fn clear_claude_models() {
+        let mut store = match Self::claude_store().write() {
+            Ok(guard) => guard,
+            Err(err) => {
+                error!(error = %err, "claude_store poisoned in clear_claude_models");
+                err.into_inner()
+            }
+        };
+        store.clear();
+    }
+
+    pub fn refresh_claude_models() {
+        let models = load_claude_models(None);
+        if models.is_empty() {
+            return;
+        }
+        Self::set_claude_models(models);
+    }
+
+    /// Get available models for Claude Code.
+    /// Returns dynamically discovered models when available, else the static fallback list.
     pub fn claude_models() -> Vec<ModelInfo> {
+        let dynamic = match Self::claude_store().read() {
+            Ok(guard) => guard.clone(),
+            Err(err) => {
+                error!(error = %err, "claude_store poisoned in claude_models");
+                Vec::new()
+            }
+        };
+        if !dynamic.is_empty() {
+            return dynamic;
+        }
+        Self::claude_models_static()
+    }
+
+    fn claude_models_static() -> Vec<ModelInfo> {
         vec![
             ModelInfo::new(
                 AgentType::Claude,

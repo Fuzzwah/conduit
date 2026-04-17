@@ -1,7 +1,11 @@
+use std::fs;
+use std::io;
 use std::path::PathBuf;
 use std::process::Stdio;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::process::Command;
 use tokio::sync::mpsc;
@@ -652,6 +656,161 @@ impl AgentRunner for ClaudeCodeRunner {
     }
 }
 
+const CLAUDE_MODEL_CACHE_TTL_SECS: u64 = 60 * 60 * 24;
+
+/// A model entry discovered from the Claude CLI.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClaudeModelEntry {
+    pub id: String,
+    pub display_name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ClaudeModelCache {
+    generated_at: u64,
+    models: Vec<ClaudeModelEntry>,
+}
+
+fn claude_cache_path() -> Option<PathBuf> {
+    dirs::cache_dir().map(|dir| dir.join("conduit").join("claude_models.json"))
+}
+
+fn claude_cache_now_secs() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
+}
+
+fn load_claude_cache(path: &PathBuf) -> Option<ClaudeModelCache> {
+    let data = match fs::read_to_string(path) {
+        Ok(data) => data,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return None,
+        Err(err) => {
+            tracing::debug!(path = %path.display(), error = %err, "Failed to read Claude model cache");
+            return None;
+        }
+    };
+    match serde_json::from_str(&data) {
+        Ok(cache) => Some(cache),
+        Err(err) => {
+            tracing::debug!(path = %path.display(), error = %err, "Failed to parse Claude model cache");
+            None
+        }
+    }
+}
+
+fn claude_cache_is_fresh(cache: &ClaudeModelCache) -> bool {
+    claude_cache_now_secs().saturating_sub(cache.generated_at) <= CLAUDE_MODEL_CACHE_TTL_SECS
+}
+
+fn save_claude_cache(path: &PathBuf, models: &[ClaudeModelEntry]) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let cache = ClaudeModelCache {
+        generated_at: claude_cache_now_secs(),
+        models: models.to_vec(),
+    };
+    let payload = serde_json::to_string_pretty(&cache)
+        .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
+    fs::write(path, payload)
+}
+
+/// Parse `claude models` table output.
+///
+/// Expected format (box-drawing characters):
+/// ```text
+/// │   Model    │            ID             │
+/// │ Opus 4.7   │ claude-opus-4-7           │
+/// ```
+fn parse_claude_models_output(text: &str) -> Vec<ClaudeModelEntry> {
+    let mut entries = Vec::new();
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if !trimmed.starts_with('│') {
+            continue;
+        }
+        let parts: Vec<&str> = trimmed.split('│').collect();
+        // Split produces ["", " display ", " id ", ""] — need at least 3 inner parts.
+        if parts.len() < 4 {
+            continue;
+        }
+        let display_name = parts[1].trim().to_string();
+        let id = parts[2].trim().to_string();
+        if display_name.is_empty() || id.is_empty() {
+            continue;
+        }
+        // Skip the header row.
+        if display_name == "Model" {
+            continue;
+        }
+        // Validate: model IDs only contain safe characters.
+        if !id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+        {
+            continue;
+        }
+        entries.push(ClaudeModelEntry { id, display_name });
+    }
+    entries
+}
+
+fn discover_claude_models(binary: &PathBuf) -> Option<Vec<ClaudeModelEntry>> {
+    let output = std::process::Command::new(binary)
+        .arg("models")
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&output.stdout);
+    let entries = parse_claude_models_output(&text);
+    if entries.is_empty() {
+        None
+    } else {
+        Some(entries)
+    }
+}
+
+pub fn load_claude_models(binary_path: Option<PathBuf>) -> Vec<ClaudeModelEntry> {
+    let binary = binary_path
+        .filter(|path| path.exists())
+        .or_else(|| which::which("claude").ok());
+    let Some(binary) = binary else {
+        return Vec::new();
+    };
+
+    if let Some(path) = claude_cache_path() {
+        if let Some(cache) = load_claude_cache(&path) {
+            if claude_cache_is_fresh(&cache) {
+                return cache.models;
+            }
+        }
+    }
+
+    match discover_claude_models(&binary) {
+        Some(entries) => {
+            if let Some(path) = claude_cache_path() {
+                if let Err(err) = save_claude_cache(&path, &entries) {
+                    tracing::debug!(error = %err, "Failed to save Claude model cache");
+                }
+            }
+            entries
+        }
+        None => {
+            tracing::debug!("claude models subcommand unavailable or returned no models");
+            if let Some(path) = claude_cache_path() {
+                if let Some(cache) = load_claude_cache(&path) {
+                    return cache.models;
+                }
+            }
+            Vec::new()
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -659,6 +818,37 @@ mod tests {
         ClaudeAssistantEvent, ClaudeContentBlock, ClaudeMessageObject, ClaudeRawEvent,
         ClaudeResultEvent, ClaudeSystemEvent, ClaudeUsage,
     };
+
+    #[test]
+    fn test_parse_claude_models_output_table_format() {
+        let input = r#"
+● Current Claude models (as of April 2026):
+
+  ┌────────────┬───────────────────────────┐
+  │   Model    │            ID             │
+  ├────────────┼───────────────────────────┤
+  │ Opus 4.7   │ claude-opus-4-7           │
+  ├────────────┼───────────────────────────┤
+  │ Sonnet 4.6 │ claude-sonnet-4-6         │
+  ├────────────┼───────────────────────────┤
+  │ Haiku 4.5  │ claude-haiku-4-5-20251001 │
+  └────────────┴───────────────────────────┘
+"#;
+        let entries = parse_claude_models_output(input);
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries[0].id, "claude-opus-4-7");
+        assert_eq!(entries[0].display_name, "Opus 4.7");
+        assert_eq!(entries[1].id, "claude-sonnet-4-6");
+        assert_eq!(entries[1].display_name, "Sonnet 4.6");
+        assert_eq!(entries[2].id, "claude-haiku-4-5-20251001");
+        assert_eq!(entries[2].display_name, "Haiku 4.5");
+    }
+
+    #[test]
+    fn test_parse_claude_models_output_empty() {
+        assert!(parse_claude_models_output("").is_empty());
+        assert!(parse_claude_models_output("no table here at all").is_empty());
+    }
 
     /// Test that a system init event is correctly converted to SessionInit
     #[test]
