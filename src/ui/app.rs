@@ -181,6 +181,8 @@ pub struct App {
     event_rx: mpsc::UnboundedReceiver<AppEvent>,
     /// Background git/PR status tracker
     git_tracker: Option<crate::ui::git_tracker::GitTrackerHandle>,
+    /// When true, render to the primary buffer (no alternate screen) for screenshot capture
+    demo_mode: bool,
 }
 
 // Convenience accessors for backward compatibility during refactoring
@@ -379,6 +381,7 @@ impl App {
             event_tx,
             event_rx,
             git_tracker,
+            demo_mode: false,
         };
 
         // Update agent selector based on available tools
@@ -399,6 +402,39 @@ impl App {
         }
 
         app
+    }
+
+    /// Overwrite app state with hardcoded demo data (for `conduit demo`).
+    pub fn load_demo_data(&mut self) {
+        use crate::ui::demo;
+
+        let demo = demo::build_demo();
+
+        self.demo_mode = true;
+
+        // Reset any real state loaded from DB
+        self.state.show_first_time_splash = false;
+        self.state.sidebar_state.visible = true;
+        self.state.sidebar_data = crate::ui::components::SidebarData::new();
+        while !self.state.tab_manager.is_empty() {
+            self.state.tab_manager.close_tab(0);
+        }
+
+        // Populate sidebar
+        demo::populate_sidebar(&mut self.state.sidebar_data, &demo.repos);
+
+        // Select the active workspace in the sidebar
+        let visible = self.state.sidebar_data.visible_nodes();
+        if let Some(pos) = visible
+            .iter()
+            .position(|n| n.id == demo.active_workspace_id)
+        {
+            self.state.sidebar_state.tree_state.selected = pos;
+        }
+
+        // Add demo session as the active tab
+        self.state.tab_manager.add_session(demo.session);
+        self.state.tab_manager.switch_to(0);
     }
 
     /// Restore session state from database
@@ -986,11 +1022,20 @@ impl App {
         self.spawn_shutdown_listeners();
 
         // Setup terminal
-        enable_raw_mode()?;
+        let keyboard_enhancement_enabled = false;
         let mut stdout = io::stdout();
 
-        // Kitty keyboard protocol disabled - causes terminal corruption on exit
-        let keyboard_enhancement_enabled = false;
+        if self.demo_mode {
+            // Demo mode: render to primary buffer (no raw mode, no alternate screen)
+            // so VHS can capture the frame. Render once then sleep.
+            let backend = CrosstermBackend::new(stdout);
+            let mut terminal = Terminal::new(backend)?;
+            terminal.draw(|frame| self.draw(frame))?;
+            tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+            return Ok(());
+        }
+
+        enable_raw_mode()?;
         // Create terminal guard AFTER enabling features - Drop will clean up on any exit path
         let mut guard = TerminalGuard::new(keyboard_enhancement_enabled);
 
@@ -8999,13 +9044,15 @@ impl App {
         terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     ) -> anyhow::Result<()> {
         enable_raw_mode()?;
-        let mut stdout = io::stdout();
-        execute!(
-            stdout,
-            EnterAlternateScreen,
-            EnableMouseCapture,
-            EnableBracketedPaste
-        )?;
+        if !self.demo_mode {
+            let mut stdout = io::stdout();
+            execute!(
+                stdout,
+                EnterAlternateScreen,
+                EnableMouseCapture,
+                EnableBracketedPaste
+            )?;
+        }
         terminal.clear()?;
         Ok(())
     }
@@ -11743,6 +11790,7 @@ mod tests {
             event_tx,
             event_rx,
             git_tracker: None,
+            demo_mode: false,
         }
     }
 

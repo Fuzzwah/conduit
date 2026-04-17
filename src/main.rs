@@ -41,6 +41,9 @@ enum Commands {
         palette: bool,
     },
 
+    /// Launch TUI with mocked demo workspaces and chat history (no API key needed)
+    Demo,
+
     /// Start the web server
     Serve {
         /// Host address to bind to
@@ -57,10 +60,18 @@ enum Commands {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Initialize data directory FIRST before any other setup
-    util::init_data_dir(cli.data_dir);
+    // Demo mode uses an isolated temp directory so it never touches the real database.
+    let data_dir = if matches!(cli.command, Some(Commands::Demo)) {
+        Some(std::env::temp_dir().join("conduit-demo"))
+    } else {
+        cli.data_dir
+    };
+    util::init_data_dir(data_dir);
 
     match cli.command {
+        Some(Commands::Demo) => {
+            run_app_demo().await?;
+        }
         Some(Commands::DebugKeys) => {
             run_debug_keys()?;
         }
@@ -165,6 +176,37 @@ async fn run_app() -> Result<()> {
 
     // Create and run app with tool availability
     let mut app = App::new(config, tools);
+    app.run().await
+}
+
+/// Run the app pre-loaded with demo data (no API key or real workspaces needed).
+async fn run_app_demo() -> Result<()> {
+    terminal_guard::install_panic_hook();
+
+    fs::create_dir_all(util::logs_dir())?;
+
+    let log_file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(util::log_file_path())?;
+
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::builder()
+                .with_default_directive(tracing::Level::WARN.into())
+                .from_env_lossy(),
+        )
+        .with_writer(log_file)
+        .with_ansi(false)
+        .init();
+
+    let config = Config::load();
+    conduit::ui::components::init_theme(config.theme_name.as_deref(), config.theme_path.as_deref());
+    // Skip tool detection in demo mode — no real agents are needed
+    let tools = ToolAvailability::default();
+
+    let mut app = App::new(config, tools);
+    app.load_demo_data();
     app.run().await
 }
 
