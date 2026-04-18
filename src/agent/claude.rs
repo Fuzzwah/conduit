@@ -252,11 +252,18 @@ impl ClaudeCodeRunner {
                 // Use default values if usage is not provided
                 let usage = res
                     .usage
-                    .map(|u| TokenUsage {
-                        input_tokens: u.input_tokens.unwrap_or(0),
-                        output_tokens: u.output_tokens.unwrap_or(0),
-                        cached_tokens: 0,
-                        total_tokens: u.input_tokens.unwrap_or(0) + u.output_tokens.unwrap_or(0),
+                    .map(|u| {
+                        let input = u.input_tokens.unwrap_or(0);
+                        let output = u.output_tokens.unwrap_or(0);
+                        let cache_creation = u.cache_creation_input_tokens.unwrap_or(0);
+                        let cache_read = u.cache_read_input_tokens.unwrap_or(0);
+                        let cached = cache_creation + cache_read;
+                        TokenUsage {
+                            input_tokens: input,
+                            output_tokens: output,
+                            cached_tokens: cached,
+                            total_tokens: input + output + cached,
+                        }
                     })
                     .unwrap_or_default();
 
@@ -886,6 +893,8 @@ mod tests {
                 usage: Some(ClaudeUsage {
                     input_tokens: Some(100),
                     output_tokens: Some(50),
+                    cache_creation_input_tokens: None,
+                    cache_read_input_tokens: None,
                 }),
             }),
             text: None,
@@ -918,6 +927,8 @@ mod tests {
             usage: Some(ClaudeUsage {
                 input_tokens: Some(0),
                 output_tokens: Some(0),
+                cache_creation_input_tokens: None,
+                cache_read_input_tokens: None,
             }),
         });
 
@@ -929,6 +940,36 @@ mod tests {
                 // Usage should be parsed correctly even with zero values
                 assert_eq!(completed.usage.input_tokens, 0);
                 assert_eq!(completed.usage.output_tokens, 0);
+            }
+            other => panic!("Expected TurnCompleted, got {:?}", other),
+        }
+    }
+
+    /// Cache tokens dominate context usage in multi-turn sessions; the result
+    /// event must fold them into total_tokens so the status bar's ctx% is non-zero.
+    #[test]
+    fn test_result_event_includes_cache_tokens_in_total() {
+        let raw = ClaudeRawEvent::Result(ClaudeResultEvent {
+            result: Some("done".to_string()),
+            output: None,
+            is_error: Some(false),
+            error: None,
+            session_id: Some("test-session".to_string()),
+            usage: Some(ClaudeUsage {
+                input_tokens: Some(4),
+                output_tokens: Some(158),
+                cache_creation_input_tokens: Some(285),
+                cache_read_input_tokens: Some(14_523),
+            }),
+        });
+
+        let events = ClaudeCodeRunner::convert_event(raw);
+        match &events[0] {
+            AgentEvent::TurnCompleted(completed) => {
+                assert_eq!(completed.usage.input_tokens, 4);
+                assert_eq!(completed.usage.output_tokens, 158);
+                assert_eq!(completed.usage.cached_tokens, 285 + 14_523);
+                assert_eq!(completed.usage.total_tokens, 4 + 158 + 285 + 14_523);
             }
             other => panic!("Expected TurnCompleted, got {:?}", other),
         }
@@ -968,6 +1009,8 @@ mod tests {
                 usage: Some(ClaudeUsage {
                     input_tokens: Some(0),
                     output_tokens: Some(0),
+                    cache_creation_input_tokens: None,
+                    cache_read_input_tokens: None,
                 }),
             }),
         ];
