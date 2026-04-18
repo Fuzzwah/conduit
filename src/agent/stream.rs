@@ -315,6 +315,11 @@ pub struct ClaudeResultEvent {
 pub struct ClaudeUsage {
     pub input_tokens: Option<i64>,
     pub output_tokens: Option<i64>,
+    // Claude Code CLI passes through the Anthropic Messages API cache fields.
+    // For multi-turn sessions these dominate context usage — the full conversation
+    // history is replayed each turn as cache_read_input_tokens.
+    pub cache_creation_input_tokens: Option<i64>,
+    pub cache_read_input_tokens: Option<i64>,
 }
 
 // ============================================================================
