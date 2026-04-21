@@ -444,6 +444,7 @@ impl AppState {
         self.slash_menu_state.hide();
         self.file_mention_state.hide();
         self.workspace_defaults_dialog_state.hide();
+        self.rename_project_dialog_state.hide();
         self.pending_handoff_request = None;
         self.settings_menu_return = false;
     }
@@ -467,6 +468,7 @@ impl AppState {
             || self.slash_menu_state.is_visible()
             || self.file_mention_state.is_visible()
             || self.workspace_defaults_dialog_state.is_visible()
+            || self.rename_project_dialog_state.is_visible()
     }
 
     /// Start footer spinner with optional message
