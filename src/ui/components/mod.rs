@@ -8,6 +8,7 @@ mod confirmation_dialog;
 mod dialog;
 mod error_dialog;
 pub mod file_path_detector;
+mod file_picker_dialog;
 mod file_viewer_view;
 mod global_footer;
 mod help_dialog;
@@ -197,6 +198,9 @@ pub use theme::{
     ThemeSource,
 };
 
+pub use file_picker_dialog::{
+    FilePickerDialog, FilePickerDialogState, FilePickerEntry, FilePickerMode,
+};
 pub use rename_project_dialog::{RenameProjectDialog, RenameProjectDialogState};
 pub use thinking_indicator::{ProcessingState, ThinkingIndicator};
 pub use tree_view::{

@@ -2292,6 +2292,10 @@ impl App {
             Action::OpenCommandPalette => {
                 self.handle_overlay_action(action, &mut effects)?;
             }
+
+            Action::AddFileToProject => {
+                self.handle_dialog_action(action);
+            }
         }
 
         Ok(effects)
@@ -11136,6 +11140,15 @@ impl App {
                 size,
                 f.buffer_mut(),
                 &self.state.rename_project_dialog_state,
+            );
+        }
+
+        if self.state.file_picker_dialog_state.is_visible() {
+            use crate::ui::components::FilePickerDialog;
+            FilePickerDialog::new().render(
+                size,
+                f.buffer_mut(),
+                &self.state.file_picker_dialog_state,
             );
         }
 

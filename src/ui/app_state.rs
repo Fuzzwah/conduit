@@ -8,9 +8,9 @@ use ratatui::layout::Rect;
 use crate::agent::{AgentMode, AgentType, ReasoningEffort};
 use crate::ui::components::{
     AddRepoDialogState, AgentSelectorState, BaseDirDialogState, CommandPaletteState,
-    ConfirmationDialogState, ErrorDialogState, HelpDialogState, KnightRiderSpinner,
-    LogoShineAnimation, MissingToolDialogState, ModelSelectorState, ProjectPickerState,
-    ProviderSelectorState, ReasoningSelectorState, RenameProjectDialogState,
+    ConfirmationDialogState, ErrorDialogState, FilePickerDialogState, HelpDialogState,
+    KnightRiderSpinner, LogoShineAnimation, MissingToolDialogState, ModelSelectorState,
+    ProjectPickerState, ProviderSelectorState, ReasoningSelectorState, RenameProjectDialogState,
     SessionImportPickerState, SettingsMenuState, SidebarData, SidebarState, SlashMenuState,
     ThemePickerState, WorkspaceDefaultsDialogState,
 };
@@ -184,6 +184,7 @@ pub struct AppState {
     pub file_mention_state: SlashMenuState,
     pub workspace_defaults_dialog_state: WorkspaceDefaultsDialogState,
     pub rename_project_dialog_state: RenameProjectDialogState,
+    pub file_picker_dialog_state: FilePickerDialogState,
     pub command_buffer: String,
     pub sidebar_area: Option<Rect>,
     pub tab_bar_area: Option<Rect>,
@@ -383,6 +384,7 @@ impl AppState {
             file_mention_state: SlashMenuState::new(),
             workspace_defaults_dialog_state: WorkspaceDefaultsDialogState::new(),
             rename_project_dialog_state: RenameProjectDialogState::new(),
+            file_picker_dialog_state: FilePickerDialogState::new(),
             command_buffer: String::new(),
             sidebar_area: None,
             tab_bar_area: None,

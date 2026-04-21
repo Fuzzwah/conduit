@@ -318,6 +318,10 @@ pub enum InputMode {
     WorkspaceDefaults,
     /// Renaming a project
     RenamingProject,
+    /// Browsing local filesystem to pick a source file (step 1 of add-file flow)
+    FilePickerSource,
+    /// Browsing repository directories to pick a copy destination (step 2 of add-file flow)
+    FilePickerDest,
     /// Editing queued messages inline
     QueueEditing,
     /// File mention autocomplete (@filename) is active

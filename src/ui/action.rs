@@ -172,6 +172,8 @@ pub enum Action {
     ProjectMoveDown,
     /// Rename the selected project
     RenameProject,
+    /// Add a file from the local filesystem into the current project repository
+    AddFileToProject,
 
     // ========== Sidebar Navigation ==========
     /// Focus sidebar and enter sidebar mode
@@ -338,6 +340,7 @@ impl Action {
             Action::ProjectMoveUp => "Move project up",
             Action::ProjectMoveDown => "Move project down",
             Action::RenameProject => "Rename project",
+            Action::AddFileToProject => "Add file to project",
 
             // Sidebar
             Action::EnterSidebarMode => "Enter sidebar",
@@ -406,6 +409,7 @@ impl Action {
                 | Action::HandoffSession
                 | Action::ArchiveCurrentWorkspace
                 | Action::RenameProject
+                | Action::AddFileToProject
         )
     }
 
@@ -451,6 +455,7 @@ impl Action {
                 | Action::ArchiveOrRemove
                 | Action::ArchiveCurrentWorkspace
                 | Action::RenameProject
+                | Action::AddFileToProject
                 // Agent/Session
                 | Action::ToggleAgentMode
                 | Action::OpenQueueEditor
