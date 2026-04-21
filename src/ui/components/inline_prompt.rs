@@ -875,7 +875,7 @@ impl InlinePromptState {
 
         if self.input_mode {
             // Text input mode
-            lines.push(self.text_input_line());
+            lines.extend(self.text_input_lines_wrapped(width));
             lines.push(Line::from("")); // blank line
             lines.push(self.instruction_bar_line(&[("Enter", "submit"), ("Esc", "go back")]));
         } else {
@@ -1033,12 +1033,9 @@ impl InlinePromptState {
         let mut first = true;
 
         loop {
-            // Columns available for text on this row.
-            let text_capacity = if first {
-                width.saturating_sub(prefix_width).max(1)
-            } else {
-                width.max(1)
-            };
+            // Columns available for text on this row. All rows use the same capacity so
+            // that the wrap point is consistent regardless of which row the cursor is on.
+            let text_capacity = width.saturating_sub(prefix_width).max(1);
 
             // Advance char_end by accumulating Unicode column widths so that
             // wide characters (e.g. CJK) don't overflow the terminal column.
@@ -1071,6 +1068,8 @@ impl InlinePromptState {
             let mut spans: Vec<Span<'static>> = Vec::new();
             if first {
                 spans.push(Span::styled("> ".to_string(), prompt_style));
+            } else {
+                spans.push(Span::styled("  ".to_string(), prompt_style));
             }
 
             if cursor_in_row {
@@ -1107,36 +1106,6 @@ impl InlinePromptState {
         }
 
         rows
-    }
-
-    /// Build the text input line with cursor
-    fn text_input_line(&self) -> Line<'static> {
-        let prompt_style = Style::default().fg(accent_primary());
-        let input_style = Style::default().fg(text_primary());
-        let cursor_style = Style::default().add_modifier(Modifier::REVERSED);
-
-        let input = &self.text_input.input;
-        let cursor_pos = self.text_input.cursor;
-
-        let mut spans = vec![Span::styled("> ", prompt_style)];
-
-        if input.is_empty() {
-            // Just show cursor at start
-            spans.push(Span::styled(" ", cursor_style));
-        } else if cursor_pos >= input.len() {
-            // Cursor at end
-            spans.push(Span::styled(input.clone(), input_style));
-            spans.push(Span::styled(" ", cursor_style));
-        } else {
-            // Cursor in middle
-            let (before, after) = input.split_at(cursor_pos);
-            let (cursor_char, rest) = after.split_at(1);
-            spans.push(Span::styled(before.to_string(), input_style));
-            spans.push(Span::styled(cursor_char.to_string(), cursor_style));
-            spans.push(Span::styled(rest.to_string(), input_style));
-        }
-
-        Line::from(spans)
     }
 
     /// Build the instruction bar line
