@@ -151,6 +151,43 @@ impl App {
                     self.open_settings_menu();
                 }
             }
+            Action::AddFileToProject => {
+                if matches!(
+                    self.state.input_mode,
+                    InputMode::Normal | InputMode::Scrolling
+                ) {
+                    let workspace_id = self
+                        .state
+                        .tab_manager
+                        .active_session()
+                        .and_then(|s| s.workspace_id);
+                    if let Some(ws_id) = workspace_id {
+                        let repo_info = self.workspace_dao_clone().and_then(|ws_dao| {
+                            ws_dao.get_by_id(ws_id).ok().flatten().and_then(|ws| {
+                                let repo_id = ws.repository_id;
+                                self.repo_dao_clone().and_then(|repo_dao| {
+                                    repo_dao
+                                        .get_by_id(repo_id)
+                                        .ok()
+                                        .flatten()
+                                        .map(|repo| (repo_id, repo.base_path))
+                                })
+                            })
+                        });
+                        if let Some((repo_id, repo_base_path)) = repo_info {
+                            let start_dir = dirs::home_dir()
+                                .or_else(|| repo_base_path.clone())
+                                .unwrap_or_else(|| std::path::PathBuf::from("/"));
+                            self.state.file_picker_dialog_state.show_source_picker(
+                                repo_id,
+                                repo_base_path,
+                                start_dir,
+                            );
+                            self.state.input_mode = InputMode::FilePickerSource;
+                        }
+                    }
+                }
+            }
             Action::RenameProject => {
                 if self.state.input_mode == InputMode::SidebarNavigation {
                     let selected = self.state.sidebar_state.tree_state.selected;

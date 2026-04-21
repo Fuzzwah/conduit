@@ -81,6 +81,12 @@ impl App {
             self.state.input_mode = InputMode::WorkspaceDefaults;
         } else if self.state.rename_project_dialog_state.is_visible() {
             self.state.input_mode = InputMode::RenamingProject;
+        } else if self.state.file_picker_dialog_state.is_visible() {
+            use crate::ui::components::FilePickerMode;
+            self.state.input_mode = match self.state.file_picker_dialog_state.mode {
+                FilePickerMode::SelectFile => InputMode::FilePickerSource,
+                FilePickerMode::SelectDirectory => InputMode::FilePickerDest,
+            };
         } else if self.state.base_dir_dialog_state.path.is_visible() {
             self.state.input_mode = InputMode::SettingBaseDir;
         } else if self.state.add_repo_dialog_state.path.is_visible() {
@@ -95,6 +101,14 @@ impl App {
             && self.state.input_mode != InputMode::FileMention
         {
             self.state.file_mention_state.hide();
+        }
+
+        // Handle file picker navigation (intercepted before action dispatch)
+        if matches!(
+            self.state.input_mode,
+            InputMode::FilePickerSource | InputMode::FilePickerDest
+        ) {
+            return self.handle_file_picker_key(key);
         }
 
         // Handle Ctrl+C with double-press detection (global)
@@ -1050,5 +1064,119 @@ impl App {
                 None
             }
         }
+    }
+
+    pub(super) fn confirm_file_picker_copy(&mut self) -> anyhow::Result<Vec<Effect>> {
+        let source = match self.state.file_picker_dialog_state.source_file.clone() {
+            Some(p) => p,
+            None => return Ok(Vec::new()),
+        };
+        let dest_dir = self.state.file_picker_dialog_state.dest_dir().clone();
+        let file_name = match source.file_name() {
+            Some(n) => n.to_owned(),
+            None => return Ok(Vec::new()),
+        };
+        let dest_path = dest_dir.join(&file_name);
+
+        match std::fs::copy(&source, &dest_path) {
+            Ok(_) => {
+                self.state.file_picker_dialog_state.hide();
+                self.state.input_mode = InputMode::Normal;
+                let relative = dest_path
+                    .strip_prefix(
+                        self.state
+                            .file_picker_dialog_state
+                            .repo_root
+                            .as_deref()
+                            .unwrap_or(&dest_dir),
+                    )
+                    .unwrap_or(&dest_path)
+                    .to_string_lossy()
+                    .to_string();
+                self.state.set_timed_footer_message(
+                    format!("Copied {} → {}", file_name.to_string_lossy(), relative),
+                    std::time::Duration::from_secs(4),
+                );
+            }
+            Err(err) => {
+                self.show_error(
+                    "Copy Failed",
+                    &format!(
+                        "Failed to copy {} to {}: {}",
+                        file_name.to_string_lossy(),
+                        dest_dir.display(),
+                        err
+                    ),
+                );
+            }
+        }
+        Ok(Vec::new())
+    }
+
+    pub(super) fn handle_file_picker_key(&mut self, key: KeyEvent) -> anyhow::Result<Vec<Effect>> {
+        use crate::ui::components::FilePickerMode;
+
+        let is_source = self.state.input_mode == InputMode::FilePickerSource;
+
+        match key.code {
+            KeyCode::Up | KeyCode::Char('k') => {
+                self.state.file_picker_dialog_state.move_up();
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                self.state.file_picker_dialog_state.move_down();
+            }
+            KeyCode::Left | KeyCode::Esc => {
+                if is_source {
+                    let ascended = self.state.file_picker_dialog_state.ascend();
+                    if !ascended {
+                        // Already at FS root or couldn't ascend — cancel
+                        self.state.file_picker_dialog_state.hide();
+                        self.state.input_mode = InputMode::Normal;
+                    }
+                } else {
+                    // In dest mode: Left ascends (clamped at repo root), Esc cancels
+                    if key.code == KeyCode::Esc {
+                        self.state.file_picker_dialog_state.hide();
+                        self.state.input_mode = InputMode::Normal;
+                    } else {
+                        self.state.file_picker_dialog_state.ascend();
+                    }
+                }
+            }
+            KeyCode::Enter => {
+                let mode = self.state.file_picker_dialog_state.mode;
+                match mode {
+                    FilePickerMode::SelectFile => {
+                        let selected_path = self.state.file_picker_dialog_state.selected_path();
+                        if let Some(path) = selected_path {
+                            if path.is_dir() {
+                                self.state.file_picker_dialog_state.descend();
+                            } else if path.is_file() {
+                                // Store source and transition to dest picker
+                                self.state.file_picker_dialog_state.source_file = Some(path);
+                                self.state.file_picker_dialog_state.show_dest_picker();
+                                self.state.input_mode = InputMode::FilePickerDest;
+                            }
+                        }
+                    }
+                    FilePickerMode::SelectDirectory => {
+                        // Enter descends into the selected subdirectory.
+                        // Use 'c' to copy into the current directory.
+                        if self.state.file_picker_dialog_state.entries.is_empty() {
+                            // No subdirs — Enter confirms copy here
+                            return self.confirm_file_picker_copy();
+                        } else {
+                            self.state.file_picker_dialog_state.descend();
+                        }
+                    }
+                }
+            }
+            // Allow 'c' as a shortcut to confirm copy in dest mode
+            KeyCode::Char('c') if !is_source && key.modifiers.is_empty() => {
+                return self.confirm_file_picker_copy();
+            }
+            _ => {}
+        }
+        Ok(Vec::new())
     }
 }

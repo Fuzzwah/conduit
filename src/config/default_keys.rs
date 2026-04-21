@@ -191,6 +191,7 @@ pub fn default_keybindings() -> KeybindingConfig {
     );
     bind(chat, "M-<Up>", Action::ScrollUp(1));
     bind(chat, "M-<Down>", Action::ScrollDown(1));
+    bind(chat, "M-a", Action::AddFileToProject);
 
     // Tab toggles Plan/Build mode
     chat.insert(
