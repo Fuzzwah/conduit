@@ -298,7 +298,13 @@ impl App {
                                     Ok(()) => {
                                         self.state.rename_project_dialog_state.hide();
                                         self.state.input_mode = InputMode::SidebarNavigation;
+                                        self.state.sidebar_state.set_focused(true);
                                         self.refresh_sidebar_data();
+                                        if let Some(idx) =
+                                            self.state.sidebar_data.focus_repository(repo_id)
+                                        {
+                                            self.state.sidebar_state.tree_state.selected = idx;
+                                        }
                                         self.state.set_timed_footer_message(
                                             format!("Project renamed to \"{}\"", new_name),
                                             std::time::Duration::from_secs(3),
