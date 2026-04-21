@@ -467,6 +467,8 @@ pub struct ChatView {
     streaming_joiner_before: Option<Vec<Option<String>>>,
     /// Selection scroll lock (offset from top)
     selection_scroll_lock: Option<usize>,
+    /// User scroll pin: absolute line-from-top when user has scrolled up, cleared at bottom
+    pinned_scroll_top: Option<usize>,
     /// Theme revision used for cached lines (invalidate on change)
     theme_revision: u64,
     /// Extra lines appended in the last render (thinking/queue/prompt + spacing)
@@ -517,6 +519,7 @@ impl ChatView {
             joiner_before: Vec::new(),
             streaming_joiner_before: None,
             selection_scroll_lock: None,
+            pinned_scroll_top: None,
             theme_revision: theme_revision(),
             last_render_extra_lines: 0,
             hovered_file_path: None,
@@ -755,6 +758,7 @@ impl ChatView {
         self.messages.clear();
         self.streaming_messages.clear();
         self.scroll_offset = 0;
+        self.pinned_scroll_top = None;
         self.clear_selection();
         self.last_render_extra_lines = 0;
         // Clear all caches
@@ -772,22 +776,26 @@ impl ChatView {
     /// Scroll up by n lines
     pub fn scroll_up(&mut self, n: usize) {
         self.scroll_offset = self.scroll_offset.saturating_add(n);
+        self.pinned_scroll_top = None; // render will re-establish pin at new position
     }
 
     /// Scroll down by n lines
     pub fn scroll_down(&mut self, n: usize) {
         self.scroll_offset = self.scroll_offset.saturating_sub(n);
+        self.pinned_scroll_top = None; // render will re-establish pin or clear at bottom
     }
 
     /// Scroll to top
     pub fn scroll_to_top(&mut self) {
         // Will be clamped during render
         self.scroll_offset = usize::MAX;
+        self.pinned_scroll_top = None;
     }
 
     /// Scroll to bottom
     pub fn scroll_to_bottom(&mut self) {
         self.scroll_offset = 0;
+        self.pinned_scroll_top = None;
     }
 
     /// Jump to previous user message (returns true if moved).
@@ -852,6 +860,7 @@ impl ChatView {
 
         let clamped_target = target_line.min(max_scroll);
         self.scroll_offset = max_scroll.saturating_sub(clamped_target);
+        self.pinned_scroll_top = None;
         true
     }
 
@@ -889,6 +898,7 @@ impl ChatView {
     pub fn set_scroll_from_top(&mut self, offset_from_top: usize, total: usize, visible: usize) {
         let max_scroll = total.saturating_sub(visible);
         self.scroll_offset = max_scroll.saturating_sub(offset_from_top.min(max_scroll));
+        self.pinned_scroll_top = None;
     }
 
     fn ensure_streaming_cache(&mut self, width: u16) {
@@ -2420,16 +2430,32 @@ impl ChatView {
         let visible_height = content.height as usize;
         self.last_visible_height = visible_height;
 
-        // Clamp scroll offset (respect selection lock if active)
+        // Clamp scroll offset (respect locks if active)
         let max_scroll = total_lines.saturating_sub(visible_height);
         let scroll_from_top = if let Some(lock) = self.selection_scroll_lock {
+            // Selection drag in progress — hold absolute position
             let locked = lock.min(max_scroll);
             self.scroll_offset = max_scroll.saturating_sub(locked);
+            locked
+        } else if let Some(pinned) = self.pinned_scroll_top {
+            // User has scrolled up — maintain absolute line position as content grows
+            let locked = pinned.min(max_scroll);
+            self.scroll_offset = max_scroll.saturating_sub(locked);
+            self.pinned_scroll_top = Some(locked);
             locked
         } else {
             self.scroll_offset = self.scroll_offset.min(max_scroll);
             max_scroll.saturating_sub(self.scroll_offset)
         };
+
+        // Track user scroll position so it stays fixed when new content arrives
+        if self.selection_scroll_lock.is_none() {
+            if self.scroll_offset > 0 {
+                self.pinned_scroll_top = Some(scroll_from_top);
+            } else {
+                self.pinned_scroll_top = None;
+            }
+        }
 
         let start_line = total_lines.saturating_sub(self.scroll_offset + visible_height);
         let end_line = total_lines.saturating_sub(self.scroll_offset);
