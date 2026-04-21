@@ -170,6 +170,8 @@ pub enum Action {
     ProjectMoveUp,
     /// Move selected project down in sidebar
     ProjectMoveDown,
+    /// Rename the selected project
+    RenameProject,
 
     // ========== Sidebar Navigation ==========
     /// Focus sidebar and enter sidebar mode
@@ -335,6 +337,7 @@ impl Action {
             Action::ArchiveCurrentWorkspace => "Archive current workspace",
             Action::ProjectMoveUp => "Move project up",
             Action::ProjectMoveDown => "Move project down",
+            Action::RenameProject => "Rename project",
 
             // Sidebar
             Action::EnterSidebarMode => "Enter sidebar",
@@ -402,6 +405,7 @@ impl Action {
                 | Action::ForkSession
                 | Action::HandoffSession
                 | Action::ArchiveCurrentWorkspace
+                | Action::RenameProject
         )
     }
 
@@ -446,6 +450,7 @@ impl Action {
                 | Action::OpenSettings
                 | Action::ArchiveOrRemove
                 | Action::ArchiveCurrentWorkspace
+                | Action::RenameProject
                 // Agent/Session
                 | Action::ToggleAgentMode
                 | Action::OpenQueueEditor
