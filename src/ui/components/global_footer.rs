@@ -115,7 +115,7 @@ impl<'a> GlobalFooter<'a> {
     /// Get hints for chat mode
     pub fn chat_hints() -> Vec<(&'static str, &'static str)> {
         vec![
-            ("M-tab", "next tab"),
+            ("M-tab/M-S-tab", "next/prev tab"),
             ("C-o", "model"),
             ("C-t", "sidebar"),
             ("C-n", "new project"),
@@ -155,7 +155,7 @@ impl<'a> GlobalFooter<'a> {
             ("j/k", "scroll"),
             ("g/G", "top/bottom"),
             ("C-d/u", "page"),
-            ("M-tab", "next tab"),
+            ("M-tab/M-S-tab", "next/prev tab"),
             ("q", "close"),
             ("esc", "close"),
         ]

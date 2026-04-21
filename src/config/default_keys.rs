@@ -69,6 +69,11 @@ pub fn default_keybindings() -> KeybindingConfig {
         KeyCombo::new(KeyCode::BackTab, KeyModifiers::ALT | KeyModifiers::SHIFT),
         Action::PrevTab,
     );
+    // Some terminals send Tab+ALT+SHIFT rather than BackTab+ALT for Alt+Shift+Tab
+    config.global.insert(
+        KeyCombo::new(KeyCode::Tab, KeyModifiers::ALT | KeyModifiers::SHIFT),
+        Action::PrevTab,
+    );
 
     // Alt key shortcuts
     bind(&mut config.global, "M-b", Action::MoveWordLeft);
