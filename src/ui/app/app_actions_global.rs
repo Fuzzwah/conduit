@@ -30,6 +30,7 @@ impl App {
                         "Quit",
                         Some(ConfirmationContext::Quit),
                     );
+                    self.state.confirmation_dialog_state.select_confirm();
                     self.state.input_mode = InputMode::Confirming;
                 }
             }

@@ -13467,20 +13467,18 @@ mod tests {
     }
 
     #[test]
-    fn test_handle_global_quit_requires_double_press() {
+    fn test_handle_global_quit_shows_dialog_then_quits_on_second_press() {
         let mut app = build_test_app_with_sessions(&[]);
         let mut effects = Vec::new();
 
-        // First press: should not quit, shows confirmation message
+        // First press: should not quit, shows confirmation dialog with Quit selected
         app.handle_global_action(Action::Quit, &mut effects);
         assert!(!app.state.should_quit);
         assert!(effects.is_empty());
-        assert_eq!(
-            app.state.footer_message.as_deref(),
-            Some("Press Ctrl+Q again to quit")
-        );
+        assert_eq!(app.state.input_mode, InputMode::Confirming);
+        assert!(app.state.confirmation_dialog_state.is_confirm_selected());
 
-        // Second press: should quit
+        // Second press (Ctrl+Q again): should quit
         app.handle_global_action(Action::Quit, &mut effects);
         assert!(app.state.should_quit);
         assert!(matches!(effects.as_slice(), [Effect::SaveSessionState]));
