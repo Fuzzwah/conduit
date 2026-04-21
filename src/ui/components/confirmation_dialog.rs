@@ -64,6 +64,8 @@ pub enum ConfirmationContext {
     RemoveProjectPreflightInProgress { repo_id: Uuid },
     /// Fork-session confirmation preflight is running.
     ForkSessionPreflightInProgress { parent_workspace_id: Uuid },
+    /// Quitting the application
+    Quit,
 }
 
 impl ConfirmationContext {

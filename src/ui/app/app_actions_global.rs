@@ -1,27 +1,36 @@
 use crate::ui::action::Action;
 use crate::ui::app::App;
 use crate::ui::app_state::{ModelPickerContext, SelectionDragTarget};
+use crate::ui::components::{ConfirmationContext, ConfirmationType};
 use crate::ui::effect::Effect;
 use crate::ui::events::{InputMode, ViewMode};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 impl App {
     pub(super) fn handle_global_action(&mut self, action: Action, effects: &mut Vec<Effect>) {
         match action {
             Action::Quit => {
-                let now = Instant::now();
-                let is_confirmed = self
-                    .state
-                    .last_ctrl_q_press
-                    .map(|t| now.duration_since(t) < Duration::from_millis(500))
-                    .unwrap_or(false);
-                if is_confirmed {
-                    self.state.last_ctrl_q_press = None;
+                if self.state.input_mode == InputMode::Confirming
+                    && matches!(
+                        self.state.confirmation_dialog_state.context,
+                        Some(ConfirmationContext::Quit)
+                    )
+                {
+                    self.state.confirmation_dialog_state.hide();
+                    self.state.input_mode = InputMode::Normal;
                     self.state.should_quit = true;
                     effects.push(Effect::SaveSessionState);
                 } else {
-                    self.state.last_ctrl_q_press = Some(now);
-                    self.state.footer_message = Some("Press Ctrl+Q again to quit".into());
+                    self.state.close_overlays();
+                    self.state.confirmation_dialog_state.show(
+                        "Quit Conduit",
+                        "Are you sure you want to quit?",
+                        vec![],
+                        ConfirmationType::Warning,
+                        "Quit",
+                        Some(ConfirmationContext::Quit),
+                    );
+                    self.state.input_mode = InputMode::Confirming;
                 }
             }
             Action::NewProject => {

@@ -212,8 +212,6 @@ pub struct AppState {
     pub footer_message_expires_at: Option<Instant>,
     /// Last Ctrl+C press time for double-press detection
     pub last_ctrl_c_press: Option<Instant>,
-    /// Last Ctrl+Q press time for double-press confirmation
-    pub last_ctrl_q_press: Option<Instant>,
     /// Last Esc press time for double-press detection
     pub last_esc_press: Option<Instant>,
     /// Logo shine animation for splash screen
@@ -409,7 +407,6 @@ impl AppState {
             footer_message: None,
             footer_message_expires_at: None,
             last_ctrl_c_press: None,
-            last_ctrl_q_press: None,
             last_esc_press: None,
             logo_shine: LogoShineAnimation::new(),
             was_splash_visible: true, // Start on splash screen

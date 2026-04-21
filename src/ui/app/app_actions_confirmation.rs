@@ -95,6 +95,12 @@ impl App {
                             ConfirmationContext::ForkSessionPreflightInProgress { .. } => {
                                 return Ok(());
                             }
+                            ConfirmationContext::Quit => {
+                                self.state.confirmation_dialog_state.hide();
+                                self.state.input_mode = InputMode::Normal;
+                                self.state.should_quit = true;
+                                effects.push(Effect::SaveSessionState);
+                            }
                         }
                     }
                 }
