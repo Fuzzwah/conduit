@@ -285,10 +285,9 @@ impl AgentSession {
         self.total_usage.total_tokens += usage.total_tokens;
         self.turn_count += 1;
 
-        // Claude never emits TokenUsageEvent; this is the only place we get token counts for ctx%.
-        if usage.total_tokens > 0 {
-            self.context_state.current_tokens = usage.total_tokens;
-        }
+        // ctx% is updated via TokenUsageEvent (emitted per assistant message for Claude,
+        // via ThreadTokenUsageUpdated for Codex). The result event usage is cumulative for
+        // Claude Code sessions and must not overwrite per-call context state.
 
         self.update_status();
     }
