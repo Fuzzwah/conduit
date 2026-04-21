@@ -463,7 +463,15 @@ impl InlinePromptState {
                 self.text_input.move_end();
                 PromptAction::Consumed
             }
-            KeyCode::Char(c) => {
+            KeyCode::Char('b') if key.modifiers.contains(KeyModifiers::ALT) => {
+                self.text_input.move_word_left();
+                PromptAction::Consumed
+            }
+            KeyCode::Char('f') if key.modifiers.contains(KeyModifiers::ALT) => {
+                self.text_input.move_word_right();
+                PromptAction::Consumed
+            }
+            KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::ALT) => {
                 self.text_input.insert_char(c);
                 PromptAction::Consumed
             }
