@@ -1485,6 +1485,19 @@ impl App {
             }
         }
 
+        if let Some(last) = self.state.last_ctrl_q_press {
+            if now.duration_since(last) > timeout {
+                self.state.last_ctrl_q_press = None;
+                if matches!(
+                    self.state.footer_message.as_deref(),
+                    Some("Press Ctrl+Q again to quit")
+                ) {
+                    self.state.footer_message = None;
+                    state_changed = true;
+                }
+            }
+        }
+
         if let Some(last) = self.state.last_esc_press {
             if now.duration_since(last) > timeout {
                 self.state.last_esc_press = None;
@@ -13443,12 +13456,21 @@ mod tests {
     }
 
     #[test]
-    fn test_handle_global_quit_sets_flag_and_effect() {
+    fn test_handle_global_quit_requires_double_press() {
         let mut app = build_test_app_with_sessions(&[]);
         let mut effects = Vec::new();
 
+        // First press: should not quit, shows confirmation message
         app.handle_global_action(Action::Quit, &mut effects);
+        assert!(!app.state.should_quit);
+        assert!(effects.is_empty());
+        assert_eq!(
+            app.state.footer_message.as_deref(),
+            Some("Press Ctrl+Q again to quit")
+        );
 
+        // Second press: should quit
+        app.handle_global_action(Action::Quit, &mut effects);
         assert!(app.state.should_quit);
         assert!(matches!(effects.as_slice(), [Effect::SaveSessionState]));
     }
