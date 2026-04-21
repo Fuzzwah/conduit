@@ -102,7 +102,7 @@ conduit migrate-theme path/to/theme.json --palette
 | Provider | Default Model | Notes |
 | --- | --- | --- |
 | Codex CLI | `gpt-5.4` | Default provider for new sessions |
-| Claude Code | `opus` | Supports Build/Plan mode |
+| Claude Code | `opus` | Supports Build/Plan mode; `conduit` sessions use Claude `stream-json` input by default |
 | Gemini CLI | `gemini-2.5-pro` | Supports Build/Plan mode |
 | OpenCode | `default` | Dynamic model list, no Plan-mode toggle |
 
