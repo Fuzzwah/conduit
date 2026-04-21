@@ -1485,19 +1485,6 @@ impl App {
             }
         }
 
-        if let Some(last) = self.state.last_ctrl_q_press {
-            if now.duration_since(last) > timeout {
-                self.state.last_ctrl_q_press = None;
-                if matches!(
-                    self.state.footer_message.as_deref(),
-                    Some("Press Ctrl+Q again to quit")
-                ) {
-                    self.state.footer_message = None;
-                    state_changed = true;
-                }
-            }
-        }
-
         if let Some(last) = self.state.last_esc_press {
             if now.duration_since(last) > timeout {
                 self.state.last_esc_press = None;
@@ -4731,6 +4718,7 @@ impl App {
             Some(ConfirmationContext::RemoveProject(_))
             | Some(ConfirmationContext::RemoveProjectPreflightInProgress { .. })
             | Some(ConfirmationContext::SelectWorkspaceMode { .. }) => InputMode::SidebarNavigation,
+            Some(ConfirmationContext::Quit) => InputMode::Normal,
             // No context: return to Normal if tabs exist, otherwise SidebarNavigation
             // (avoids unexpectedly flipping to sidebar when user has active tabs)
             None => {
