@@ -316,6 +316,8 @@ pub enum InputMode {
     MissingTool,
     /// Editing global workspace defaults
     WorkspaceDefaults,
+    /// Renaming a project
+    RenamingProject,
     /// Editing queued messages inline
     QueueEditing,
     /// File mention autocomplete (@filename) is active

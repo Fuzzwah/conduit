@@ -277,6 +277,49 @@ impl App {
             InputMode::SettingsMenu => {
                 self.open_selected_setting();
             }
+            InputMode::RenamingProject => {
+                let new_name = self
+                    .state
+                    .rename_project_dialog_state
+                    .value()
+                    .trim()
+                    .to_string();
+                let repo_id = self.state.rename_project_dialog_state.repo_id;
+                if new_name.is_empty() {
+                    self.show_error("Rename Failed", "Project name cannot be empty.");
+                    return Ok(());
+                }
+                if let Some(repo_id) = repo_id {
+                    if let Some(dao) = self.repo_dao_clone() {
+                        match dao.get_by_id(repo_id) {
+                            Ok(Some(mut repo)) => {
+                                repo.name = new_name.clone();
+                                match dao.update(&repo) {
+                                    Ok(()) => {
+                                        self.state.rename_project_dialog_state.hide();
+                                        self.state.input_mode = InputMode::SidebarNavigation;
+                                        self.refresh_sidebar_data();
+                                        self.state.set_timed_footer_message(
+                                            format!("Project renamed to \"{}\"", new_name),
+                                            std::time::Duration::from_secs(3),
+                                        );
+                                    }
+                                    Err(err) => {
+                                        self.show_error("Rename Failed", &err.to_string());
+                                    }
+                                }
+                            }
+                            Ok(None) => {
+                                self.show_error("Rename Failed", "Project not found.");
+                            }
+                            Err(err) => {
+                                self.show_error("Rename Failed", &err.to_string());
+                            }
+                        }
+                    }
+                }
+                return Ok(());
+            }
             InputMode::WorkspaceDefaults => {
                 if self
                     .state

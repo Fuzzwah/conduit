@@ -10,8 +10,9 @@ use crate::ui::components::{
     AddRepoDialogState, AgentSelectorState, BaseDirDialogState, CommandPaletteState,
     ConfirmationDialogState, ErrorDialogState, HelpDialogState, KnightRiderSpinner,
     LogoShineAnimation, MissingToolDialogState, ModelSelectorState, ProjectPickerState,
-    ProviderSelectorState, ReasoningSelectorState, SessionImportPickerState, SettingsMenuState,
-    SidebarData, SidebarState, SlashMenuState, ThemePickerState, WorkspaceDefaultsDialogState,
+    ProviderSelectorState, ReasoningSelectorState, RenameProjectDialogState,
+    SessionImportPickerState, SettingsMenuState, SidebarData, SidebarState, SlashMenuState,
+    ThemePickerState, WorkspaceDefaultsDialogState,
 };
 use crate::ui::events::{InputMode, ViewMode};
 use crate::ui::tab_manager::TabManager;
@@ -182,6 +183,7 @@ pub struct AppState {
     pub slash_menu_state: SlashMenuState,
     pub file_mention_state: SlashMenuState,
     pub workspace_defaults_dialog_state: WorkspaceDefaultsDialogState,
+    pub rename_project_dialog_state: RenameProjectDialogState,
     pub command_buffer: String,
     pub sidebar_area: Option<Rect>,
     pub tab_bar_area: Option<Rect>,
@@ -378,6 +380,7 @@ impl AppState {
             slash_menu_state: SlashMenuState::new(),
             file_mention_state: SlashMenuState::new(),
             workspace_defaults_dialog_state: WorkspaceDefaultsDialogState::new(),
+            rename_project_dialog_state: RenameProjectDialogState::new(),
             command_buffer: String::new(),
             sidebar_area: None,
             tab_bar_area: None,

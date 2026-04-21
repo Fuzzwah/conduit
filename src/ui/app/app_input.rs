@@ -79,6 +79,8 @@ impl App {
             self.state.input_mode = InputMode::PickingProject;
         } else if self.state.workspace_defaults_dialog_state.is_visible() {
             self.state.input_mode = InputMode::WorkspaceDefaults;
+        } else if self.state.rename_project_dialog_state.is_visible() {
+            self.state.input_mode = InputMode::RenamingProject;
         } else if self.state.base_dir_dialog_state.path.is_visible() {
             self.state.input_mode = InputMode::SettingBaseDir;
         } else if self.state.add_repo_dialog_state.path.is_visible() {
@@ -603,6 +605,9 @@ impl App {
             }
             InputMode::AddingRepository => {
                 self.state.add_repo_dialog_state.insert_char(c);
+            }
+            InputMode::RenamingProject => {
+                self.state.rename_project_dialog_state.insert_char(c);
             }
             InputMode::SettingBaseDir => {
                 self.state.base_dir_dialog_state.insert_char(c);

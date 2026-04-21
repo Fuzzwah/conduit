@@ -26,6 +26,7 @@ mod provider_selector;
 mod raw_events_types;
 mod raw_events_view;
 mod reasoning_selector;
+mod rename_project_dialog;
 mod scrollbar;
 mod searchable_list;
 mod session_header;
@@ -196,6 +197,7 @@ pub use theme::{
     ThemeSource,
 };
 
+pub use rename_project_dialog::{RenameProjectDialog, RenameProjectDialogState};
 pub use thinking_indicator::{ProcessingState, ThinkingIndicator};
 pub use tree_view::{
     ActionType, NodeType, SidebarData, SidebarGitDisplay, TreeNode, TreeView, TreeViewState,

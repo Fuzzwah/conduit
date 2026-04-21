@@ -63,10 +63,10 @@ use crate::ui::components::{
     ConfirmationContext, ConfirmationDialog, ConfirmationType, DefaultModelSelection, ErrorDialog,
     EventDirection, GlobalFooter, HelpDialog, InlinePromptState, InlinePromptType, MessageRole,
     MissingToolDialog, ModelSelector, ProcessingState, ProjectEntry, ProjectPicker, PromptAnswer,
-    ProviderSelector, RawEventsClick, ReasoningSelector, SessionHeader, SessionImportPicker,
-    SettingsMenu, SettingsMenuEntry, SettingsMenuEntryId, Sidebar, SidebarData, SlashMenu, TabBar,
-    TabBarHitTarget, ThemePicker, WorkspaceDefaultsDialog, WorkspaceDefaultsDraft,
-    SIDEBAR_HEADER_ROWS,
+    ProviderSelector, RawEventsClick, ReasoningSelector, RenameProjectDialog, SessionHeader,
+    SessionImportPicker, SettingsMenu, SettingsMenuEntry, SettingsMenuEntryId, Sidebar,
+    SidebarData, SlashMenu, TabBar, TabBarHitTarget, ThemePicker, WorkspaceDefaultsDialog,
+    WorkspaceDefaultsDraft, SIDEBAR_HEADER_ROWS,
 };
 use crate::ui::effect::Effect;
 use crate::ui::events::{
@@ -2219,7 +2219,8 @@ impl App {
             | Action::AddRepository
             | Action::OpenSettings
             | Action::ArchiveOrRemove
-            | Action::ArchiveCurrentWorkspace => {
+            | Action::ArchiveCurrentWorkspace
+            | Action::RenameProject => {
                 self.handle_dialog_action(action);
             }
 
@@ -10650,6 +10651,16 @@ impl App {
                             );
                         }
 
+                        if self.state.input_mode == InputMode::RenamingProject
+                            || self.state.rename_project_dialog_state.is_visible()
+                        {
+                            RenameProjectDialog::new().render(
+                                size,
+                                f.buffer_mut(),
+                                &self.state.rename_project_dialog_state,
+                            );
+                        }
+
                         // Draw footer for empty state (sidebar-aware)
                         let footer_context =
                             if self.state.input_mode == InputMode::SidebarNavigation {
@@ -11102,6 +11113,16 @@ impl App {
                 size,
                 f.buffer_mut(),
                 &self.state.workspace_defaults_dialog_state,
+            );
+        }
+
+        if self.state.input_mode == InputMode::RenamingProject
+            || self.state.rename_project_dialog_state.is_visible()
+        {
+            RenameProjectDialog::new().render(
+                size,
+                f.buffer_mut(),
+                &self.state.rename_project_dialog_state,
             );
         }
 
