@@ -81,6 +81,8 @@ impl App {
             self.state.input_mode = InputMode::WorkspaceDefaults;
         } else if self.state.rename_project_dialog_state.is_visible() {
             self.state.input_mode = InputMode::RenamingProject;
+        } else if self.state.scp_command_dialog_state.visible {
+            self.state.input_mode = InputMode::ScpCommand;
         } else if self.state.file_picker_dialog_state.is_visible() {
             use crate::ui::components::FilePickerMode;
             self.state.input_mode = match self.state.file_picker_dialog_state.mode {
@@ -101,6 +103,11 @@ impl App {
             && self.state.input_mode != InputMode::FileMention
         {
             self.state.file_mention_state.hide();
+        }
+
+        // Handle SCP command dialog (Esc only)
+        if self.state.input_mode == InputMode::ScpCommand {
+            return self.handle_scp_command_key(key);
         }
 
         // Handle file picker navigation (intercepted before action dispatch)
@@ -1067,6 +1074,11 @@ impl App {
     }
 
     pub(super) fn confirm_file_picker_copy(&mut self) -> anyhow::Result<Vec<Effect>> {
+        // In upload mode, show the SCP command instead of copying a local file
+        if self.state.file_picker_dialog_state.upload_mode {
+            return self.show_scp_command();
+        }
+
         let source = match self.state.file_picker_dialog_state.source_file.clone() {
             Some(p) => p,
             None => return Ok(Vec::new()),
@@ -1109,6 +1121,49 @@ impl App {
                     ),
                 );
             }
+        }
+        Ok(Vec::new())
+    }
+
+    pub(super) fn show_scp_command(&mut self) -> anyhow::Result<Vec<Effect>> {
+        let dest_dir = self.state.file_picker_dialog_state.dest_dir().clone();
+        let username = self.state.file_picker_dialog_state.upload_username.clone();
+        let hostname = self.state.file_picker_dialog_state.upload_hostname.clone();
+
+        // Build relative path for display
+        let dest_display = self
+            .state
+            .file_picker_dialog_state
+            .repo_root
+            .as_deref()
+            .and_then(|root| dest_dir.strip_prefix(root).ok())
+            .map(|rel| rel.to_string_lossy().to_string())
+            .unwrap_or_else(|| dest_dir.to_string_lossy().to_string());
+
+        let dest_abs = dest_dir.to_string_lossy();
+        let scp_command = format!("scp yourfile {}@{}:{}/", username, hostname, dest_abs);
+
+        self.state.file_picker_dialog_state.hide();
+        self.state
+            .scp_command_dialog_state
+            .show(scp_command.clone(), dest_display, dest_dir);
+        self.state.input_mode = InputMode::ScpCommand;
+        Ok(vec![Effect::CopyToClipboard(scp_command)])
+    }
+
+    pub(super) fn handle_scp_command_key(&mut self, key: KeyEvent) -> anyhow::Result<Vec<Effect>> {
+        use crate::ui::components::ScpCommandPhase;
+        match key.code {
+            KeyCode::Enter => {
+                if self.state.scp_command_dialog_state.phase == ScpCommandPhase::ShowCommand {
+                    self.state.scp_command_dialog_state.confirm_upload();
+                }
+            }
+            KeyCode::Esc => {
+                self.state.scp_command_dialog_state.hide();
+                self.state.input_mode = InputMode::Normal;
+            }
+            _ => {}
         }
         Ok(Vec::new())
     }

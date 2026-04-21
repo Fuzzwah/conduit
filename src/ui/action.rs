@@ -174,6 +174,8 @@ pub enum Action {
     RenameProject,
     /// Add a file from the local filesystem into the current project repository
     AddFileToProject,
+    /// Pick a destination directory in the repo, then display an SCP command to upload from a remote workstation
+    UploadFileToProject,
 
     // ========== Sidebar Navigation ==========
     /// Focus sidebar and enter sidebar mode
@@ -341,6 +343,7 @@ impl Action {
             Action::ProjectMoveDown => "Move project down",
             Action::RenameProject => "Rename project",
             Action::AddFileToProject => "Add file to project",
+            Action::UploadFileToProject => "Upload file to project via SCP",
 
             // Sidebar
             Action::EnterSidebarMode => "Enter sidebar",
@@ -410,6 +413,7 @@ impl Action {
                 | Action::ArchiveCurrentWorkspace
                 | Action::RenameProject
                 | Action::AddFileToProject
+                | Action::UploadFileToProject
         )
     }
 
@@ -456,6 +460,7 @@ impl Action {
                 | Action::ArchiveCurrentWorkspace
                 | Action::RenameProject
                 | Action::AddFileToProject
+                | Action::UploadFileToProject
                 // Agent/Session
                 | Action::ToggleAgentMode
                 | Action::OpenQueueEditor

@@ -322,6 +322,8 @@ pub enum InputMode {
     FilePickerSource,
     /// Browsing repository directories to pick a copy destination (step 2 of add-file flow)
     FilePickerDest,
+    /// Displaying SCP command for uploading a file from a remote workstation
+    ScpCommand,
     /// Editing queued messages inline
     QueueEditing,
     /// File mention autocomplete (@filename) is active

@@ -2293,7 +2293,7 @@ impl App {
                 self.handle_overlay_action(action, &mut effects)?;
             }
 
-            Action::AddFileToProject => {
+            Action::AddFileToProject | Action::UploadFileToProject => {
                 self.handle_dialog_action(action);
             }
         }
@@ -11149,6 +11149,16 @@ impl App {
                 size,
                 f.buffer_mut(),
                 &self.state.file_picker_dialog_state,
+            );
+        }
+
+        if self.state.scp_command_dialog_state.visible {
+            use crate::ui::components::ScpCommandDialog;
+            let area = ScpCommandDialog::dialog_area(size);
+            ScpCommandDialog::new().render(
+                area,
+                f.buffer_mut(),
+                &self.state.scp_command_dialog_state,
             );
         }
 

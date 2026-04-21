@@ -182,7 +182,7 @@ impl KeyContext {
             | InputMode::FileMention
             | InputMode::WorkspaceDefaults => return KeyContext::CommandPalette,
             InputMode::RenamingProject => return KeyContext::AddRepository,
-            InputMode::FilePickerSource | InputMode::FilePickerDest => {
+            InputMode::FilePickerSource | InputMode::FilePickerDest | InputMode::ScpCommand => {
                 return KeyContext::Dialog;
             }
             InputMode::MissingTool => return KeyContext::Dialog,
