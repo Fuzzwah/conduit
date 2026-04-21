@@ -13,7 +13,8 @@ use tokio::sync::mpsc;
 use crate::agent::error::AgentError;
 use crate::agent::events::{
     AgentEvent, AssistantMessageEvent, ControlRequestEvent, ErrorEvent, SessionInitEvent,
-    TokenUsage, ToolCompletedEvent, ToolStartedEvent, TurnCompletedEvent, TurnFailedEvent,
+    TokenUsage, TokenUsageEvent, ToolCompletedEvent, ToolStartedEvent, TurnCompletedEvent,
+    TurnFailedEvent,
 };
 use crate::agent::runner::{AgentHandle, AgentInput, AgentRunner, AgentStartConfig, AgentType};
 use crate::agent::session::SessionId;
@@ -190,6 +191,32 @@ impl ClaudeCodeRunner {
                         tool_id: tool_use.id,
                         arguments: tool_use.input,
                     }));
+                }
+
+                // Emit per-call context window usage from the message's usage field.
+                // input + cache_creation + cache_read = total prompt tokens for this API call.
+                // This is accurate per-call data, unlike the final result event which is cumulative.
+                if let Some(ref msg) = assistant.message {
+                    if let Some(ref u) = msg.usage {
+                        let input = u.input_tokens.unwrap_or(0);
+                        let output = u.output_tokens.unwrap_or(0);
+                        let cache_creation = u.cache_creation_input_tokens.unwrap_or(0);
+                        let cache_read = u.cache_read_input_tokens.unwrap_or(0);
+                        let cached = cache_creation + cache_read;
+                        let context_tokens = input + cached;
+                        if context_tokens > 0 {
+                            events.push(AgentEvent::TokenUsage(TokenUsageEvent {
+                                usage: TokenUsage {
+                                    input_tokens: input,
+                                    output_tokens: output,
+                                    cached_tokens: cached,
+                                    total_tokens: context_tokens,
+                                },
+                                context_window: None,
+                                usage_percent: None,
+                            }));
+                        }
+                    }
                 }
 
                 events
@@ -903,7 +930,8 @@ mod tests {
         });
 
         let events = ClaudeCodeRunner::convert_event(raw);
-        assert_eq!(events.len(), 1);
+        // Expect AssistantMessage + TokenUsage (from message.usage)
+        assert_eq!(events.len(), 2);
 
         match &events[0] {
             AgentEvent::AssistantMessage(msg) => {
@@ -911,6 +939,17 @@ mod tests {
                 assert!(msg.is_final);
             }
             other => panic!("Expected AssistantMessage, got {:?}", other),
+        }
+
+        match &events[1] {
+            AgentEvent::TokenUsage(usage_event) => {
+                // context_tokens = input + cached (no output) = 100 + 0 = 100
+                assert_eq!(usage_event.usage.input_tokens, 100);
+                assert_eq!(usage_event.usage.output_tokens, 50);
+                assert_eq!(usage_event.usage.cached_tokens, 0);
+                assert_eq!(usage_event.usage.total_tokens, 100);
+            }
+            other => panic!("Expected TokenUsage, got {:?}", other),
         }
     }
 
@@ -945,8 +984,8 @@ mod tests {
         }
     }
 
-    /// Cache tokens dominate context usage in multi-turn sessions; the result
-    /// event must fold them into total_tokens so the status bar's ctx% is non-zero.
+    /// Cache tokens are folded into total_tokens on the result event for
+    /// cumulative cost tracking; ctx% is driven by per-call assistant message usage.
     #[test]
     fn test_result_event_includes_cache_tokens_in_total() {
         let raw = ClaudeRawEvent::Result(ClaudeResultEvent {
