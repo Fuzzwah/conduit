@@ -26,6 +26,14 @@
 
 Toggle with `Tab` or `Ctrl+4`.
 
+## Default CLI Invocation In Conduit
+
+When you run `conduit` (TUI) or `conduit serve` (web UI) and choose Claude, Conduit sends prompts using Claude's `--input-format stream-json` flow by default.
+
+That means normal day-to-day Conduit Claude sessions are **not** using `claude -p`.
+
+Conduit only uses `-p` in non-stream input cases.
+
 ## Tools Available
 
 - `Read` — Read file contents
