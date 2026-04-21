@@ -2,19 +2,18 @@
 
 use ratatui::{
     buffer::Buffer,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::Rect,
     style::Style,
     widgets::{Block, Borders, Paragraph, StatefulWidget, Widget},
 };
 
 /// Number of rows from sidebar top to tree content.
-/// This accounts for: title area (3 rows) + separator (1 row) = 4 rows.
 /// Used for hit-testing (mouse hover, clicks) to map coordinates to tree items.
-pub const SIDEBAR_HEADER_ROWS: u16 = 4;
+pub const SIDEBAR_HEADER_ROWS: u16 = 0;
 
 use crate::ui::components::{
-    accent_primary, border_default, ensure_contrast_fg, selected_bg, selected_bg_dim, sidebar_bg,
-    text_muted, text_primary,
+    accent_primary, ensure_contrast_fg, selected_bg, selected_bg_dim, sidebar_bg, text_muted,
+    text_primary,
 };
 
 use super::tree_view::{SidebarData, TreeView, TreeViewState};
@@ -133,48 +132,7 @@ impl StatefulWidget for Sidebar<'_> {
             return;
         }
 
-        // // Determine border color based on focus
-        // let border_style = if state.focused {
-        //     Style::default().fg(ACCENT_PRIMARY)
-        // } else {
-        //     Style::default().fg(BORDER_DEFAULT)
-        // };
-
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(3), // Title area
-                Constraint::Length(1), // Separator
-                Constraint::Min(1),    // Tree content
-            ])
-            .split(area);
-
-        let title = Paragraph::new(format!(" {} ", self.title.trim()))
-            .style(Style::default().fg(text_primary()).bg(sidebar_bg()));
-
-        let title_area = chunks[0];
-
-        for y in title_area.y..title_area.y + title_area.height {
-            for x in title_area.x..title_area.x + title_area.width {
-                buf[(x, y)].set_bg(sidebar_bg());
-            }
-        }
-
-        let middle_row = Rect::new(title_area.x, title_area.y + 1, title_area.width, 1);
-        title.render(middle_row, buf);
-
-        // Draw horizontal separator line
-        let separator_y = chunks[1].y; // Last row of title area
-                                       // Or: let separator_y = chunks[1].y; // First row of content area
-
-        for x in area.x..area.x + area.width {
-            buf[(x, separator_y)]
-                .set_char('─')
-                .set_fg(border_default())
-                .set_bg(sidebar_bg());
-        }
-
-        let content_area = chunks[2];
+        let content_area = area;
 
         // Fill content area background
         for y in content_area.y..content_area.y + content_area.height {
