@@ -3,6 +3,7 @@
 //! Step 1 (`SelectFile`): browse the local filesystem to choose a source file.
 //! Step 2 (`SelectDirectory`): browse the repo's directory tree to choose a copy destination.
 
+use std::collections::HashSet;
 use std::path::PathBuf;
 
 use ratatui::{
@@ -59,6 +60,10 @@ pub struct FilePickerDialogState {
     pub scroll_offset: usize,
     /// Populated after the user selects a file in step 1
     pub source_file: Option<PathBuf>,
+    /// When true, confirming the destination shows an SCP command instead of copying a local file
+    pub upload_mode: bool,
+    pub upload_username: String,
+    pub upload_hostname: String,
 }
 
 impl Default for FilePickerDialogState {
@@ -73,6 +78,9 @@ impl Default for FilePickerDialogState {
             selected: 0,
             scroll_offset: 0,
             source_file: None,
+            upload_mode: false,
+            upload_username: String::new(),
+            upload_hostname: String::new(),
         }
     }
 }
@@ -100,6 +108,29 @@ impl FilePickerDialogState {
         self.refresh_entries();
     }
 
+    /// Open directly at step 2 in upload mode: browse repo dirs, then show SCP command.
+    pub fn show_upload_dest_picker(
+        &mut self,
+        repo_id: Uuid,
+        repo_root: Option<PathBuf>,
+        username: String,
+        hostname: String,
+    ) {
+        self.visible = true;
+        self.mode = FilePickerMode::SelectDirectory;
+        self.repo_id = Some(repo_id);
+        self.upload_mode = true;
+        self.upload_username = username;
+        self.upload_hostname = hostname;
+        self.source_file = None;
+        self.selected = 0;
+        self.scroll_offset = 0;
+        let start = repo_root.clone().unwrap_or_else(|| PathBuf::from("/"));
+        self.repo_root = repo_root;
+        self.current_dir = start;
+        self.refresh_entries();
+    }
+
     /// Transition to step 2: browse repo dirs to choose copy destination.
     pub fn show_dest_picker(&mut self) {
         let repo_root = match &self.repo_root {
@@ -116,6 +147,7 @@ impl FilePickerDialogState {
     pub fn hide(&mut self) {
         self.visible = false;
         self.source_file = None;
+        self.upload_mode = false;
         self.entries.clear();
     }
 
@@ -250,11 +282,20 @@ impl FilePickerDialog {
     pub fn render(&self, area: Rect, buf: &mut Buffer, state: &FilePickerDialogState) {
         let title = match state.mode {
             FilePickerMode::SelectFile => " Add File to Project — Step 1/2 ",
+            FilePickerMode::SelectDirectory if state.upload_mode => {
+                " Upload File to Project — Pick Destination "
+            }
             FilePickerMode::SelectDirectory => " Add File to Project — Step 2/2 ",
         };
         let instructions = match state.mode {
             FilePickerMode::SelectFile => vec![
                 ("Enter", "open/select"),
+                ("\u{2190}", "up"),
+                ("Esc", "cancel"),
+            ],
+            FilePickerMode::SelectDirectory if state.upload_mode => vec![
+                ("c", "select here"),
+                ("Enter", "open dir"),
                 ("\u{2190}", "up"),
                 ("Esc", "cancel"),
             ],
@@ -383,6 +424,235 @@ impl FilePickerDialog {
 }
 
 impl Default for FilePickerDialog {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// ── SCP Command Dialog ──────────────────────────────────────────────────────
+
+const SCP_DIALOG_WIDTH: u16 = 65;
+const SCP_DIALOG_HEIGHT: u16 = 13;
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum ScpCommandPhase {
+    /// Showing the SCP command; waiting for user to run it
+    #[default]
+    ShowCommand,
+    /// User confirmed upload; showing scan results
+    UploadConfirmed { new_files: Vec<String> },
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ScpCommandDialogState {
+    pub visible: bool,
+    pub phase: ScpCommandPhase,
+    /// The full SCP command to display
+    pub scp_command: String,
+    /// Relative destination path for the header line
+    pub dest_display: String,
+    /// Absolute destination directory (for scanning)
+    pub dest_abs_path: PathBuf,
+    /// Files present in dest when dialog opened (for diffing after upload)
+    baseline_files: HashSet<String>,
+}
+
+impl ScpCommandDialogState {
+    pub fn show(&mut self, scp_command: String, dest_display: String, dest_abs_path: PathBuf) {
+        self.visible = true;
+        self.phase = ScpCommandPhase::ShowCommand;
+        self.scp_command = scp_command;
+        self.dest_display = dest_display;
+        self.baseline_files = list_filenames(&dest_abs_path);
+        self.dest_abs_path = dest_abs_path;
+    }
+
+    pub fn hide(&mut self) {
+        self.visible = false;
+        self.phase = ScpCommandPhase::ShowCommand;
+        self.baseline_files.clear();
+    }
+
+    /// Scan dest dir for files added since the dialog opened.
+    pub fn confirm_upload(&mut self) {
+        let current = list_filenames(&self.dest_abs_path);
+        let new_files: Vec<String> = current
+            .difference(&self.baseline_files)
+            .cloned()
+            .collect::<Vec<_>>()
+            .tap_sort();
+        self.phase = ScpCommandPhase::UploadConfirmed { new_files };
+    }
+}
+
+fn list_filenames(dir: &PathBuf) -> HashSet<String> {
+    std::fs::read_dir(dir)
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().is_file())
+        .filter_map(|e| e.file_name().into_string().ok())
+        .collect()
+}
+
+trait TapSort {
+    fn tap_sort(self) -> Self;
+}
+impl TapSort for Vec<String> {
+    fn tap_sort(mut self) -> Self {
+        self.sort_unstable();
+        self
+    }
+}
+
+pub struct ScpCommandDialog;
+
+impl ScpCommandDialog {
+    pub fn new() -> Self {
+        Self
+    }
+
+    pub fn dialog_area(area: Rect) -> Rect {
+        let w = SCP_DIALOG_WIDTH.min(area.width.saturating_sub(4));
+        let h = SCP_DIALOG_HEIGHT.min(area.height.saturating_sub(2));
+        let x = (area.width.saturating_sub(w)) / 2;
+        let y = (area.height.saturating_sub(h)) / 2;
+        Rect {
+            x,
+            y,
+            width: w,
+            height: h,
+        }
+    }
+
+    pub fn render(&self, area: Rect, buf: &mut Buffer, state: &ScpCommandDialogState) {
+        let instructions = match &state.phase {
+            ScpCommandPhase::ShowCommand => {
+                vec![("Enter", "upload complete"), ("Esc", "cancel")]
+            }
+            ScpCommandPhase::UploadConfirmed { .. } => vec![("Esc", "close")],
+        };
+
+        let frame = DialogFrame::new(
+            " Upload File to Project ",
+            SCP_DIALOG_WIDTH,
+            SCP_DIALOG_HEIGHT,
+        )
+        .instructions(instructions);
+        let inner = frame.render(area, buf);
+
+        let chunks = Layout::vertical([
+            Constraint::Length(1), // "Destination: <dest>"
+            Constraint::Length(1), // separator
+            Constraint::Length(1), // content row 1
+            Constraint::Length(1), // content row 2
+            Constraint::Length(1), // content row 3
+            Constraint::Length(1), // separator
+            Constraint::Min(1),    // bottom hint / results
+        ])
+        .split(inner);
+
+        // Destination header (always shown)
+        Paragraph::new(Line::from(vec![
+            Span::styled("Destination: ", Style::default().fg(text_muted())),
+            Span::styled(
+                state.dest_display.clone(),
+                Style::default().fg(text_primary()),
+            ),
+        ]))
+        .render(chunks[0], buf);
+
+        Paragraph::new("─".repeat(chunks[1].width as usize))
+            .style(Style::default().fg(text_muted()))
+            .render(chunks[1], buf);
+
+        match &state.phase {
+            ScpCommandPhase::ShowCommand => {
+                // SCP command — split into two lines if it doesn't fit
+                let cmd = &state.scp_command;
+                let avail = chunks[2].width as usize;
+                if cmd.len() <= avail {
+                    Paragraph::new(Span::styled(
+                        cmd.clone(),
+                        Style::default().fg(text_primary()),
+                    ))
+                    .render(chunks[2], buf);
+                } else {
+                    let break_at = cmd[..avail.min(cmd.len())]
+                        .rfind(' ')
+                        .unwrap_or(avail.min(cmd.len()));
+                    let line1 = &cmd[..break_at];
+                    let line2 = cmd[break_at..].trim_start();
+                    Paragraph::new(Span::styled(line1, Style::default().fg(text_primary())))
+                        .render(chunks[2], buf);
+                    Paragraph::new(Span::styled(
+                        format!("  {}", line2),
+                        Style::default().fg(text_primary()),
+                    ))
+                    .render(chunks[3], buf);
+                }
+
+                Paragraph::new("─".repeat(chunks[5].width as usize))
+                    .style(Style::default().fg(text_muted()))
+                    .render(chunks[5], buf);
+
+                Paragraph::new(Line::from(vec![
+                    Span::styled(
+                        "\u{2713} Copied to clipboard. ",
+                        Style::default().fg(text_muted()),
+                    ),
+                    Span::styled(
+                        "Add your filename after ",
+                        Style::default().fg(text_muted()),
+                    ),
+                    Span::styled("scp ", Style::default().fg(text_primary())),
+                    Span::styled("and run it.", Style::default().fg(text_muted())),
+                ]))
+                .render(chunks[6], buf);
+            }
+            ScpCommandPhase::UploadConfirmed { new_files } => {
+                Paragraph::new("─".repeat(chunks[5].width as usize))
+                    .style(Style::default().fg(text_muted()))
+                    .render(chunks[5], buf);
+
+                if new_files.is_empty() {
+                    Paragraph::new(Span::styled(
+                        "No new files detected in destination.",
+                        Style::default().fg(text_muted()),
+                    ))
+                    .render(chunks[2], buf);
+                } else {
+                    let label = if new_files.len() == 1 {
+                        "New file on host:".to_string()
+                    } else {
+                        format!("{} new files on host:", new_files.len())
+                    };
+                    Paragraph::new(Span::styled(label, Style::default().fg(text_muted())))
+                        .render(chunks[2], buf);
+
+                    // Show up to 3 filenames
+                    for (i, name) in new_files.iter().take(3).enumerate() {
+                        let display = if new_files.len() > 3 && i == 2 {
+                            format!("  … and {} more", new_files.len() - 2)
+                        } else {
+                            format!("  {}", name)
+                        };
+                        if chunks.len() > 3 + i {
+                            Paragraph::new(Span::styled(
+                                display,
+                                Style::default().fg(text_primary()),
+                            ))
+                            .render(chunks[3 + i], buf);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl Default for ScpCommandDialog {
     fn default() -> Self {
         Self::new()
     }

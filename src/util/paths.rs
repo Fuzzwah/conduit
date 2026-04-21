@@ -1,5 +1,7 @@
 //! Path utilities for Conduit data directories
 
+#[cfg(unix)]
+use libc;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
@@ -91,4 +93,30 @@ pub fn migrate_worktrees_to_workspaces() {
 /// Get the config file path (~/.conduit/config.toml)
 pub fn config_path() -> PathBuf {
     data_dir().join("config.toml")
+}
+
+/// Get the hostname of this machine for display in SCP command hints.
+pub fn conduit_hostname() -> String {
+    if let Ok(h) = std::env::var("HOSTNAME") {
+        if !h.is_empty() {
+            return h;
+        }
+    }
+    #[cfg(unix)]
+    {
+        let mut buf = [0u8; 256];
+        unsafe {
+            if libc::gethostname(buf.as_mut_ptr() as *mut libc::c_char, buf.len()) == 0 {
+                if let Ok(s) =
+                    std::ffi::CStr::from_ptr(buf.as_ptr() as *const libc::c_char).to_str()
+                {
+                    let name = s.to_owned();
+                    if !name.is_empty() {
+                        return name;
+                    }
+                }
+            }
+        }
+    }
+    "<conduit-host>".to_owned()
 }

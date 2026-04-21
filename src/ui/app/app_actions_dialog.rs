@@ -188,6 +188,43 @@ impl App {
                     }
                 }
             }
+            Action::UploadFileToProject => {
+                if matches!(
+                    self.state.input_mode,
+                    InputMode::Normal | InputMode::Scrolling
+                ) {
+                    let workspace_id = self
+                        .state
+                        .tab_manager
+                        .active_session()
+                        .and_then(|s| s.workspace_id);
+                    if let Some(ws_id) = workspace_id {
+                        let repo_info = self.workspace_dao_clone().and_then(|ws_dao| {
+                            ws_dao.get_by_id(ws_id).ok().flatten().and_then(|ws| {
+                                let repo_id = ws.repository_id;
+                                self.repo_dao_clone().and_then(|repo_dao| {
+                                    repo_dao
+                                        .get_by_id(repo_id)
+                                        .ok()
+                                        .flatten()
+                                        .map(|repo| (repo_id, repo.base_path))
+                                })
+                            })
+                        });
+                        if let Some((repo_id, repo_base_path)) = repo_info {
+                            let username = std::env::var("USER").unwrap_or_default();
+                            let hostname = crate::util::conduit_hostname();
+                            self.state.file_picker_dialog_state.show_upload_dest_picker(
+                                repo_id,
+                                repo_base_path,
+                                username,
+                                hostname,
+                            );
+                            self.state.input_mode = InputMode::FilePickerDest;
+                        }
+                    }
+                }
+            }
             Action::RenameProject => {
                 if self.state.input_mode == InputMode::SidebarNavigation {
                     let selected = self.state.sidebar_state.tree_state.selected;

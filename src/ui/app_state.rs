@@ -11,8 +11,8 @@ use crate::ui::components::{
     ConfirmationDialogState, ErrorDialogState, FilePickerDialogState, HelpDialogState,
     KnightRiderSpinner, LogoShineAnimation, MissingToolDialogState, ModelSelectorState,
     ProjectPickerState, ProviderSelectorState, ReasoningSelectorState, RenameProjectDialogState,
-    SessionImportPickerState, SettingsMenuState, SidebarData, SidebarState, SlashMenuState,
-    ThemePickerState, WorkspaceDefaultsDialogState,
+    ScpCommandDialogState, SessionImportPickerState, SettingsMenuState, SidebarData, SidebarState,
+    SlashMenuState, ThemePickerState, WorkspaceDefaultsDialogState,
 };
 use crate::ui::events::{InputMode, ViewMode};
 use crate::ui::tab_manager::TabManager;
@@ -185,6 +185,7 @@ pub struct AppState {
     pub workspace_defaults_dialog_state: WorkspaceDefaultsDialogState,
     pub rename_project_dialog_state: RenameProjectDialogState,
     pub file_picker_dialog_state: FilePickerDialogState,
+    pub scp_command_dialog_state: ScpCommandDialogState,
     pub command_buffer: String,
     pub sidebar_area: Option<Rect>,
     pub tab_bar_area: Option<Rect>,
@@ -385,6 +386,7 @@ impl AppState {
             workspace_defaults_dialog_state: WorkspaceDefaultsDialogState::new(),
             rename_project_dialog_state: RenameProjectDialogState::new(),
             file_picker_dialog_state: FilePickerDialogState::new(),
+            scp_command_dialog_state: ScpCommandDialogState::default(),
             command_buffer: String::new(),
             sidebar_area: None,
             tab_bar_area: None,
@@ -450,6 +452,8 @@ impl AppState {
         self.file_mention_state.hide();
         self.workspace_defaults_dialog_state.hide();
         self.rename_project_dialog_state.hide();
+        self.file_picker_dialog_state.hide();
+        self.scp_command_dialog_state.hide();
         self.pending_handoff_request = None;
         self.settings_menu_return = false;
     }
@@ -474,6 +478,8 @@ impl AppState {
             || self.file_mention_state.is_visible()
             || self.workspace_defaults_dialog_state.is_visible()
             || self.rename_project_dialog_state.is_visible()
+            || self.file_picker_dialog_state.is_visible()
+            || self.scp_command_dialog_state.visible
     }
 
     /// Start footer spinner with optional message

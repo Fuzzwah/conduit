@@ -199,7 +199,8 @@ pub use theme::{
 };
 
 pub use file_picker_dialog::{
-    FilePickerDialog, FilePickerDialogState, FilePickerEntry, FilePickerMode,
+    FilePickerDialog, FilePickerDialogState, FilePickerEntry, FilePickerMode, ScpCommandDialog,
+    ScpCommandDialogState, ScpCommandPhase,
 };
 pub use rename_project_dialog::{RenameProjectDialog, RenameProjectDialogState};
 pub use thinking_indicator::{ProcessingState, ThinkingIndicator};

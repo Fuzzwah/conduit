@@ -9,7 +9,7 @@ pub mod workspace_setup;
 
 pub use names::{generate_branch_name, generate_workspace_name, get_git_username};
 pub use paths::{
-    data_dir, database_path, init_data_dir, log_file_path, logs_dir,
+    conduit_hostname, data_dir, database_path, init_data_dir, log_file_path, logs_dir,
     migrate_worktrees_to_workspaces, workspaces_dir,
 };
 pub use project_folders::remove_project_workspaces_dir;
