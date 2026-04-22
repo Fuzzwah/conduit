@@ -4867,6 +4867,25 @@ impl App {
                         }
                     }
 
+                    if let Some(pr_state) = status.pr_state {
+                        use crate::PrState;
+                        match pr_state {
+                            PrState::Merged => {
+                                info_items.push("PR merged (via GitHub)".to_string());
+                            }
+                            PrState::Open => {
+                                info_items.push("PR is open".to_string());
+                            }
+                            PrState::Draft => {
+                                info_items.push("PR is a draft".to_string());
+                            }
+                            PrState::Closed => {
+                                warnings.push("PR closed without merging".to_string());
+                            }
+                            PrState::Unknown => {}
+                        }
+                    }
+
                     if !status.is_merged {
                         if status.likely_squash_merged {
                             info_items.push(format!(
