@@ -52,6 +52,8 @@ pub struct BranchStatus {
     pub commits_behind: usize,
     /// Whether the branch appears to have been squash-merged (commits ahead but diff vs main is empty)
     pub likely_squash_merged: bool,
+    /// PR state from gh CLI, if available
+    pub pr_state: Option<PrState>,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -684,8 +686,9 @@ impl WorktreeManager {
 
         if options.use_gh_cli_merge_status {
             match self.is_branch_merged_via_gh(worktree_path) {
-                Ok(Some(is_merged)) => {
-                    status.is_merged = is_merged;
+                Ok(Some(pr_state)) => {
+                    status.is_merged = matches!(pr_state, PrState::Merged);
+                    status.pr_state = Some(pr_state);
                     merge_status_from_gh = true;
                 }
                 Ok(None) => {}
@@ -775,12 +778,15 @@ impl WorktreeManager {
         Ok(status)
     }
 
-    fn is_branch_merged_via_gh(&self, worktree_path: &Path) -> Result<Option<bool>, WorktreeError> {
+    fn is_branch_merged_via_gh(
+        &self,
+        worktree_path: &Path,
+    ) -> Result<Option<PrState>, WorktreeError> {
         let current_branch = self.get_current_branch(worktree_path)?;
         let main_branch = self.get_main_branch(worktree_path)?;
 
         if current_branch == main_branch {
-            return Ok(Some(true));
+            return Ok(Some(PrState::Merged));
         }
 
         if !Self::is_github_repo(worktree_path) {
@@ -806,8 +812,11 @@ impl WorktreeManager {
             WorktreeError::ParseError(format!("Failed to parse gh pr view output: {}", e))
         })?;
 
-        let pr_state = PrState::from_gh_json(&pr.state, pr.is_draft, pr.merged_at.as_deref());
-        Ok(Some(matches!(pr_state, PrState::Merged)))
+        Ok(Some(PrState::from_gh_json(
+            &pr.state,
+            pr.is_draft,
+            pr.merged_at.as_deref(),
+        )))
     }
 
     fn is_github_repo(worktree_path: &Path) -> bool {
