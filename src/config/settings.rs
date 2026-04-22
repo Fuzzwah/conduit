@@ -181,6 +181,7 @@ pub struct WorkspacesConfig {
     pub default_mode: WorkspaceMode,
     pub archive_delete_branch: bool,
     pub archive_remote_prompt: bool,
+    pub use_gh_cli_merge_status: bool,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -188,6 +189,7 @@ pub struct TomlWorkspacesConfig {
     pub mode: Option<WorkspaceMode>,
     pub archive_delete_branch: Option<bool>,
     pub archive_remote_prompt: Option<bool>,
+    pub use_gh_cli_merge_status: Option<bool>,
 }
 
 /// TOML representation of default model
@@ -257,6 +259,7 @@ impl Default for Config {
                 default_mode: WorkspaceMode::Worktree,
                 archive_delete_branch: true,
                 archive_remote_prompt: true,
+                use_gh_cli_merge_status: false,
             },
         }
     }
@@ -789,6 +792,9 @@ impl Config {
                         }
                         if let Some(remote_prompt) = workspaces.archive_remote_prompt {
                             config.workspaces.archive_remote_prompt = remote_prompt;
+                        }
+                        if let Some(use_gh_cli_merge_status) = workspaces.use_gh_cli_merge_status {
+                            config.workspaces.use_gh_cli_merge_status = use_gh_cli_merge_status;
                         }
                     }
                 }

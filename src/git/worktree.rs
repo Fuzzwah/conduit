@@ -2,7 +2,11 @@
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+use serde::Deserialize;
 use thiserror::Error;
+
+use super::pr::{PrManager, PrState};
 
 #[derive(Error, Debug)]
 pub enum WorktreeError {
@@ -48,6 +52,20 @@ pub struct BranchStatus {
     pub commits_behind: usize,
     /// Whether the branch appears to have been squash-merged (commits ahead but diff vs main is empty)
     pub likely_squash_merged: bool,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct BranchStatusOptions {
+    pub use_gh_cli_merge_status: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct GhMergeStatusView {
+    state: String,
+    #[serde(rename = "isDraft")]
+    is_draft: bool,
+    #[serde(rename = "mergedAt")]
+    merged_at: Option<String>,
 }
 
 /// Manager for git worktree operations
@@ -637,6 +655,14 @@ impl WorktreeManager {
 
     /// Get the full branch status for archiving decisions
     pub fn get_branch_status(&self, worktree_path: &Path) -> Result<BranchStatus, WorktreeError> {
+        self.get_branch_status_with_options(worktree_path, BranchStatusOptions::default())
+    }
+
+    pub fn get_branch_status_with_options(
+        &self,
+        worktree_path: &Path,
+        options: BranchStatusOptions,
+    ) -> Result<BranchStatus, WorktreeError> {
         let mut status = BranchStatus::default();
 
         // Check dirty status
@@ -654,13 +680,30 @@ impl WorktreeManager {
         // reflects remote PR merges that happened outside this clone.
         self.refresh_origin_refs(worktree_path);
 
-        // Check merged status
-        match self.is_branch_merged(worktree_path) {
-            Ok(is_merged) => {
-                status.is_merged = is_merged;
+        let mut merge_status_from_gh = false;
+
+        if options.use_gh_cli_merge_status {
+            match self.is_branch_merged_via_gh(worktree_path) {
+                Ok(Some(is_merged)) => {
+                    status.is_merged = is_merged;
+                    merge_status_from_gh = true;
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    tracing::debug!(error = %e, "Failed gh-based merge status check");
+                }
             }
-            Err(e) => {
-                tracing::warn!(error = %e, "Failed to check merged status");
+        }
+
+        if !merge_status_from_gh {
+            // Check merged status via git history heuristics
+            match self.is_branch_merged(worktree_path) {
+                Ok(is_merged) => {
+                    status.is_merged = is_merged;
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, "Failed to check merged status");
+                }
             }
         }
 
@@ -698,7 +741,7 @@ impl WorktreeManager {
         // Detect squash-merge by checking whether files changed by this branch now match
         // either local <main> or origin/<main>. Checking both avoids false warnings when
         // a squash merge has been done locally but not pushed yet.
-        if !status.is_merged && status.commits_ahead > 0 {
+        if !merge_status_from_gh && !status.is_merged && status.commits_ahead > 0 {
             for candidate in [main_branch.as_str(), remote_ref.as_str()] {
                 match self.ref_exists(worktree_path, candidate) {
                     Ok(true) => {
@@ -730,6 +773,61 @@ impl WorktreeManager {
         }
 
         Ok(status)
+    }
+
+    fn is_branch_merged_via_gh(&self, worktree_path: &Path) -> Result<Option<bool>, WorktreeError> {
+        let current_branch = self.get_current_branch(worktree_path)?;
+        let main_branch = self.get_main_branch(worktree_path)?;
+
+        if current_branch == main_branch {
+            return Ok(Some(true));
+        }
+
+        if !Self::is_github_repo(worktree_path) {
+            return Ok(None);
+        }
+
+        let gh_status = PrManager::gh_status();
+        if !gh_status.installed || !gh_status.authenticated {
+            return Ok(None);
+        }
+
+        let output = Command::new("gh")
+            .args(["pr", "view", "--json", "state,isDraft,mergedAt"])
+            .current_dir(worktree_path)
+            .output()?;
+
+        if !output.status.success() {
+            // Usually means there's no PR for this branch (or gh couldn't resolve one).
+            return Ok(None);
+        }
+
+        let pr: GhMergeStatusView = serde_json::from_slice(&output.stdout).map_err(|e| {
+            WorktreeError::ParseError(format!("Failed to parse gh pr view output: {}", e))
+        })?;
+
+        let pr_state = PrState::from_gh_json(&pr.state, pr.is_draft, pr.merged_at.as_deref());
+        Ok(Some(matches!(pr_state, PrState::Merged)))
+    }
+
+    fn is_github_repo(worktree_path: &Path) -> bool {
+        let output = Command::new("git")
+            .args(["remote", "get-url", "origin"])
+            .current_dir(worktree_path)
+            .output();
+
+        let Ok(output) = output else {
+            return false;
+        };
+
+        if !output.status.success() {
+            return false;
+        }
+
+        let origin = String::from_utf8_lossy(&output.stdout)
+            .trim()
+            .to_lowercase();
+        origin.contains("github.com")
     }
 
     /// Check if a path is a git repository

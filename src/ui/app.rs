@@ -4848,7 +4848,10 @@ impl App {
                     .ok_or_else(|| "Repository not found for workspace".to_string())?;
                 let settings = resolve_repo_workspace_settings(&config, &repo);
 
-                let branch_status = worktree_manager.get_branch_status(&workspace.path);
+                let branch_status = worktree_manager.get_branch_status_with_gh_option(
+                    &workspace.path,
+                    config.workspaces.use_gh_cli_merge_status,
+                );
                 let mut warnings = Vec::new();
                 let mut info_items = Vec::new();
                 let mut has_dirty = false;
@@ -5061,6 +5064,7 @@ impl App {
         let repo_dao = self.repo_dao_clone();
         let workspace_dao = self.workspace_dao_clone();
         let worktree_manager = self.worktree_manager().clone();
+        let config = self.config().clone();
 
         self.spawn_blocking_preflight(
             move || {
@@ -5083,7 +5087,10 @@ impl App {
                 let mut has_unmerged = false;
 
                 for workspace in &workspaces {
-                    if let Ok(status) = worktree_manager.get_branch_status(&workspace.path) {
+                    if let Ok(status) = worktree_manager.get_branch_status_with_gh_option(
+                        &workspace.path,
+                        config.workspaces.use_gh_cli_merge_status,
+                    ) {
                         if status.is_dirty {
                             has_dirty = true;
                         }
