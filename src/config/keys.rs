@@ -172,6 +172,7 @@ impl KeyContext {
             InputMode::Confirming => return KeyContext::Dialog,
             InputMode::RemovingProject => return KeyContext::Dialog,
             InputMode::CloningRepository => return KeyContext::Dialog,
+            InputMode::CreatingWorkspace => return KeyContext::Dialog,
             InputMode::ShowingError => return KeyContext::Dialog,
             InputMode::Command => return KeyContext::Command,
             InputMode::ShowingHelp => return KeyContext::HelpDialog,

@@ -655,6 +655,36 @@ impl WorktreeManager {
         }
     }
 
+    /// Fetch from origin and forward each non-empty output line to `progress`.
+    /// Failures are logged as warnings; they never block workspace creation.
+    pub fn fetch_origin_with_progress(&self, repo_path: &Path, progress: impl Fn(&str)) {
+        match Command::new("git")
+            .args(["fetch", "origin"])
+            .current_dir(repo_path)
+            .output()
+        {
+            Ok(output) => {
+                // git fetch writes progress to stderr
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                for line in stderr.lines() {
+                    let line = line.trim_end_matches('\r').trim();
+                    if !line.is_empty() {
+                        progress(line);
+                    }
+                }
+                if !output.status.success() {
+                    tracing::warn!(
+                        stderr = %stderr,
+                        "Failed to fetch from origin before workspace creation"
+                    );
+                }
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "Failed to run git fetch before workspace creation");
+            }
+        }
+    }
+
     fn refresh_origin_refs(&self, worktree_path: &Path) {
         match Command::new("git")
             .args(["fetch", "origin", "--quiet"])

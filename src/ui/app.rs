@@ -1529,6 +1529,9 @@ impl App {
         // Tick confirmation dialog spinner (for loading state)
         self.state.confirmation_dialog_state.tick();
 
+        // Tick workspace creation progress dialog spinner
+        self.state.workspace_progress_dialog_state.tick();
+
         // Tick session import spinner (for loading state)
         self.state.session_import_state.tick();
 
@@ -2629,7 +2632,20 @@ impl App {
                     let config = self.config().clone();
                     let event_tx = self.event_tx.clone();
 
+                    self.state.workspace_progress_dialog_state.show();
+                    self.state.input_mode = InputMode::CreatingWorkspace;
+
                     tokio::task::spawn_blocking(move || {
+                        let send_progress = |msg: &str| {
+                            send_app_event(
+                                &event_tx,
+                                AppEvent::WorkspaceCreationProgress {
+                                    message: msg.to_string(),
+                                },
+                                "workspace_creation_progress",
+                            );
+                        };
+
                         let result: Result<WorkspaceCreated, String> = (|| {
                             let repo_dao = repo_dao
                                 .ok_or_else(|| "No repository DAO available".to_string())?;
@@ -2665,6 +2681,7 @@ impl App {
                                     &base_path,
                                     &branch_name,
                                     &workspace_name,
+                                    send_progress,
                                 )
                                 .map_err(|e| format!("Failed to create workspace: {}", e))?;
 
@@ -2706,6 +2723,7 @@ impl App {
                                 return Err(format!("Failed to save workspace to database: {}", e));
                             }
 
+                            send_progress("Running workspace setup...");
                             crate::util::workspace_setup::run_workspace_setup_script(
                                 &base_path,
                                 &workspace.path,
@@ -2779,6 +2797,7 @@ impl App {
                                     &base_branch,
                                     &branch_name,
                                     &workspace_name,
+                                    |_| {},
                                 )
                                 .map_err(|e| format!("Failed to create workspace: {}", e))?;
 
@@ -4973,6 +4992,21 @@ impl App {
         );
     }
 
+    /// Close the workspace creation progress dialog and open the created workspace (if successful).
+    pub(crate) fn close_workspace_progress_dialog(&mut self) -> Vec<Effect> {
+        self.state.workspace_progress_dialog_state.hide();
+        self.state.input_mode = InputMode::Normal;
+
+        if let Some(workspace_id) = self.state.pending_created_workspace_id.take() {
+            // Open workspace, close sidebar (unless always_show_sidebar), focus prompt
+            let close_sidebar = !self.config().ui.always_show_sidebar;
+            self.open_workspace_with_options(workspace_id, close_sidebar);
+            self.state.sidebar_state.set_focused(false);
+        }
+
+        Vec::new()
+    }
+
     /// Show an error dialog with a simple message
     fn show_error(&mut self, title: &str, message: &str) {
         self.state.close_overlays();
@@ -6578,6 +6612,9 @@ impl App {
                     self.show_error("Export Failed", &err);
                 }
             },
+            AppEvent::WorkspaceCreationProgress { message } => {
+                self.state.workspace_progress_dialog_state.push(message);
+            }
             AppEvent::WorkspaceCreated { repo_id, result } => {
                 self.clear_repo_action_busy(repo_id);
                 match result {
@@ -6587,16 +6624,15 @@ impl App {
                         if let Some(index) = self.find_workspace_index(created.workspace_id) {
                             self.state.sidebar_state.tree_state.selected = index;
                         }
-                        // Open workspace, close sidebar (unless always_show_sidebar), and focus prompt box
-                        let close_sidebar = !self.config().ui.always_show_sidebar;
-                        self.open_workspace_with_options(created.workspace_id, close_sidebar);
-                        // Always focus the prompt input after creating a new workspace,
-                        // even when always_show_sidebar keeps the sidebar visible.
-                        self.state.input_mode = InputMode::Normal;
-                        self.state.sidebar_state.set_focused(false);
+                        self.state.workspace_progress_dialog_state.finish();
+                        // Workspace opens when the user closes the progress dialog.
+                        // Store the workspace id so the close handler can open it.
+                        self.state.pending_created_workspace_id = Some(created.workspace_id);
                     }
-                    Err(err) => {
-                        self.show_error("Workspace Creation Failed", &err);
+                    Err(ref err) => {
+                        self.state
+                            .workspace_progress_dialog_state
+                            .finish_with_error(err);
                     }
                 }
             }
@@ -11215,6 +11251,14 @@ impl App {
             Paragraph::new(line)
                 .alignment(Alignment::Center)
                 .render(content_area, f.buffer_mut());
+        }
+
+        // Draw workspace creation progress dialog
+        if self.state.workspace_progress_dialog_state.visible {
+            use crate::ui::components::WorkspaceProgressDialog;
+            use ratatui::widgets::Widget;
+            WorkspaceProgressDialog::new(&self.state.workspace_progress_dialog_state)
+                .render(size, f.buffer_mut());
         }
     }
 

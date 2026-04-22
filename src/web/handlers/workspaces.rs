@@ -578,7 +578,13 @@ pub async fn auto_create_workspace(
     // Create workspace checkout or worktree
     let worktree_manager = core.worktree_manager();
     let worktree_path = worktree_manager
-        .create_workspace(settings.mode, &repo_path, &branch_name, &workspace_name)
+        .create_workspace(
+            settings.mode,
+            &repo_path,
+            &branch_name,
+            &workspace_name,
+            |_| {},
+        )
         .map_err(|e| WebError::Internal(format!("Failed to create workspace: {}", e)))?;
 
     // Create workspace model

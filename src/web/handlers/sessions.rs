@@ -612,6 +612,7 @@ pub async fn fork_session(
             &base_branch,
             &branch_name,
             &workspace_name,
+            |_| {},
         )
         .map_err(|e| WebError::Internal(format!("Failed to create workspace: {}", e)))?;
 

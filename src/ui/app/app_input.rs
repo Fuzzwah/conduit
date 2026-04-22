@@ -65,6 +65,15 @@ impl App {
             return Ok(Vec::new());
         }
 
+        if self.state.input_mode == InputMode::CreatingWorkspace {
+            if self.state.workspace_progress_dialog_state.complete
+                && matches!(key.code, KeyCode::Enter | KeyCode::Esc)
+            {
+                return Ok(self.close_workspace_progress_dialog());
+            }
+            return Ok(Vec::new());
+        }
+
         // Defensive normalization: when an overlay is visible, force the matching
         // input mode so key context lookup targets the active modal.
         if self.state.model_selector_state.is_visible() {
