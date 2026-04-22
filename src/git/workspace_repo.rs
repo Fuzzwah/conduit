@@ -33,14 +33,21 @@ impl WorkspaceRepoManager {
     }
 
     /// Create a workspace (worktree or checkout).
+    ///
+    /// `progress` is called with each stage message and each line of git output.
+    /// Pass `|_| {}` when progress reporting is not needed.
     pub fn create_workspace(
         &self,
         mode: WorkspaceMode,
         repo_path: &Path,
         branch: &str,
         name: &str,
+        progress: impl Fn(&str),
     ) -> Result<PathBuf, WorktreeError> {
-        self.worktree.fetch_origin(repo_path);
+        progress("Fetching from remote...");
+        self.worktree
+            .fetch_origin_with_progress(repo_path, &progress);
+        progress("Creating worktree...");
         match mode {
             WorkspaceMode::Worktree => self.worktree.create_worktree(repo_path, branch, name),
             WorkspaceMode::Checkout => self.create_checkout(repo_path, branch, name),
@@ -48,6 +55,9 @@ impl WorkspaceRepoManager {
     }
 
     /// Create a workspace from a base branch into a new branch.
+    ///
+    /// `progress` is called with each stage message and each line of git output.
+    /// Pass `|_| {}` when progress reporting is not needed.
     pub fn create_workspace_from_branch(
         &self,
         mode: WorkspaceMode,
@@ -55,8 +65,12 @@ impl WorkspaceRepoManager {
         base_branch: &str,
         new_branch: &str,
         name: &str,
+        progress: impl Fn(&str),
     ) -> Result<PathBuf, WorktreeError> {
-        self.worktree.fetch_origin(repo_path);
+        progress("Fetching from remote...");
+        self.worktree
+            .fetch_origin_with_progress(repo_path, &progress);
+        progress("Creating worktree...");
         match mode {
             WorkspaceMode::Worktree => {
                 self.worktree
@@ -493,7 +507,13 @@ mod tests {
 
         let manager = WorkspaceRepoManager::new();
         let wt_path = manager
-            .create_workspace(WorkspaceMode::Checkout, &repo_path, "feature", "feature")
+            .create_workspace(
+                WorkspaceMode::Checkout,
+                &repo_path,
+                "feature",
+                "feature",
+                |_| {},
+            )
             .unwrap();
 
         assert!(wt_path.exists());

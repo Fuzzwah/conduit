@@ -46,6 +46,7 @@ mod thinking_indicator;
 mod tree_view;
 mod turn_summary;
 mod workspace_defaults_dialog;
+mod workspace_progress_dialog;
 
 pub use add_repo_dialog::{AddRepoDialog, AddRepoDialogState, RepoInputKind};
 pub use agent_selector::{AgentSelector, AgentSelectorState};
@@ -212,6 +213,7 @@ pub use turn_summary::{FileChange, TurnSummary};
 pub use workspace_defaults_dialog::{
     WorkspaceDefaultsDialog, WorkspaceDefaultsDialogState, WorkspaceDefaultsDraft,
 };
+pub use workspace_progress_dialog::{WorkspaceProgressDialog, WorkspaceProgressDialogState};
 
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 

@@ -86,6 +86,9 @@ pub enum AppEvent {
     /// Debug export completed
     DebugDumped { result: Result<String, String> },
 
+    /// Progress update during workspace creation (git fetch output, stage labels)
+    WorkspaceCreationProgress { message: String },
+
     /// Workspace creation completed
     WorkspaceCreated {
         repo_id: Uuid,
@@ -298,6 +301,8 @@ pub enum InputMode {
     RemovingProject,
     /// Cloning a remote repository (showing spinner)
     CloningRepository,
+    /// Creating a new workspace (showing progress dialog)
+    CreatingWorkspace,
     /// Showing an error dialog
     ShowingError,
     /// Command mode (typing :command)

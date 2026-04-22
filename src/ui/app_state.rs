@@ -12,7 +12,7 @@ use crate::ui::components::{
     KnightRiderSpinner, LogoShineAnimation, MissingToolDialogState, ModelSelectorState,
     ProjectPickerState, ProviderSelectorState, ReasoningSelectorState, RenameProjectDialogState,
     ScpCommandDialogState, SessionImportPickerState, SettingsMenuState, SidebarData, SidebarState,
-    SlashMenuState, ThemePickerState, WorkspaceDefaultsDialogState,
+    SlashMenuState, ThemePickerState, WorkspaceDefaultsDialogState, WorkspaceProgressDialogState,
 };
 use crate::ui::events::{InputMode, ViewMode};
 use crate::ui::tab_manager::TabManager;
@@ -186,6 +186,9 @@ pub struct AppState {
     pub rename_project_dialog_state: RenameProjectDialogState,
     pub file_picker_dialog_state: FilePickerDialogState,
     pub scp_command_dialog_state: ScpCommandDialogState,
+    pub workspace_progress_dialog_state: WorkspaceProgressDialogState,
+    /// Workspace to open when the user closes the creation progress dialog.
+    pub pending_created_workspace_id: Option<Uuid>,
     pub command_buffer: String,
     pub sidebar_area: Option<Rect>,
     pub tab_bar_area: Option<Rect>,
@@ -385,6 +388,8 @@ impl AppState {
             rename_project_dialog_state: RenameProjectDialogState::new(),
             file_picker_dialog_state: FilePickerDialogState::new(),
             scp_command_dialog_state: ScpCommandDialogState::default(),
+            workspace_progress_dialog_state: WorkspaceProgressDialogState::new(),
+            pending_created_workspace_id: None,
             command_buffer: String::new(),
             sidebar_area: None,
             tab_bar_area: None,
