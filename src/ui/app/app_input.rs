@@ -1169,7 +1169,7 @@ impl App {
     }
 
     pub(super) fn handle_file_picker_key(&mut self, key: KeyEvent) -> anyhow::Result<Vec<Effect>> {
-        use crate::ui::components::FilePickerMode;
+        use crate::ui::components::{FilePickerEntry, FilePickerMode};
 
         let is_source = self.state.input_mode == InputMode::FilePickerSource;
 
@@ -1216,12 +1216,23 @@ impl App {
                     }
                     FilePickerMode::SelectDirectory => {
                         // Enter descends into the selected subdirectory.
-                        // Use 'c' to copy into the current directory.
-                        if self.state.file_picker_dialog_state.entries.is_empty() {
-                            // No subdirs — Enter confirms copy here
-                            return self.confirm_file_picker_copy();
-                        } else {
-                            self.state.file_picker_dialog_state.descend();
+                        // Use 'c' to copy/upload into the current directory.
+                        let selected_entry = self
+                            .state
+                            .file_picker_dialog_state
+                            .entries
+                            .get(self.state.file_picker_dialog_state.selected)
+                            .cloned();
+                        match selected_entry {
+                            None => {
+                                return self.confirm_file_picker_copy();
+                            }
+                            Some(FilePickerEntry::Dir(_)) => {
+                                self.state.file_picker_dialog_state.descend();
+                            }
+                            Some(FilePickerEntry::File(_, _)) => {
+                                // files are shown for context only; use 'c' to select current dir
+                            }
                         }
                     }
                 }

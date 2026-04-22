@@ -177,7 +177,7 @@ impl FilePickerDialogState {
             }
             if path.is_dir() {
                 dirs.push(name);
-            } else if self.mode == FilePickerMode::SelectFile {
+            } else {
                 files.push((name, path));
             }
         }
@@ -394,9 +394,13 @@ impl FilePickerDialog {
                         (label, s)
                     }
                     FilePickerEntry::File(name, _) => {
-                        let fg = fg_primary;
+                        let fg = if state.mode == FilePickerMode::SelectDirectory {
+                            fg_muted
+                        } else {
+                            fg_primary
+                        };
                         let mut s = Style::default().fg(fg);
-                        if is_selected {
+                        if is_selected && state.mode != FilePickerMode::SelectDirectory {
                             s = s.add_modifier(Modifier::REVERSED);
                         }
                         (name.clone(), s)
