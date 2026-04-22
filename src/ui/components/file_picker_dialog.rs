@@ -3,8 +3,9 @@
 //! Step 1 (`SelectFile`): browse the local filesystem to choose a source file.
 //! Step 2 (`SelectDirectory`): browse the repo's directory tree to choose a copy destination.
 
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::path::PathBuf;
+use std::time::SystemTime;
 
 use ratatui::{
     buffer::Buffer,
@@ -453,8 +454,8 @@ pub struct ScpCommandDialogState {
     pub dest_display: String,
     /// Absolute destination directory (for scanning)
     pub dest_abs_path: PathBuf,
-    /// Files present in dest when dialog opened (for diffing after upload)
-    baseline_files: HashSet<String>,
+    /// Files present in dest when dialog opened: filename → mtime (for diffing after upload)
+    baseline_files: HashMap<String, SystemTime>,
 }
 
 impl ScpCommandDialogState {
@@ -463,7 +464,7 @@ impl ScpCommandDialogState {
         self.phase = ScpCommandPhase::ShowCommand;
         self.scp_command = scp_command;
         self.dest_display = dest_display;
-        self.baseline_files = list_filenames(&dest_abs_path);
+        self.baseline_files = list_file_states(&dest_abs_path);
         self.dest_abs_path = dest_abs_path;
     }
 
@@ -473,26 +474,35 @@ impl ScpCommandDialogState {
         self.baseline_files.clear();
     }
 
-    /// Scan dest dir for files added since the dialog opened.
+    /// Scan dest dir for files added or modified since the dialog opened.
     pub fn confirm_upload(&mut self) {
-        let current = list_filenames(&self.dest_abs_path);
+        let current = list_file_states(&self.dest_abs_path);
         let new_files: Vec<String> = current
-            .difference(&self.baseline_files)
-            .cloned()
+            .into_iter()
+            .filter(|(name, mtime)| {
+                self.baseline_files
+                    .get(name)
+                    .is_none_or(|baseline_mtime| mtime > baseline_mtime)
+            })
+            .map(|(name, _)| name)
             .collect::<Vec<_>>()
             .tap_sort();
         self.phase = ScpCommandPhase::UploadConfirmed { new_files };
     }
 }
 
-fn list_filenames(dir: &PathBuf) -> HashSet<String> {
+fn list_file_states(dir: &PathBuf) -> HashMap<String, SystemTime> {
     std::fs::read_dir(dir)
         .ok()
         .into_iter()
         .flatten()
         .filter_map(|e| e.ok())
         .filter(|e| e.path().is_file())
-        .filter_map(|e| e.file_name().into_string().ok())
+        .filter_map(|e| {
+            let name = e.file_name().into_string().ok()?;
+            let mtime = e.metadata().ok()?.modified().ok()?;
+            Some((name, mtime))
+        })
         .collect()
 }
 
@@ -624,9 +634,9 @@ impl ScpCommandDialog {
                     .render(chunks[2], buf);
                 } else {
                     let label = if new_files.len() == 1 {
-                        "New file on host:".to_string()
+                        "Uploaded to host:".to_string()
                     } else {
-                        format!("{} new files on host:", new_files.len())
+                        format!("{} files uploaded to host:", new_files.len())
                     };
                     Paragraph::new(Span::styled(label, Style::default().fg(text_muted())))
                         .render(chunks[2], buf);
