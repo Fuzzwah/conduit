@@ -513,19 +513,6 @@ impl ScpCommandDialog {
         Self
     }
 
-    pub fn dialog_area(area: Rect) -> Rect {
-        let w = SCP_DIALOG_WIDTH.min(area.width.saturating_sub(4));
-        let h = SCP_DIALOG_HEIGHT.min(area.height.saturating_sub(2));
-        let x = (area.width.saturating_sub(w)) / 2;
-        let y = (area.height.saturating_sub(h)) / 2;
-        Rect {
-            x,
-            y,
-            width: w,
-            height: h,
-        }
-    }
-
     pub fn render(&self, area: Rect, buf: &mut Buffer, state: &ScpCommandDialogState) {
         let instructions = match &state.phase {
             ScpCommandPhase::ShowCommand => {

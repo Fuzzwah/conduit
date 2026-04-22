@@ -11142,9 +11142,8 @@ impl App {
 
         if self.state.scp_command_dialog_state.visible {
             use crate::ui::components::ScpCommandDialog;
-            let area = ScpCommandDialog::dialog_area(size);
             ScpCommandDialog::new().render(
-                area,
+                size,
                 f.buffer_mut(),
                 &self.state.scp_command_dialog_state,
             );
