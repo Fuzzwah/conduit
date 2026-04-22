@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { cn } from '../../lib/cn';
@@ -17,6 +17,7 @@ interface CodeBlockProps {
 
 const COLLAPSE_THRESHOLD = 20; // lines
 const DEFAULT_MAX_HEIGHT = 400; // px
+const PIN_TO_BOTTOM_THRESHOLD = 16; // px
 
 export function CodeBlock({
   code,
@@ -31,6 +32,7 @@ export function CodeBlock({
   const [isExpanded, setIsExpanded] = useState(false);
   const [shouldCollapse, setShouldCollapse] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const isPinnedToBottomRef = useRef(true);
   const sanitizedHighlightedHtml = useMemo(
     () => (highlightedHtml ? DOMPurify.sanitize(highlightedHtml) : null),
     [highlightedHtml]
@@ -71,6 +73,35 @@ export function CodeBlock({
       setShouldCollapse(lineCount > COLLAPSE_THRESHOLD || scrollHeight > maxHeight);
     }
   }, [highlightedHtml, lineCount, maxHeight]);
+
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!content) return;
+
+    const updatePinnedState = () => {
+      const distanceFromBottom = content.scrollHeight - (content.scrollTop + content.clientHeight);
+      isPinnedToBottomRef.current = distanceFromBottom <= PIN_TO_BOTTOM_THRESHOLD;
+    };
+
+    updatePinnedState();
+    content.addEventListener('scroll', updatePinnedState, { passive: true });
+    return () => content.removeEventListener('scroll', updatePinnedState);
+  }, []);
+
+  useLayoutEffect(() => {
+    const content = contentRef.current;
+    if (!content) return;
+
+    // Only auto-follow in collapsed mode where the block has its own vertical scroller.
+    if (!shouldCollapse || isExpanded) {
+      isPinnedToBottomRef.current = true;
+      return;
+    }
+
+    if (isPinnedToBottomRef.current) {
+      content.scrollTop = content.scrollHeight;
+    }
+  }, [code, highlightedHtml, shouldCollapse, isExpanded]);
 
   const displayLanguage = normalizedLang !== 'text' ? normalizedLang : null;
 
