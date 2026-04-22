@@ -40,6 +40,7 @@ impl WorkspaceRepoManager {
         branch: &str,
         name: &str,
     ) -> Result<PathBuf, WorktreeError> {
+        self.worktree.fetch_origin(repo_path);
         match mode {
             WorkspaceMode::Worktree => self.worktree.create_worktree(repo_path, branch, name),
             WorkspaceMode::Checkout => self.create_checkout(repo_path, branch, name),
@@ -55,6 +56,7 @@ impl WorkspaceRepoManager {
         new_branch: &str,
         name: &str,
     ) -> Result<PathBuf, WorktreeError> {
+        self.worktree.fetch_origin(repo_path);
         match mode {
             WorkspaceMode::Worktree => {
                 self.worktree

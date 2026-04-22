@@ -636,6 +636,25 @@ impl WorktreeManager {
         Ok(diff_out.status.success())
     }
 
+    pub fn fetch_origin(&self, repo_path: &Path) {
+        match Command::new("git")
+            .args(["fetch", "origin", "--quiet"])
+            .current_dir(repo_path)
+            .output()
+        {
+            Ok(output) if !output.status.success() => {
+                tracing::warn!(
+                    stderr = %String::from_utf8_lossy(&output.stderr),
+                    "Failed to fetch from origin before workspace creation"
+                );
+            }
+            Ok(_) => {}
+            Err(e) => {
+                tracing::warn!(error = %e, "Failed to run git fetch before workspace creation");
+            }
+        }
+    }
+
     fn refresh_origin_refs(&self, worktree_path: &Path) {
         match Command::new("git")
             .args(["fetch", "origin", "--quiet"])
