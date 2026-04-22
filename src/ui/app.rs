@@ -13483,6 +13483,10 @@ mod tests {
         assert!(effects.is_empty());
         assert_eq!(app.state.input_mode, InputMode::Confirming);
         assert!(app.state.confirmation_dialog_state.is_confirm_selected());
+        assert!(matches!(
+            app.state.confirmation_dialog_state.context,
+            Some(ConfirmationContext::Quit)
+        ));
 
         // Second press (Ctrl+Q again): should quit
         app.handle_global_action(Action::Quit, &mut effects);

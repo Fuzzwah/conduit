@@ -759,13 +759,39 @@ fn save_claude_cache(path: &PathBuf, models: &[ClaudeModelEntry]) -> std::io::Re
 /// │ Opus 4.7   │ claude-opus-4-7           │
 /// ```
 fn parse_claude_models_output(text: &str) -> Vec<ClaudeModelEntry> {
+    fn strip_ansi_codes(input: &str) -> String {
+        let mut out = String::with_capacity(input.len());
+        let mut chars = input.chars().peekable();
+        while let Some(ch) = chars.next() {
+            if ch == '\u{1b}' {
+                if chars.peek() == Some(&'[') {
+                    chars.next();
+                    for c in chars.by_ref() {
+                        if ('@'..='~').contains(&c) {
+                            break;
+                        }
+                    }
+                }
+                continue;
+            }
+            out.push(ch);
+        }
+        out
+    }
+
     let mut entries = Vec::new();
     for line in text.lines() {
-        let trimmed = line.trim();
-        if !trimmed.starts_with('│') {
+        let cleaned = strip_ansi_codes(line);
+        let trimmed = cleaned.trim();
+        if !(trimmed.starts_with('│') || trimmed.starts_with('|')) {
             continue;
         }
-        let parts: Vec<&str> = trimmed.split('│').collect();
+        let delimiter = if trimmed.starts_with('│') {
+            '│'
+        } else {
+            '|'
+        };
+        let parts: Vec<&str> = trimmed.split(delimiter).collect();
         // Split produces ["", " display ", " id ", ""] — need at least 3 inner parts.
         if parts.len() < 4 {
             continue;
@@ -776,7 +802,10 @@ fn parse_claude_models_output(text: &str) -> Vec<ClaudeModelEntry> {
             continue;
         }
         // Skip the header row.
-        if display_name == "Model" {
+        if display_name.eq_ignore_ascii_case("model") {
+            continue;
+        }
+        if display_name.chars().all(|c| matches!(c, '-' | ':' | ' ')) {
             continue;
         }
         // Validate: model IDs only contain safe characters.
@@ -796,12 +825,13 @@ fn discover_claude_models(binary: &PathBuf) -> Option<Vec<ClaudeModelEntry>> {
         .arg("models")
         .output()
         .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let text = String::from_utf8_lossy(&output.stdout);
-    let entries = parse_claude_models_output(&text);
+    let stdout_text = String::from_utf8_lossy(&output.stdout);
+    let mut entries = parse_claude_models_output(&stdout_text);
     if entries.is_empty() {
+        let stderr_text = String::from_utf8_lossy(&output.stderr);
+        entries = parse_claude_models_output(&stderr_text);
+    }
+    if !output.status.success() || entries.is_empty() {
         None
     } else {
         Some(entries)
@@ -882,6 +912,31 @@ mod tests {
     fn test_parse_claude_models_output_empty() {
         assert!(parse_claude_models_output("").is_empty());
         assert!(parse_claude_models_output("no table here at all").is_empty());
+    }
+
+    #[test]
+    fn test_parse_claude_models_output_ascii_pipes() {
+        let input = r#"
+| Model      | ID                          |
+| ---------- | --------------------------- |
+| Opus 4.7   | claude-opus-4-7             |
+| Sonnet 4.6 | claude-sonnet-4-6           |
+| Haiku 4.5  | claude-haiku-4-5-20251001   |
+"#;
+        let entries = parse_claude_models_output(input);
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries[0].id, "claude-opus-4-7");
+        assert_eq!(entries[1].id, "claude-sonnet-4-6");
+        assert_eq!(entries[2].id, "claude-haiku-4-5-20251001");
+    }
+
+    #[test]
+    fn test_parse_claude_models_output_ansi_colors() {
+        let input = "\u{1b}[36m│ Model │ ID │\u{1b}[0m\n\u{1b}[32m│ Sonnet 4.6 │ claude-sonnet-4-6 │\u{1b}[0m";
+        let entries = parse_claude_models_output(input);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].id, "claude-sonnet-4-6");
+        assert_eq!(entries[0].display_name, "Sonnet 4.6");
     }
 
     /// Test that a system init event is correctly converted to SessionInit
