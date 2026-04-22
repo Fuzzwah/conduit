@@ -67,7 +67,30 @@ cargo build
 Always target `Fuzzwah/conduit` (not the upstream `conduit-cli/conduit`):
 
 ```bash
-gh pr create --repo Fuzzwah/conduit
+gh pr create --repo Fuzzwah/conduit --base master --head "$(git branch --show-current)"
+```
+
+Avoid inline shell-quoted PR bodies; use a file so quotes/newlines are preserved:
+
+```bash
+tmp_body="$(mktemp)"
+cat > "$tmp_body" <<'EOF'
+## Summary
+- ...
+
+## Testing
+- cargo fmt --check
+- cargo clippy -- -D warnings
+- cargo test
+EOF
+
+gh pr create \
+  --repo Fuzzwah/conduit \
+  --base master \
+  --head "$(git branch --show-current)" \
+  --title "..." \
+  --body-file "$tmp_body"
+rm -f "$tmp_body"
 ```
 
 ## CI Checks
