@@ -121,6 +121,7 @@
 # # mode = "worktree"             # "worktree" (default) or "checkout"
 # # archive_delete_branch = true  # delete local branch on archive
 # # archive_remote_prompt = true  # prompt for remote deletion on archive
+# # use_gh_cli_merge_status = false # prefer `gh pr view` for merge status in workspace analysis (GitHub repos only)
 #
 # Configure paths to external tools if they are not in your PATH or if
 # you want to use a specific version. All paths are optional - by default,

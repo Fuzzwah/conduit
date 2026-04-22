@@ -293,6 +293,7 @@ pub async fn get_repository_remove_preflight(
         .map_err(|e| WebError::Internal(format!("Failed to get workspaces: {}", e)))?;
 
     let worktree_manager = core.worktree_manager();
+    let use_gh_cli_merge_status = core.config().workspaces.use_gh_cli_merge_status;
     let mut warnings = Vec::new();
     let mut has_dirty = false;
     let mut has_unmerged = false;
@@ -307,7 +308,7 @@ pub async fn get_repository_remove_preflight(
 
     // Check git status for each workspace
     for ws in &workspaces {
-        match worktree_manager.get_branch_status(&ws.path) {
+        match worktree_manager.get_branch_status_with_gh_option(&ws.path, use_gh_cli_merge_status) {
             Ok(status) => {
                 if status.is_dirty {
                     has_dirty = true;

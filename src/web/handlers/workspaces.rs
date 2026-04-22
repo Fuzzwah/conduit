@@ -207,6 +207,7 @@ pub async fn get_workspace_archive_preflight(
         .ok_or_else(|| WebError::NotFound(format!("Workspace {} not found", id)))?;
 
     let worktree_manager = core.worktree_manager();
+    let use_gh_cli_merge_status = core.config().workspaces.use_gh_cli_merge_status;
     let mut info_items = Vec::new();
     let mut warnings = Vec::new();
     let mut error = None;
@@ -215,7 +216,9 @@ pub async fn get_workspace_archive_preflight(
     let mut commits_ahead = 0;
     let mut commits_behind = 0;
 
-    match worktree_manager.get_branch_status(&workspace.path) {
+    match worktree_manager
+        .get_branch_status_with_gh_option(&workspace.path, use_gh_cli_merge_status)
+    {
         Ok(status) => {
             is_dirty = status.is_dirty;
             is_merged = status.is_merged;

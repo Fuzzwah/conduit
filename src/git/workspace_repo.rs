@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::git::worktree::{BranchStatus, WorktreeError};
+use crate::git::worktree::{BranchStatus, BranchStatusOptions, WorktreeError};
 use crate::git::{WorkspaceMode, WorktreeManager};
 
 /// Manager that can create/remove either worktrees or full checkouts.
@@ -99,6 +99,20 @@ impl WorkspaceRepoManager {
     /// Get branch status for a workspace path.
     pub fn get_branch_status(&self, workspace_path: &Path) -> Result<BranchStatus, WorktreeError> {
         self.worktree.get_branch_status(workspace_path)
+    }
+
+    /// Get branch status for a workspace path, optionally preferring GH CLI for merge detection.
+    pub fn get_branch_status_with_gh_option(
+        &self,
+        workspace_path: &Path,
+        use_gh_cli_merge_status: bool,
+    ) -> Result<BranchStatus, WorktreeError> {
+        self.worktree.get_branch_status_with_options(
+            workspace_path,
+            BranchStatusOptions {
+                use_gh_cli_merge_status,
+            },
+        )
     }
 
     /// Get a branch SHA for the repo/workspace depending on mode.
