@@ -96,9 +96,16 @@ When switching or closing tabs with the sidebar hidden, the sidebar selection no
 
 ---
 
-## 12. Squash-Merge Detection in Archive Preflight
+## 12. Squash-Merge Detection and GitHub PR Status in Archive Preflight
 
 The archive preflight check now distinguishes between genuinely unmerged branches and branches that were squash-merged. When a branch has commits not in main's ancestry but the diff against main is empty, the dialog shows "Squash-merged (N commits ahead, diff already in main)" at informational severity rather than the alarming "Branch not merged" warning.
+
+Optionally, the preflight can also query the GitHub CLI for the actual PR state. When `workspaces.use_gh_cli_merge_status = true` is set in the config, the archive dialog shows the live PR state: "PR merged (via GitHub)", "PR is open", "PR is a draft", or "PR closed without merging" (as a warning). The git-based detection remains active as a fallback when `gh` is unavailable or the PR is not found.
+
+```toml
+[workspaces]
+use_gh_cli_merge_status = true
+```
 
 ---
 
@@ -184,3 +191,60 @@ set -g status-left-style default
 - The window list is suppressed entirely — the active command name is context enough.
 - Right segment shows `HH:MM` inside a dim blue `#1d3b53` pill with powerline-style end caps.
 - `set-clipboard on` allows tmux to sync with the system clipboard, which pairs well with Conduit's `Alt+y` copy shortcut.
+
+---
+
+## 18. Quit Confirmation Dialog (`Ctrl+Q`)
+
+Instead of requiring two rapid keypresses to quit, `Ctrl+Q` now opens a proper confirmation dialog with **Quit** and **Cancel** buttons. The **Quit** option is pre-selected, so pressing Enter immediately after `Ctrl+Q` quits without further navigation. `Esc` dismisses the dialog; pressing `Ctrl+Q` a second time while the dialog is open also confirms quit.
+
+---
+
+## 19. Copy Local File into Workspace (`M-a`)
+
+**`Alt+a`** opens a two-step file browser for copying a local file into the current workspace repository:
+
+1. **Step 1 — source:** Browse the local filesystem (starting from the home directory) to select a file.
+2. **Step 2 — destination:** Browse the repository's directory tree; press `c` to confirm the copy destination.
+
+The file is copied via `fs::copy`. A footer message confirms the destination on success; `Esc` cancels at any point.
+
+---
+
+## 20. Upload File to Workspace via SCP (`M-u`)
+
+**`Alt+u`** opens a destination browser within the current workspace repository. After selecting a directory and pressing `c`, Conduit displays an SCP command with the absolute destination path — automatically copied to the clipboard via OSC 52 (works over SSH/tmux). Run the SCP command from your workstation, then press Enter inside Conduit to scan the destination for newly arrived (or updated) files and see their names reported in the dialog.
+
+---
+
+## 21. Alt+Shift+Tab Cycles to Previous Tab
+
+**`Alt+Shift+Tab`** (`M-S-Tab`) now cycles backward through workspace tabs. The existing `Alt+Tab` forward cycle is unchanged. The footer hint has been updated to show both shortcuts: `M-tab/M-S-tab: next/prev tab`.
+
+---
+
+## 22. TUI Text Input Improvements
+
+Several input-handling fixes land across the TUI:
+
+- **Word navigation:** `Alt+b` / `Alt+f` move the cursor backward / forward by word in the plan-mode feedback input (mirrors Emacs-style navigation, handles terminals that send these sequences for `Option+Left/Right`).
+- **AskUserQuestion text wrap:** Long answers in the "type something" input now wrap within the box rather than overflowing off-screen.
+- **Continuation-row indent:** The wrapped text input applies a consistent wrap point across all rows, fixing a 2-character misalignment on continuation rows.
+
+---
+
+## 23. Scroll Position Preserved During Streaming
+
+Scrolling up while the agent is generating output now keeps the viewport pinned to your scroll position. New content growing below no longer yanks the view down. Scrolling back to the bottom restores auto-follow behaviour automatically.
+
+---
+
+## 24. Context-Window Percentage (`ctx%`) Shows Current Usage
+
+The `ctx%` counter now reflects the current context-window state based on per-call token usage from each assistant message (`input + cache_creation + cache_read`). Previously it accumulated cumulative totals from the final result event, causing readings above 100% (seen as high as 908%) during long sessions. After compaction, `ctx%` naturally drops to match the post-compaction assistant message.
+
+---
+
+## 25. Web Chat Auto-Follow in Collapsed Code Blocks
+
+While an agent streams output inside a collapsed markdown code block, the web chat view now keeps the collapsed block pinned to the bottom of the viewport. Previously, output continued inside the block but the main view appeared to stall.
