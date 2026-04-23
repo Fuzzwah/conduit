@@ -52,6 +52,10 @@ pub fn api_routes() -> Router<WebAppState> {
             "/repositories/{id}/workspaces/auto",
             post(workspaces::auto_create_workspace),
         )
+        .route(
+            "/repositories/{id}/workspaces/auto/stream",
+            post(workspaces::auto_create_workspace_stream),
+        )
         // Workspace routes
         .route("/workspaces", get(workspaces::list_workspaces))
         .route("/workspaces/{id}", get(workspaces::get_workspace))

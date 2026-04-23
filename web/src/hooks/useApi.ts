@@ -1,7 +1,9 @@
 // React Query hooks for API access
 
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../lib/api';
+import type { Workspace } from '../types';
 import type {
   CreateRepositoryRequest,
   UpdateRepositorySettingsRequest,
@@ -320,6 +322,74 @@ export function useAutoCreateWorkspace() {
       queryClient.invalidateQueries({ queryKey: queryKeys.repositoryWorkspaces(repositoryId) });
     },
   });
+}
+
+type WorkspaceCreationStreamState = {
+  status: 'idle' | 'running' | 'done' | 'error' | 'mode_required';
+  messages: string[];
+  workspace: Workspace | null;
+  error: string | null;
+};
+
+export function useAutoCreateWorkspaceStream() {
+  const queryClient = useQueryClient();
+  const abortRef = useRef<AbortController | null>(null);
+  const [state, setState] = useState<WorkspaceCreationStreamState>({
+    status: 'idle',
+    messages: [],
+    workspace: null,
+    error: null,
+  });
+
+  useEffect(() => {
+    return () => { abortRef.current?.abort(); };
+  }, []);
+
+  const start = useCallback(
+    (repositoryId: string) => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setState({ status: 'running', messages: [], workspace: null, error: null });
+
+      (async () => {
+        for await (const event of api.streamAutoCreateWorkspace(repositoryId, controller.signal)) {
+          if (controller.signal.aborted) break;
+          if (event.type === 'progress') {
+            setState((prev) => ({ ...prev, messages: [...prev.messages, event.message] }));
+          } else if (event.type === 'done') {
+            queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.repositoryWorkspaces(repositoryId),
+            });
+            setState((prev) => ({ ...prev, status: 'done', workspace: event.workspace }));
+          } else if (event.type === 'error') {
+            setState((prev) => ({ ...prev, status: 'error', error: event.message }));
+          }
+        }
+      })().catch((err: unknown) => {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        const httpErr = err as Error & { status?: number };
+        if (httpErr.status === 409) {
+          setState((prev) => ({ ...prev, status: 'mode_required', error: null }));
+        } else {
+          setState((prev) => ({
+            ...prev,
+            status: 'error',
+            error: httpErr.message ?? 'Unknown error',
+          }));
+        }
+      });
+    },
+    [queryClient]
+  );
+
+  const reset = useCallback(() => {
+    abortRef.current?.abort();
+    setState({ status: 'idle', messages: [], workspace: null, error: null });
+  }, []);
+
+  return { ...state, start, reset };
 }
 
 // Get or create session for a workspace (explicit action)
