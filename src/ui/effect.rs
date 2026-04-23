@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use crate::agent::{AgentStartConfig, AgentType};
+use crate::git::GithubIssue;
 use crate::session::ExternalSession;
 use uuid::Uuid;
 
@@ -20,8 +21,12 @@ pub enum Effect {
         working_dir: PathBuf,
     },
     DumpDebugState,
+    FetchGithubIssues {
+        repo_id: Uuid,
+    },
     CreateWorkspace {
         repo_id: Uuid,
+        issue: Option<GithubIssue>,
     },
     ForkWorkspace {
         parent_workspace_id: Uuid,

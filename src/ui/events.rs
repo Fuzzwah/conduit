@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use crate::agent::{AgentEvent, AgentInput, AgentType};
-use crate::git::PrPreflightResult;
+use crate::git::{GithubIssue, PrPreflightResult};
 use crate::ui::git_tracker::GitTrackerUpdate;
 use tokio::sync::mpsc;
 use uuid::Uuid;
@@ -88,6 +88,12 @@ pub enum AppEvent {
 
     /// Progress update during workspace creation (git fetch output, stage labels)
     WorkspaceCreationProgress { message: String },
+
+    /// GitHub issues fetched for workspace creation issue picker
+    GithubIssuesFetched {
+        repo_id: Uuid,
+        issues: Vec<GithubIssue>,
+    },
 
     /// Workspace creation completed
     WorkspaceCreated {
@@ -333,6 +339,8 @@ pub enum InputMode {
     QueueEditing,
     /// File mention autocomplete (@filename) is active
     FileMention,
+    /// Picking a GitHub issue to link to the new workspace
+    SelectingIssue,
 }
 
 /// View mode for the main content area

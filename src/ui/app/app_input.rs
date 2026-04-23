@@ -90,6 +90,8 @@ impl App {
             self.state.input_mode = InputMode::WorkspaceDefaults;
         } else if self.state.rename_project_dialog_state.is_visible() {
             self.state.input_mode = InputMode::RenamingProject;
+        } else if self.state.issue_picker_state.visible {
+            self.state.input_mode = InputMode::SelectingIssue;
         } else if self.state.scp_command_dialog_state.visible {
             self.state.input_mode = InputMode::ScpCommand;
         } else if self.state.file_picker_dialog_state.is_visible() {
@@ -112,6 +114,11 @@ impl App {
             && self.state.input_mode != InputMode::FileMention
         {
             self.state.file_mention_state.hide();
+        }
+
+        // Handle issue picker navigation
+        if self.state.input_mode == InputMode::SelectingIssue {
+            return self.handle_issue_picker_key(key);
         }
 
         // Handle SCP command dialog (Esc only)
@@ -1249,6 +1256,41 @@ impl App {
             // Allow 'c' as a shortcut to confirm copy in dest mode
             KeyCode::Char('c') if !is_source && key.modifiers.is_empty() => {
                 return self.confirm_file_picker_copy();
+            }
+            _ => {}
+        }
+        Ok(Vec::new())
+    }
+
+    pub(super) fn handle_issue_picker_key(&mut self, key: KeyEvent) -> anyhow::Result<Vec<Effect>> {
+        // Ignore all input while issues are still loading to avoid races with
+        // the in-flight FetchGithubIssues task.
+        if self.state.issue_picker_state.loading {
+            return Ok(Vec::new());
+        }
+
+        let repo_id = self.state.issue_picker_state.repo_id;
+        match key.code {
+            KeyCode::Up | KeyCode::Char('k') => {
+                self.state.issue_picker_state.select_prev();
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                self.state.issue_picker_state.select_next();
+            }
+            KeyCode::Enter => {
+                let issue = self.state.issue_picker_state.selected_issue().cloned();
+                self.state.issue_picker_state.hide();
+                self.state.input_mode = InputMode::SidebarNavigation;
+                return Ok(vec![Effect::CreateWorkspace { repo_id, issue }]);
+            }
+            KeyCode::Esc => {
+                // Skip issue selection — create with a random name instead
+                self.state.issue_picker_state.hide();
+                self.state.input_mode = InputMode::SidebarNavigation;
+                return Ok(vec![Effect::CreateWorkspace {
+                    repo_id,
+                    issue: None,
+                }]);
             }
             _ => {}
         }

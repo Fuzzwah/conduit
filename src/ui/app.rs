@@ -1538,6 +1538,9 @@ impl App {
         // Tick project picker spinner (for loading state)
         self.state.project_picker_state.tick();
 
+        // Tick issue picker spinner (for loading state)
+        self.state.issue_picker_state.tick();
+
         if let Some(session) = self.state.tab_manager.active_session_mut() {
             session.tick();
         }
@@ -2625,7 +2628,25 @@ impl App {
                         );
                     });
                 }
-                Effect::CreateWorkspace { repo_id } => {
+                Effect::FetchGithubIssues { repo_id } => {
+                    let repo_dao = self.repo_dao_clone();
+                    let event_tx = self.event_tx.clone();
+
+                    tokio::task::spawn_blocking(move || {
+                        let issues = repo_dao
+                            .and_then(|dao| dao.get_by_id(repo_id).ok().flatten())
+                            .and_then(|repo| repo.base_path)
+                            .map(|path| crate::git::fetch_open_issues(&path))
+                            .unwrap_or_default();
+
+                        send_app_event(
+                            &event_tx,
+                            AppEvent::GithubIssuesFetched { repo_id, issues },
+                            "github_issues_fetched",
+                        );
+                    });
+                }
+                Effect::CreateWorkspace { repo_id, issue } => {
                     let repo_dao = self.repo_dao_clone();
                     let workspace_dao = self.workspace_dao_clone();
                     let worktree_manager = self.worktree_manager().clone();
@@ -2669,11 +2690,24 @@ impl App {
                                 .get_all_names_by_repository(repo_id)
                                 .unwrap_or_default();
 
-                            let workspace_name =
-                                crate::util::generate_workspace_name(&existing_names);
                             let username = crate::util::get_git_username();
-                            let branch_name =
-                                crate::util::generate_branch_name(&username, &workspace_name);
+                            let (workspace_name, branch_name) = match issue {
+                                Some(ref gh) => {
+                                    let name = format!("gh#{}", gh.number);
+                                    let branch = crate::util::generate_branch_name(
+                                        &username,
+                                        &format!("gh-{}", gh.number),
+                                    );
+                                    (name, branch)
+                                }
+                                None => {
+                                    let name =
+                                        crate::util::generate_workspace_name(&existing_names);
+                                    let branch =
+                                        crate::util::generate_branch_name(&username, &name);
+                                    (name, branch)
+                                }
+                            };
 
                             let worktree_path = worktree_manager
                                 .create_workspace(
@@ -4642,7 +4676,10 @@ impl App {
         }
 
         self.mark_repo_action_busy(repo_id);
-        Some(Effect::CreateWorkspace { repo_id })
+        self.state.issue_picker_state =
+            crate::ui::components::IssuePickerState::show_loading(repo_id);
+        self.state.input_mode = InputMode::SelectingIssue;
+        Some(Effect::FetchGithubIssues { repo_id })
     }
 
     /// Find the visible index of a workspace by its ID
@@ -6614,6 +6651,19 @@ impl App {
             },
             AppEvent::WorkspaceCreationProgress { message } => {
                 self.state.workspace_progress_dialog_state.push(message);
+            }
+            AppEvent::GithubIssuesFetched { repo_id, issues } => {
+                if issues.is_empty() {
+                    // No issues (or not a GitHub repo): skip picker, create with random name
+                    self.state.issue_picker_state.hide();
+                    self.state.input_mode = InputMode::SidebarNavigation;
+                    effects.push(Effect::CreateWorkspace {
+                        repo_id,
+                        issue: None,
+                    });
+                } else {
+                    self.state.issue_picker_state.load_issues(issues);
+                }
             }
             AppEvent::WorkspaceCreated { repo_id, result } => {
                 self.clear_repo_action_busy(repo_id);
@@ -11209,6 +11259,11 @@ impl App {
                 f.buffer_mut(),
                 &self.state.scp_command_dialog_state,
             );
+        }
+
+        if self.state.issue_picker_state.visible {
+            use crate::ui::components::IssuePicker;
+            IssuePicker::new().render(size, f.buffer_mut(), &self.state.issue_picker_state);
         }
 
         // Draw cloning repository spinner overlay

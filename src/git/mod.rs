@@ -1,11 +1,13 @@
 //! Git operations module
 
+mod issues;
 mod pr;
 mod status;
 mod workspace_mode;
 mod workspace_repo;
 mod worktree;
 
+pub use issues::{fetch_open_issues, GithubIssue};
 pub use pr::{
     CheckState, CheckStatus, MergeReadiness, MergeableStatus, PrManager, PrPreflightResult,
     PrState, PrStatus, ReviewDecision,
