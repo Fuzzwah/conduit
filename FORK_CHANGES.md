@@ -248,3 +248,9 @@ The `ctx%` counter now reflects the current context-window state based on per-ca
 ## 25. Web Chat Auto-Follow in Collapsed Code Blocks
 
 While an agent streams output inside a collapsed markdown code block, the web chat view now keeps the collapsed block pinned to the bottom of the viewport. Previously, output continued inside the block but the main view appeared to stall.
+
+---
+
+## 26. GitHub Issue Picker Integration Test
+
+The GitHub issue picker is now verified end-to-end: selecting an issue when creating a workspace correctly links the workspace to that issue and displays the issue title in the workspace header.
