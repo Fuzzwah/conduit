@@ -576,7 +576,7 @@ impl WorktreeManager {
         Ok(false)
     }
 
-    fn ref_exists(&self, worktree_path: &Path, git_ref: &str) -> Result<bool, WorktreeError> {
+    pub fn ref_exists(&self, worktree_path: &Path, git_ref: &str) -> Result<bool, WorktreeError> {
         let output = Command::new("git")
             .args(["rev-parse", "--verify", git_ref])
             .current_dir(worktree_path)
