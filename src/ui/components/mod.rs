@@ -14,6 +14,7 @@ mod global_footer;
 mod help_dialog;
 mod inline_prompt;
 mod input_box;
+mod issue_picker;
 mod key_hints;
 mod knight_rider_spinner;
 mod logo_shine;
@@ -69,6 +70,7 @@ pub use inline_prompt::{
     InlinePrompt, InlinePromptState, InlinePromptType, PromptAction, PromptAnswer, PromptResponse,
 };
 pub use input_box::InputBox;
+pub use issue_picker::{IssuePicker, IssuePickerState};
 pub use key_hints::{render_key_hints, render_key_hints_responsive, KeyHintBarStyle};
 pub use knight_rider_spinner::KnightRiderSpinner;
 pub use logo_shine::LogoShineAnimation;

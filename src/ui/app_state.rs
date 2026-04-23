@@ -9,10 +9,11 @@ use crate::agent::{AgentMode, AgentType, ReasoningEffort};
 use crate::ui::components::{
     AddRepoDialogState, AgentSelectorState, BaseDirDialogState, CommandPaletteState,
     ConfirmationDialogState, ErrorDialogState, FilePickerDialogState, HelpDialogState,
-    KnightRiderSpinner, LogoShineAnimation, MissingToolDialogState, ModelSelectorState,
-    ProjectPickerState, ProviderSelectorState, ReasoningSelectorState, RenameProjectDialogState,
-    ScpCommandDialogState, SessionImportPickerState, SettingsMenuState, SidebarData, SidebarState,
-    SlashMenuState, ThemePickerState, WorkspaceDefaultsDialogState, WorkspaceProgressDialogState,
+    IssuePickerState, KnightRiderSpinner, LogoShineAnimation, MissingToolDialogState,
+    ModelSelectorState, ProjectPickerState, ProviderSelectorState, ReasoningSelectorState,
+    RenameProjectDialogState, ScpCommandDialogState, SessionImportPickerState, SettingsMenuState,
+    SidebarData, SidebarState, SlashMenuState, ThemePickerState, WorkspaceDefaultsDialogState,
+    WorkspaceProgressDialogState,
 };
 use crate::ui::events::{InputMode, ViewMode};
 use crate::ui::tab_manager::TabManager;
@@ -189,6 +190,7 @@ pub struct AppState {
     pub workspace_progress_dialog_state: WorkspaceProgressDialogState,
     /// Workspace to open when the user closes the creation progress dialog.
     pub pending_created_workspace_id: Option<Uuid>,
+    pub issue_picker_state: IssuePickerState,
     pub command_buffer: String,
     pub sidebar_area: Option<Rect>,
     pub tab_bar_area: Option<Rect>,
@@ -390,6 +392,7 @@ impl AppState {
             scp_command_dialog_state: ScpCommandDialogState::default(),
             workspace_progress_dialog_state: WorkspaceProgressDialogState::new(),
             pending_created_workspace_id: None,
+            issue_picker_state: IssuePickerState::default(),
             command_buffer: String::new(),
             sidebar_area: None,
             tab_bar_area: None,
@@ -456,6 +459,7 @@ impl AppState {
         self.rename_project_dialog_state.hide();
         self.file_picker_dialog_state.hide();
         self.scp_command_dialog_state.hide();
+        self.issue_picker_state.hide();
         self.pending_handoff_request = None;
         self.settings_menu_return = false;
     }
@@ -482,6 +486,7 @@ impl AppState {
             || self.rename_project_dialog_state.is_visible()
             || self.file_picker_dialog_state.is_visible()
             || self.scp_command_dialog_state.visible
+            || self.issue_picker_state.visible
     }
 
     /// Start footer spinner with optional message
