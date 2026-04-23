@@ -28,6 +28,8 @@ pub struct WorkspaceProgressDialogState {
     pub error: Option<String>,
     /// Spinner animation frame (advanced on each Tick while not complete).
     pub spinner_frame: usize,
+    /// True if any non-generic output (git fetch lines, script output) was received.
+    pub has_meaningful_content: bool,
 }
 
 impl WorkspaceProgressDialogState {
@@ -41,6 +43,7 @@ impl WorkspaceProgressDialogState {
         self.error = None;
         self.messages.clear();
         self.spinner_frame = 0;
+        self.has_meaningful_content = false;
     }
 
     pub fn push(&mut self, message: impl Into<String>) {

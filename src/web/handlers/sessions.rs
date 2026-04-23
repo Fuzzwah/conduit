@@ -653,7 +653,7 @@ pub async fn fork_session(
         )));
     }
 
-    run_workspace_setup_script(&base_repo_path, &new_workspace.path);
+    run_workspace_setup_script(&base_repo_path, &new_workspace.path, || {});
 
     let forked_session = SessionService::create_forked_session(
         &core,
