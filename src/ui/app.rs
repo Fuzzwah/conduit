@@ -2757,10 +2757,10 @@ impl App {
                                 return Err(format!("Failed to save workspace to database: {}", e));
                             }
 
-                            send_progress("Running workspace setup...");
                             crate::util::workspace_setup::run_workspace_setup_script(
                                 &base_path,
                                 &workspace.path,
+                                || send_progress("Running workspace setup..."),
                             );
 
                             Ok(WorkspaceCreated {
@@ -2876,6 +2876,7 @@ impl App {
                             crate::util::workspace_setup::run_workspace_setup_script(
                                 &base_path,
                                 &workspace.path,
+                                || {},
                             );
 
                             Ok(ForkWorkspaceCreated {
@@ -6650,6 +6651,17 @@ impl App {
                 }
             },
             AppEvent::WorkspaceCreationProgress { message } => {
+                let is_generic = matches!(
+                    message.as_str(),
+                    "Fetching from remote..."
+                        | "Creating worktree..."
+                        | "Running workspace setup..."
+                );
+                if !is_generic {
+                    self.state
+                        .workspace_progress_dialog_state
+                        .has_meaningful_content = true;
+                }
                 self.state.workspace_progress_dialog_state.push(message);
             }
             AppEvent::GithubIssuesFetched { repo_id, issues } => {
@@ -6674,10 +6686,18 @@ impl App {
                         if let Some(index) = self.find_workspace_index(created.workspace_id) {
                             self.state.sidebar_state.tree_state.selected = index;
                         }
-                        self.state.workspace_progress_dialog_state.finish();
-                        // Workspace opens when the user closes the progress dialog.
-                        // Store the workspace id so the close handler can open it.
                         self.state.pending_created_workspace_id = Some(created.workspace_id);
+                        if self
+                            .state
+                            .workspace_progress_dialog_state
+                            .has_meaningful_content
+                        {
+                            // Show completion state; user closes with Enter/Esc.
+                            self.state.workspace_progress_dialog_state.finish();
+                        } else {
+                            // Nothing useful was shown — close immediately.
+                            effects.append(&mut self.close_workspace_progress_dialog());
+                        }
                     }
                     Err(ref err) => {
                         self.state

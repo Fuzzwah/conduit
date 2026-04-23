@@ -5,13 +5,14 @@ use std::path::Path;
 /// Run `workspace_setup.sh` from the base repo path inside the new workspace directory.
 ///
 /// The script is looked up in the repository root (not the workspace). If it doesn't
-/// exist the function is a no-op. Failures are logged as warnings but do not prevent
-/// workspace creation from succeeding.
-pub fn run_workspace_setup_script(repo_path: &Path, workspace_path: &Path) {
+/// exist the function is a no-op. `on_start` is called (once) immediately before the
+/// script runs, only when the script is actually present.
+pub fn run_workspace_setup_script(repo_path: &Path, workspace_path: &Path, on_start: impl Fn()) {
     let script = repo_path.join("workspace_setup.sh");
     if !script.exists() {
         return;
     }
+    on_start();
 
     tracing::info!(
         script = %script.display(),

@@ -611,7 +611,7 @@ pub async fn auto_create_workspace(
         WebError::Internal(format!("Failed to save workspace: {}", e))
     })?;
 
-    run_workspace_setup_script(&repo_path, &workspace.path);
+    run_workspace_setup_script(&repo_path, &workspace.path, || {});
 
     let response = WorkspaceResponse::from(workspace.clone());
     state
@@ -744,7 +744,7 @@ pub async fn auto_create_workspace_stream(
                     let _ = tokio::task::spawn_blocking({
                         let repo_path = repo_path.clone();
                         let worktree_path = worktree_path.clone();
-                        move || run_workspace_setup_script(&repo_path, &worktree_path)
+                        move || run_workspace_setup_script(&repo_path, &worktree_path, || {})
                     })
                     .await;
 
