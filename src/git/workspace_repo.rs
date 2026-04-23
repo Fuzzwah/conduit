@@ -70,14 +70,23 @@ impl WorkspaceRepoManager {
         progress("Fetching from remote...");
         self.worktree
             .fetch_origin_with_progress(repo_path, &progress);
+        // Prefer origin/<base_branch> so the new workspace starts from the freshly fetched
+        // remote state rather than a potentially stale local branch.
+        let origin_ref = format!("origin/{}", base_branch);
+        let start_point =
+            if self.worktree.ref_exists(repo_path, &origin_ref).unwrap_or(false) {
+                origin_ref
+            } else {
+                base_branch.to_string()
+            };
         progress("Creating worktree...");
         match mode {
             WorkspaceMode::Worktree => {
                 self.worktree
-                    .create_worktree_from_branch(repo_path, base_branch, new_branch, name)
+                    .create_worktree_from_branch(repo_path, &start_point, new_branch, name)
             }
             WorkspaceMode::Checkout => {
-                self.create_checkout_from_branch(repo_path, base_branch, new_branch, name)
+                self.create_checkout_from_branch(repo_path, &start_point, new_branch, name)
             }
         }
     }
