@@ -1,12 +1,16 @@
 //! Workspace handlers for the Conduit web API.
 
 use axum::{
+    body::{Body, Bytes},
     extract::{Path, State},
     http::StatusCode,
+    response::Response,
     Json,
 };
+use futures::stream;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use tokio::sync::mpsc;
 use uuid::Uuid;
 
 use crate::core::resolve_repo_workspace_settings;
@@ -616,6 +620,219 @@ pub async fn auto_create_workspace(
     state.status_manager().refresh_workspace(workspace.id);
 
     Ok((StatusCode::CREATED, Json(response)))
+}
+
+/// NDJSON event emitted by `auto_create_workspace_stream`.
+#[derive(Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum WorkspaceCreationEvent {
+    Progress { message: String },
+    Done { workspace: WorkspaceResponse },
+    Error { message: String },
+}
+
+impl WorkspaceCreationEvent {
+    fn to_ndjson_line(&self) -> String {
+        let mut s = serde_json::to_string(self).unwrap_or_default();
+        s.push('\n');
+        s
+    }
+}
+
+/// Auto-create a workspace and stream progress as NDJSON.
+///
+/// Emits `{"type":"progress","message":"..."}` lines while working, then a final
+/// `{"type":"done","workspace":{...}}` or `{"type":"error","message":"..."}` line.
+pub async fn auto_create_workspace_stream(
+    State(state): State<WebAppState>,
+    Path(repository_id): Path<Uuid>,
+) -> Result<Response, WebError> {
+    // Phase 1: fast DB lookups — do everything before releasing the lock.
+    let (worktree_manager, settings, repo_path, workspace_name, branch_name) = {
+        let core = state.core_mut().await;
+
+        let repo_store = core
+            .repo_store()
+            .ok_or_else(|| WebError::Internal("Database not available".to_string()))?;
+        let workspace_store = core
+            .workspace_store()
+            .ok_or_else(|| WebError::Internal("Database not available".to_string()))?;
+
+        let repo = repo_store
+            .get_by_id(repository_id)
+            .map_err(|e| WebError::Internal(format!("Failed to get repository: {}", e)))?
+            .ok_or_else(|| WebError::NotFound(format!("Repository {} not found", repository_id)))?;
+
+        let existing_names = workspace_store
+            .get_all_names_by_repository(repository_id)
+            .map_err(|e| WebError::Internal(format!("Failed to get workspace names: {}", e)))?;
+
+        if repo.workspace_mode.is_none() && existing_names.is_empty() {
+            return Err(WebError::Conflict("workspace_mode_required".to_string()));
+        }
+
+        let settings = resolve_repo_workspace_settings(core.config(), &repo);
+        let repo_path = repo
+            .base_path
+            .as_ref()
+            .map(PathBuf::from)
+            .ok_or_else(|| WebError::BadRequest("Repository has no base path".to_string()))?;
+
+        let worktree_manager = core.worktree_manager().clone();
+        let workspace_name = generate_workspace_name(&existing_names);
+        let username = get_git_username();
+        let branch_name = generate_branch_name(&username, &workspace_name);
+
+        (
+            worktree_manager,
+            settings,
+            repo_path,
+            workspace_name,
+            branch_name,
+        )
+    }; // Core lock released here.
+
+    let (tx, rx) = mpsc::channel::<String>(64);
+
+    tokio::spawn({
+        let tx = tx.clone();
+        let state = state.clone();
+        let repo_path = repo_path.clone();
+        let workspace_name = workspace_name.clone();
+        let branch_name = branch_name.clone();
+
+        async move {
+            let mode = settings.mode;
+            let wm_cleanup = worktree_manager.clone();
+
+            // Phase 2: blocking git operations.
+            let creation_result = tokio::task::spawn_blocking({
+                let tx = tx.clone();
+                let repo_path = repo_path.clone();
+                let workspace_name = workspace_name.clone();
+                let branch_name = branch_name.clone();
+
+                move || {
+                    let progress = move |msg: &str| {
+                        let event = WorkspaceCreationEvent::Progress {
+                            message: msg.to_string(),
+                        };
+                        let _ = tx.blocking_send(event.to_ndjson_line());
+                    };
+                    worktree_manager.create_workspace(
+                        mode,
+                        &repo_path,
+                        &branch_name,
+                        &workspace_name,
+                        progress,
+                    )
+                }
+            })
+            .await;
+
+            match creation_result {
+                Ok(Ok(worktree_path)) => {
+                    let _ = tx
+                        .send(
+                            WorkspaceCreationEvent::Progress {
+                                message: "Running workspace setup...".to_string(),
+                            }
+                            .to_ndjson_line(),
+                        )
+                        .await;
+
+                    let _ = tokio::task::spawn_blocking({
+                        let repo_path = repo_path.clone();
+                        let worktree_path = worktree_path.clone();
+                        move || run_workspace_setup_script(&repo_path, &worktree_path)
+                    })
+                    .await;
+
+                    let workspace = crate::data::Workspace::new(
+                        repository_id,
+                        &workspace_name,
+                        &branch_name,
+                        worktree_path.clone(),
+                    );
+
+                    let save_result = {
+                        let core = state.core_mut().await;
+                        core.workspace_store()
+                            .ok_or_else(|| "Database not available".to_string())
+                            .and_then(|store| store.create(&workspace).map_err(|e| e.to_string()))
+                    }; // Lock released.
+
+                    match save_result {
+                        Ok(()) => {
+                            state
+                                .status_manager()
+                                .register_workspace(workspace.id, workspace.path.clone());
+                            state.status_manager().refresh_workspace(workspace.id);
+
+                            let event = WorkspaceCreationEvent::Done {
+                                workspace: WorkspaceResponse::from(workspace),
+                            };
+                            let _ = tx.send(event.to_ndjson_line()).await;
+                        }
+                        Err(e) => {
+                            let core = state.core_mut().await;
+                            if let Err(err) =
+                                wm_cleanup.remove_workspace(mode, &repo_path, &worktree_path)
+                            {
+                                tracing::warn!(
+                                    error = %err,
+                                    "Failed to clean up worktree after DB save failure"
+                                );
+                            }
+                            drop(core);
+                            let _ = tx
+                                .send(
+                                    WorkspaceCreationEvent::Error {
+                                        message: format!("Failed to save workspace: {}", e),
+                                    }
+                                    .to_ndjson_line(),
+                                )
+                                .await;
+                        }
+                    }
+                }
+                Ok(Err(e)) => {
+                    let _ = tx
+                        .send(
+                            WorkspaceCreationEvent::Error {
+                                message: e.to_string(),
+                            }
+                            .to_ndjson_line(),
+                        )
+                        .await;
+                }
+                Err(e) => {
+                    let _ = tx
+                        .send(
+                            WorkspaceCreationEvent::Error {
+                                message: e.to_string(),
+                            }
+                            .to_ndjson_line(),
+                        )
+                        .await;
+                }
+            }
+        }
+    });
+
+    let byte_stream = stream::unfold(rx, |mut rx| async move {
+        rx.recv()
+            .await
+            .map(|line| (Ok::<Bytes, std::io::Error>(Bytes::from(line)), rx))
+    });
+
+    Ok(Response::builder()
+        .status(200)
+        .header("Content-Type", "application/x-ndjson")
+        .header("Cache-Control", "no-cache")
+        .header("X-Accel-Buffering", "no")
+        .body(Body::from_stream(byte_stream))
+        .unwrap())
 }
 
 /// Get workspace git status and PR info.

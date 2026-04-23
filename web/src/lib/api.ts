@@ -320,6 +320,61 @@ export async function autoCreateWorkspace(repositoryId: string): Promise<Workspa
   });
 }
 
+export type WorkspaceCreationEvent =
+  | { type: 'progress'; message: string }
+  | { type: 'done'; workspace: Workspace }
+  | { type: 'error'; message: string };
+
+// Auto-create workspace with NDJSON progress streaming.
+export async function* streamAutoCreateWorkspace(
+  repositoryId: string,
+  signal: AbortSignal
+): AsyncGenerator<WorkspaceCreationEvent> {
+  const response = await fetch(`${API_BASE}/repositories/${repositoryId}/workspaces/auto/stream`, {
+    method: 'POST',
+    signal,
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => String(response.status));
+    // Propagate HTTP error status so callers can distinguish 409 etc.
+    const err = new Error(text) as Error & { status: number };
+    err.status = response.status;
+    throw err;
+  }
+
+  if (!response.body) {
+    yield { type: 'error', message: 'No response body' };
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed) {
+          try {
+            yield JSON.parse(trimmed) as WorkspaceCreationEvent;
+          } catch {
+            // ignore malformed lines
+          }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 // Get or create session for a workspace
 export async function getOrCreateWorkspaceSession(workspaceId: string): Promise<Session> {
   return request(`/workspaces/${workspaceId}/session`, {
