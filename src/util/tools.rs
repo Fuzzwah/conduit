@@ -1,7 +1,7 @@
 //! Tool availability detection and management
 //!
 //! This module provides functionality to detect and track the availability
-//! of external tools required by Conduit (git, gh, claude, codex, gemini, opencode).
+//! of external tools required by Conduit (git, gh, claude, codex, gemini, opencode, pi).
 
 use std::path::{Path, PathBuf};
 
@@ -24,6 +24,8 @@ pub enum Tool {
     Opencode,
     /// GitHub Copilot CLI agent
     Copilot,
+    /// Pi coding agent
+    Pi,
 }
 
 impl Tool {
@@ -37,6 +39,7 @@ impl Tool {
             Tool::Gemini => "gemini",
             Tool::Opencode => "opencode",
             Tool::Copilot => "copilot",
+            Tool::Pi => "pi",
         }
     }
 
@@ -50,6 +53,7 @@ impl Tool {
             Tool::Gemini => "Gemini CLI",
             Tool::Opencode => "OpenCode",
             Tool::Copilot => "GitHub Copilot",
+            Tool::Pi => "Pi",
         }
     }
 
@@ -63,6 +67,7 @@ impl Tool {
             Tool::Gemini => "npm install -g @google/gemini-cli\nhttps://github.com/google-gemini/gemini-cli",
             Tool::Opencode => "brew install anomalyco/tap/opencode\nhttps://opencode.ai/docs",
             Tool::Copilot => "https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli",
+            Tool::Pi => "npm install -g @mariozechner/pi-coding-agent\nhttps://github.com/badlogic/pi-mono/tree/main/packages/coding-agent",
         }
     }
 
@@ -76,6 +81,9 @@ impl Tool {
             Tool::Gemini => "Gemini CLI is an AI coding assistant from Google.",
             Tool::Opencode => "OpenCode is a multi-provider AI coding assistant.",
             Tool::Copilot => "GitHub Copilot CLI is an AI coding assistant from GitHub.",
+            Tool::Pi => {
+                "Pi is a terminal coding agent with persistent sessions and structured RPC."
+            }
         }
     }
 
@@ -88,7 +96,7 @@ impl Tool {
     pub fn is_agent(&self) -> bool {
         matches!(
             self,
-            Tool::Claude | Tool::Codex | Tool::Gemini | Tool::Opencode | Tool::Copilot
+            Tool::Claude | Tool::Codex | Tool::Gemini | Tool::Opencode | Tool::Copilot | Tool::Pi
         )
     }
 
@@ -102,6 +110,7 @@ impl Tool {
             Tool::Gemini,
             Tool::Opencode,
             Tool::Copilot,
+            Tool::Pi,
         ]
     }
 }
@@ -149,6 +158,7 @@ pub struct ToolPaths {
     pub gemini: Option<PathBuf>,
     pub opencode: Option<PathBuf>,
     pub copilot: Option<PathBuf>,
+    pub pi: Option<PathBuf>,
 }
 
 impl ToolPaths {
@@ -162,6 +172,7 @@ impl ToolPaths {
             Tool::Gemini => self.gemini.as_ref(),
             Tool::Opencode => self.opencode.as_ref(),
             Tool::Copilot => self.copilot.as_ref(),
+            Tool::Pi => self.pi.as_ref(),
         }
     }
 
@@ -175,6 +186,7 @@ impl ToolPaths {
             Tool::Gemini => self.gemini = Some(path),
             Tool::Opencode => self.opencode = Some(path),
             Tool::Copilot => self.copilot = Some(path),
+            Tool::Pi => self.pi = Some(path),
         }
     }
 }
@@ -189,6 +201,7 @@ pub struct ToolAvailability {
     gemini: ToolStatus,
     opencode: ToolStatus,
     copilot: ToolStatus,
+    pi: ToolStatus,
 }
 
 impl ToolAvailability {
@@ -207,6 +220,7 @@ impl ToolAvailability {
             gemini: Self::detect_tool(Tool::Gemini, configured_paths.gemini.as_ref()),
             opencode: Self::detect_tool(Tool::Opencode, configured_paths.opencode.as_ref()),
             copilot: Self::detect_tool(Tool::Copilot, configured_paths.copilot.as_ref()),
+            pi: Self::detect_tool(Tool::Pi, configured_paths.pi.as_ref()),
         }
     }
 
@@ -271,6 +285,7 @@ impl ToolAvailability {
             Tool::Gemini => &self.gemini,
             Tool::Opencode => &self.opencode,
             Tool::Copilot => &self.copilot,
+            Tool::Pi => &self.pi,
         }
     }
 
@@ -308,6 +323,7 @@ impl ToolAvailability {
             || self.is_available(Tool::Gemini)
             || self.is_available(Tool::Opencode)
             || self.is_available(Tool::Copilot)
+            || self.is_available(Tool::Pi)
     }
 
     /// Get list of available agents
@@ -339,6 +355,7 @@ impl ToolAvailability {
             Tool::Gemini => self.gemini = status,
             Tool::Opencode => self.opencode = status,
             Tool::Copilot => self.copilot = status,
+            Tool::Pi => self.pi = status,
         }
 
         is_available

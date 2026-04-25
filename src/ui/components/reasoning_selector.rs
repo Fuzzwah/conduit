@@ -210,7 +210,7 @@ impl ReasoningSelectorState {
                     description: "Maximum reasoning budget",
                 });
             }
-            AgentType::Gemini | AgentType::Opencode | AgentType::Copilot => {}
+            AgentType::Gemini | AgentType::Opencode | AgentType::Copilot | AgentType::Pi => {}
         }
         options
     }
@@ -390,6 +390,7 @@ impl ReasoningSelector {
             Some(AgentType::Gemini)
             | Some(AgentType::Opencode)
             | Some(AgentType::Copilot)
+            | Some(AgentType::Pi)
             | None => "Reasoning effort is not available for this agent",
         };
         Paragraph::new(hint)

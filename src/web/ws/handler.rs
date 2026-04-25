@@ -171,6 +171,7 @@ impl SessionManager {
             AgentType::Gemini => core.gemini_runner().clone(),
             AgentType::Opencode => core.opencode_runner().clone(),
             AgentType::Copilot => core.copilot_runner().clone(),
+            AgentType::Pi => core.pi_runner().clone(),
         };
 
         if !runner.is_available() {
@@ -196,7 +197,7 @@ impl SessionManager {
             config = config.with_skill(skill);
         }
 
-        if agent_type == AgentType::Opencode {
+        if matches!(agent_type, AgentType::Opencode | AgentType::Pi) {
             match SessionService::get_session(&core, session_id) {
                 Ok(session_tab) => {
                     if let Some(agent_session_id) = session_tab.agent_session_id {
@@ -207,7 +208,7 @@ impl SessionManager {
                     tracing::warn!(
                         %session_id,
                         error = %error,
-                        "Failed to load session for OpenCode resume"
+                        "Failed to load session for resumable agent"
                     );
                 }
             }
@@ -449,14 +450,16 @@ impl SessionManager {
         // Send as appropriate input type based on agent
         let agent_input = match agent_type {
             AgentType::Claude => AgentInput::ClaudeJsonl(input),
-            AgentType::Codex | AgentType::Gemini | AgentType::Opencode | AgentType::Copilot => {
-                AgentInput::CodexPrompt {
-                    text: input,
-                    images,
-                    model,
-                    skill,
-                }
-            }
+            AgentType::Codex
+            | AgentType::Gemini
+            | AgentType::Opencode
+            | AgentType::Copilot
+            | AgentType::Pi => AgentInput::CodexPrompt {
+                text: input,
+                images,
+                model,
+                skill,
+            },
         };
 
         input_tx
@@ -1137,7 +1140,7 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                             }
                             continue;
                         }
-                        AgentType::Opencode | AgentType::Copilot => {
+                        AgentType::Opencode | AgentType::Copilot | AgentType::Pi => {
                             if let Err(send_err) = tx
                                 .send(ServerMessage::session_error(
                                     session_id,
@@ -1509,7 +1512,9 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                             }
                             continue;
                         }
-                        Some(AgentType::Opencode) | Some(AgentType::Copilot) => {
+                        Some(AgentType::Opencode)
+                        | Some(AgentType::Copilot)
+                        | Some(AgentType::Pi) => {
                             if let Err(send_err) = tx
                                 .send(ServerMessage::session_error(
                                     session_id,

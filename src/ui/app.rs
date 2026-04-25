@@ -33,10 +33,10 @@ use uuid::Uuid;
 use crate::agent::events::UserQuestion;
 use crate::agent::{
     load_claude_history_with_debug, load_codex_history_with_debug,
-    load_opencode_history_for_dir_with_debug, load_opencode_history_with_debug, AgentEvent,
-    AgentInput, AgentMode, AgentRunner, AgentStartConfig, AgentType, ClaudeCodeRunner,
-    CodexCliRunner, CopilotRunner, GeminiCliRunner, HistoryDebugEntry, MessageDisplay,
-    ModelRegistry, OpencodeRunner, SessionId,
+    load_opencode_history_for_dir_with_debug, load_opencode_history_with_debug,
+    load_pi_history_with_debug, AgentEvent, AgentInput, AgentMode, AgentRunner, AgentStartConfig,
+    AgentType, ClaudeCodeRunner, CodexCliRunner, CopilotRunner, GeminiCliRunner, HistoryDebugEntry,
+    MessageDisplay, ModelRegistry, OpencodeRunner, PiRunner, SessionId,
 };
 use crate::command_resolver::{
     CommandResolver, ConduitCommand, MenuEntryKind, ResolveResult, ResolvedPrompt,
@@ -286,6 +286,12 @@ impl App {
     #[inline]
     fn copilot_runner(&self) -> &Arc<CopilotRunner> {
         self.core.copilot_runner()
+    }
+
+    /// Get the Pi runner.
+    #[inline]
+    fn pi_runner(&self) -> &Arc<PiRunner> {
+        self.core.pi_runner()
     }
 
     /// Get the worktree manager.
@@ -731,6 +737,20 @@ impl App {
                             }
                             .to_chat_message(),
                         );
+                    }
+                    AgentType::Pi => {
+                        if let Ok((msgs, debug_entries, file_path)) =
+                            load_pi_history_with_debug(session_id_str)
+                        {
+                            Self::populate_debug_from_history(
+                                &mut session.raw_events_view,
+                                &debug_entries,
+                                &file_path,
+                            );
+                            for msg in msgs {
+                                session.chat_view.push(msg);
+                            }
+                        }
                     }
                 }
             } else if tab.agent_type == AgentType::Opencode {
@@ -2328,6 +2348,7 @@ impl App {
                         AgentType::Gemini => self.gemini_runner().clone(),
                         AgentType::Opencode => self.opencode_runner().clone(),
                         AgentType::Copilot => self.copilot_runner().clone(),
+                        AgentType::Pi => self.pi_runner().clone(),
                     };
 
                     let event_tx = self.event_tx.clone();
@@ -4026,6 +4047,20 @@ impl App {
                                 .to_chat_message(),
                             );
                         }
+                        AgentType::Pi => {
+                            if let Ok((msgs, debug_entries, file_path)) =
+                                load_pi_history_with_debug(session_id_str)
+                            {
+                                Self::populate_debug_from_history(
+                                    &mut session.raw_events_view,
+                                    &debug_entries,
+                                    &file_path,
+                                );
+                                for msg in msgs {
+                                    session.chat_view.push(msg);
+                                }
+                            }
+                        }
                     }
                 } else if saved.agent_type == AgentType::Opencode {
                     if let Some(working_dir) = session.working_dir.as_ref() {
@@ -4121,6 +4156,7 @@ impl App {
             AgentType::Gemini => crate::util::Tool::Gemini,
             AgentType::Opencode => crate::util::Tool::Opencode,
             AgentType::Copilot => crate::util::Tool::Copilot,
+            AgentType::Pi => crate::util::Tool::Pi,
         }
     }
 
@@ -5581,6 +5617,20 @@ impl App {
                     }
                     .to_chat_message(),
                 );
+            }
+            AgentType::Pi => {
+                if let Ok((msgs, debug_entries, file_path)) =
+                    load_pi_history_with_debug(&session_id_str)
+                {
+                    Self::populate_debug_from_history(
+                        &mut session.raw_events_view,
+                        &debug_entries,
+                        &file_path,
+                    );
+                    for msg in msgs {
+                        session.chat_view.push(msg);
+                    }
+                }
             }
         }
 
@@ -7652,7 +7702,9 @@ impl App {
                 AgentEvent::TurnCompleted(completed) => {
                     session.add_usage(completed.usage);
                     session.stop_processing();
-                    if session.inline_prompt.is_none() {
+                    if session.inline_prompt.is_none()
+                        && !session.capabilities.supports_interactive_input
+                    {
                         session.agent_input_tx = None;
                     }
                     if session.inline_prompt.is_none() && !session.queued_messages.is_empty() {
@@ -7685,7 +7737,9 @@ impl App {
                     session.chat_view.finalize_streaming();
                     session.tools_in_flight = 0;
                     session.set_processing_state(ProcessingState::Thinking);
-                    session.agent_input_tx = None;
+                    if !session.capabilities.supports_interactive_input {
+                        session.agent_input_tx = None;
+                    }
                     // Only stop footer spinner if this is the active tab
                     if is_active_tab {
                         should_stop_footer_spinner = true;
@@ -8787,7 +8841,7 @@ impl App {
         // Start agent
         if matches!(
             agent_type,
-            AgentType::Gemini | AgentType::Opencode | AgentType::Copilot
+            AgentType::Gemini | AgentType::Opencode | AgentType::Copilot | AgentType::Pi
         ) && !images.is_empty()
         {
             if let Some(session) = self.state.tab_manager.session_mut(tab_index) {
@@ -8806,6 +8860,9 @@ impl App {
                         AgentType::Copilot => {
                             "Image attachments aren't supported for GitHub Copilot in Conduit yet."
                                 .to_string()
+                        }
+                        AgentType::Pi => {
+                            "Image attachments aren't supported for Pi in Conduit yet.".to_string()
                         }
                         _ => "Image attachments aren't supported for this agent.".to_string(),
                     },
@@ -8826,6 +8883,7 @@ impl App {
                 | AgentType::Gemini
                 | AgentType::Opencode
                 | AgentType::Copilot
+                | AgentType::Pi
         ) {
             agent_prompt = Self::strip_image_placeholders(agent_prompt, &image_placeholders);
         }
@@ -8920,7 +8978,10 @@ impl App {
             }
         }
 
-        if matches!(agent_type, AgentType::Codex | AgentType::Opencode) {
+        if matches!(
+            agent_type,
+            AgentType::Codex | AgentType::Opencode | AgentType::Pi
+        ) {
             let is_active_tab = self.state.tab_manager.active_index() == tab_index;
             if let Some(session) = self.state.tab_manager.session_mut(tab_index) {
                 if let Some(ref input_tx) = session.agent_input_tx {
@@ -12857,7 +12918,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_turn_completed_clears_codex_input_channel() {
+    async fn test_turn_completed_keeps_interactive_input_channel() {
         let session_id = Uuid::new_v4();
         let mut app = build_test_app_with_sessions(&[session_id]);
 
@@ -12887,7 +12948,7 @@ mod tests {
             .tab_manager
             .session_by_id_mut(session_id)
             .expect("session missing");
-        assert!(session.agent_input_tx.is_none());
+        assert!(session.agent_input_tx.is_some());
         assert!(!session.is_processing);
     }
 

@@ -153,6 +153,7 @@ pub async fn get_providers(
                 AgentType::Gemini => crate::util::Tool::Gemini,
                 AgentType::Opencode => crate::util::Tool::Opencode,
                 AgentType::Copilot => crate::util::Tool::Copilot,
+                AgentType::Pi => crate::util::Tool::Pi,
             };
             ProviderInfo {
                 id: format!("{:?}", agent).to_lowercase(),
@@ -185,6 +186,7 @@ pub async fn set_providers(
             "gemini" => Some(AgentType::Gemini),
             "opencode" => Some(AgentType::Opencode),
             "copilot" => Some(AgentType::Copilot),
+            "pi" => Some(AgentType::Pi),
             _ => None,
         })
         .collect();

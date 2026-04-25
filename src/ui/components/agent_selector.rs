@@ -68,6 +68,11 @@ impl AgentSelectorState {
                 name: "GitHub Copilot",
                 description: "GitHub's AI coding assistant",
             },
+            AgentType::Pi => AgentOption {
+                agent_type: AgentType::Pi,
+                name: "Pi",
+                description: "Pi coding agent with resumable sessions",
+            },
         }
     }
 
@@ -78,6 +83,7 @@ impl AgentSelectorState {
             AgentType::Gemini => Tool::Gemini,
             AgentType::Opencode => Tool::Opencode,
             AgentType::Copilot => Tool::Copilot,
+            AgentType::Pi => Tool::Pi,
         }
     }
 
@@ -217,6 +223,7 @@ impl AgentSelector {
             Constraint::Length(2), // Gemini option
             Constraint::Length(2), // OpenCode option
             Constraint::Length(2), // GitHub Copilot option
+            Constraint::Length(2), // Pi option
         ])
         .split(inner);
 

@@ -16,12 +16,15 @@ impl AgentCapabilities {
     pub fn for_agent(agent_type: AgentType) -> Self {
         Self {
             supports_plan_mode: agent_type.supports_plan_mode(),
-            supports_interactive_input: false,
-            supports_steer: false,
-            supports_follow_up: false,
+            supports_interactive_input: matches!(
+                agent_type,
+                AgentType::Codex | AgentType::Opencode | AgentType::Pi
+            ),
+            supports_steer: matches!(agent_type, AgentType::Pi),
+            supports_follow_up: matches!(agent_type, AgentType::Pi),
             supports_native_slash_commands: matches!(
                 agent_type,
-                AgentType::Claude | AgentType::Gemini | AgentType::Opencode
+                AgentType::Claude | AgentType::Gemini | AgentType::Opencode | AgentType::Pi
             ),
             supports_direct_user_skill_invocation: matches!(
                 agent_type,
@@ -29,7 +32,7 @@ impl AgentCapabilities {
             ),
             supports_native_skill_tool: matches!(
                 agent_type,
-                AgentType::Gemini | AgentType::Opencode
+                AgentType::Gemini | AgentType::Opencode | AgentType::Pi
             ),
             supports_command_template_expansion: true,
         }

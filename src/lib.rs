@@ -29,7 +29,7 @@ pub use git::{
 };
 pub use session::{
     discover_all_sessions, discover_claude_sessions, discover_codex_sessions,
-    discover_opencode_sessions, ExternalSession,
+    discover_opencode_sessions, discover_pi_sessions, ExternalSession,
 };
 pub use ui::App;
 pub use util::{generate_branch_name, generate_workspace_name, get_git_username};

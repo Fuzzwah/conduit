@@ -2166,6 +2166,376 @@ fn convert_codex_entry_with_debug(
     }
 }
 
+/// Load Pi history with debug information.
+pub fn load_pi_history_with_debug(
+    session_id: &str,
+) -> Result<(Vec<ChatMessage>, Vec<HistoryDebugEntry>, PathBuf), HistoryError> {
+    let home = dirs::home_dir().ok_or(HistoryError::HomeNotFound)?;
+    let sessions_dir = home.join(".pi/agent/sessions");
+
+    if !sessions_dir.exists() {
+        return Err(HistoryError::SessionNotFound(session_id.to_string()));
+    }
+
+    let session_file = find_pi_session_file(&sessions_dir, session_id)?;
+    let (messages, debug_entries) = parse_pi_history_file_with_debug(&session_file)?;
+    Ok((messages, debug_entries, session_file))
+}
+
+fn find_pi_session_file(sessions_dir: &Path, session_id: &str) -> Result<PathBuf, HistoryError> {
+    let mut stack = vec![sessions_dir.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        for entry in fs::read_dir(&dir)?.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+                continue;
+            }
+            if path.extension().and_then(|ext| ext.to_str()) != Some("jsonl") {
+                continue;
+            }
+            let file = match File::open(&path) {
+                Ok(file) => file,
+                Err(_) => continue,
+            };
+            let mut reader = BufReader::new(file);
+            let mut first_line = String::new();
+            if reader.read_line(&mut first_line)? == 0 {
+                continue;
+            }
+            let Ok(header) = serde_json::from_str::<Value>(&first_line) else {
+                continue;
+            };
+            if header.get("type").and_then(|t| t.as_str()) == Some("session")
+                && header.get("id").and_then(|id| id.as_str()) == Some(session_id)
+            {
+                return Ok(path);
+            }
+        }
+    }
+
+    Err(HistoryError::SessionNotFound(session_id.to_string()))
+}
+
+fn parse_pi_history_file_with_debug(
+    path: &PathBuf,
+) -> Result<(Vec<ChatMessage>, Vec<HistoryDebugEntry>), HistoryError> {
+    let file = File::open(path)?;
+    let reader = BufReader::new(file);
+    let lines: Vec<String> = reader.lines().collect::<Result<_, _>>()?;
+
+    let mut parsed_entries: Vec<(usize, Value)> = Vec::new();
+    let mut debug_entries = Vec::new();
+    let mut parent_by_id: HashMap<String, Option<String>> = HashMap::new();
+    let mut last_entry_id: Option<String> = None;
+
+    for (line_number, line) in lines.iter().enumerate() {
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        match serde_json::from_str::<Value>(line) {
+            Ok(entry) => {
+                if let Some(id) = entry.get("id").and_then(|id| id.as_str()) {
+                    parent_by_id.insert(
+                        id.to_string(),
+                        entry
+                            .get("parentId")
+                            .and_then(|parent| parent.as_str())
+                            .map(ToOwned::to_owned),
+                    );
+                    last_entry_id = Some(id.to_string());
+                }
+                parsed_entries.push((line_number, entry));
+            }
+            Err(error) => debug_entries.push(HistoryDebugEntry {
+                line_number,
+                entry_type: "parse_error".to_string(),
+                status: "ERROR".to_string(),
+                reason: error.to_string(),
+                raw_json: Value::String(line.clone()),
+            }),
+        }
+    }
+
+    let mut active_path = std::collections::HashSet::new();
+    let mut cursor = last_entry_id;
+    while let Some(id) = cursor {
+        if !active_path.insert(id.clone()) {
+            break;
+        }
+        cursor = parent_by_id.get(&id).cloned().flatten();
+    }
+
+    let mut messages = Vec::new();
+    let mut tool_calls: HashMap<String, (String, String)> = HashMap::new();
+
+    for (line_number, entry) in parsed_entries {
+        let entry_type = entry
+            .get("type")
+            .and_then(|t| t.as_str())
+            .unwrap_or("unknown")
+            .to_string();
+        let is_session_header = entry_type == "session";
+        let is_active = is_session_header
+            || entry
+                .get("id")
+                .and_then(|id| id.as_str())
+                .map(|id| active_path.contains(id))
+                .unwrap_or(false);
+
+        if !is_active {
+            debug_entries.push(HistoryDebugEntry {
+                line_number,
+                entry_type,
+                status: "SKIP".to_string(),
+                reason: "inactive branch".to_string(),
+                raw_json: entry,
+            });
+            continue;
+        }
+
+        if is_session_header {
+            debug_entries.push(HistoryDebugEntry {
+                line_number,
+                entry_type,
+                status: "SKIP".to_string(),
+                reason: "session header".to_string(),
+                raw_json: entry,
+            });
+            continue;
+        }
+
+        let (status, reason) = match entry_type.as_str() {
+            "message" => {
+                append_pi_message(entry.get("message"), &mut messages, &mut tool_calls);
+                let role = entry
+                    .get("message")
+                    .and_then(|message| message.get("role"))
+                    .and_then(|role| role.as_str())
+                    .unwrap_or("unknown");
+                if role == "unknown" {
+                    ("SKIP", "message role missing".to_string())
+                } else {
+                    ("INCLUDE", format!("role={role}"))
+                }
+            }
+            "branch_summary" => {
+                if let Some(summary) = entry.get("summary").and_then(|summary| summary.as_str()) {
+                    messages.push(ChatMessage::system(summary.to_string()));
+                    ("INCLUDE", "branch summary".to_string())
+                } else {
+                    ("SKIP", "branch summary missing text".to_string())
+                }
+            }
+            "compaction" => {
+                if let Some(summary) = entry.get("summary").and_then(|summary| summary.as_str()) {
+                    messages.push(ChatMessage::system(summary.to_string()));
+                    ("INCLUDE", "compaction summary".to_string())
+                } else {
+                    ("SKIP", "compaction summary missing text".to_string())
+                }
+            }
+            "custom_message" => {
+                if entry.get("display").and_then(|display| display.as_bool()) == Some(false) {
+                    ("SKIP", "hidden custom message".to_string())
+                } else {
+                    let text = extract_pi_history_content(entry.get("content"));
+                    if text.trim().is_empty() {
+                        ("SKIP", "empty custom message".to_string())
+                    } else {
+                        messages.push(ChatMessage::system(text));
+                        ("INCLUDE", "custom message".to_string())
+                    }
+                }
+            }
+            _ => ("SKIP", format!("type={entry_type}")),
+        };
+
+        debug_entries.push(HistoryDebugEntry {
+            line_number,
+            entry_type,
+            status: status.to_string(),
+            reason,
+            raw_json: entry,
+        });
+    }
+
+    Ok((messages, debug_entries))
+}
+
+fn append_pi_message(
+    message: Option<&Value>,
+    messages: &mut Vec<ChatMessage>,
+    tool_calls: &mut HashMap<String, (String, String)>,
+) {
+    let Some(message) = message else {
+        return;
+    };
+    let Some(role) = message.get("role").and_then(|role| role.as_str()) else {
+        return;
+    };
+
+    match role {
+        "user" => {
+            let text = extract_pi_history_content(message.get("content"));
+            if !text.trim().is_empty() {
+                messages.push(ChatMessage::user(text));
+            }
+        }
+        "assistant" => {
+            if let Some(blocks) = message
+                .get("content")
+                .and_then(|content| content.as_array())
+            {
+                for block in blocks {
+                    match block.get("type").and_then(|t| t.as_str()) {
+                        Some("text") => {
+                            if let Some(text) = block.get("text").and_then(|text| text.as_str()) {
+                                if !text.trim().is_empty() {
+                                    messages.push(ChatMessage::assistant(text.to_string()));
+                                }
+                            }
+                        }
+                        Some("thinking") => {
+                            if let Some(text) = block.get("thinking").and_then(|text| text.as_str())
+                            {
+                                if !text.trim().is_empty() {
+                                    messages.push(ChatMessage::reasoning(text.to_string()));
+                                }
+                            }
+                        }
+                        Some("toolCall") => {
+                            let tool_name = block
+                                .get("name")
+                                .and_then(|name| name.as_str())
+                                .unwrap_or("tool")
+                                .to_string();
+                            let tool_args = serde_json::to_string(
+                                block.get("arguments").unwrap_or(&Value::Null),
+                            )
+                            .unwrap_or_default();
+                            if let Some(tool_id) = block.get("id").and_then(|id| id.as_str()) {
+                                tool_calls.insert(
+                                    tool_id.to_string(),
+                                    (tool_name.clone(), tool_args.clone()),
+                                );
+                            }
+                            messages.push(ChatMessage::tool(tool_name, tool_args, "Running..."));
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            if message.get("stopReason").and_then(|reason| reason.as_str()) == Some("error") {
+                if let Some(error) = message.get("errorMessage").and_then(|error| error.as_str()) {
+                    if !error.trim().is_empty() {
+                        messages.push(ChatMessage::error(error.to_string()));
+                    }
+                }
+            }
+        }
+        "toolResult" => {
+            let tool_id = message
+                .get("toolCallId")
+                .and_then(|id| id.as_str())
+                .unwrap_or_default();
+            let (tool_name, tool_args) = tool_calls.get(tool_id).cloned().unwrap_or_else(|| {
+                (
+                    message
+                        .get("toolName")
+                        .and_then(|name| name.as_str())
+                        .unwrap_or("tool")
+                        .to_string(),
+                    String::new(),
+                )
+            });
+            let content = extract_pi_history_content(message.get("content"));
+            messages.push(ChatMessage::tool(
+                tool_name,
+                tool_args,
+                if content.trim().is_empty() {
+                    if message
+                        .get("isError")
+                        .and_then(|is_error| is_error.as_bool())
+                        == Some(true)
+                    {
+                        "Tool failed".to_string()
+                    } else {
+                        String::new()
+                    }
+                } else {
+                    content
+                },
+            ));
+        }
+        "bashExecution" => {
+            messages.push(ChatMessage::tool_with_exit(
+                "Bash",
+                message
+                    .get("command")
+                    .and_then(|command| command.as_str())
+                    .unwrap_or_default()
+                    .to_string(),
+                message
+                    .get("output")
+                    .and_then(|output| output.as_str())
+                    .unwrap_or_default()
+                    .to_string(),
+                message
+                    .get("exitCode")
+                    .and_then(|exit_code| exit_code.as_i64())
+                    .and_then(|exit_code| i32::try_from(exit_code).ok()),
+            ));
+        }
+        "custom" => {
+            let text = extract_pi_history_content(message.get("content"));
+            if !text.trim().is_empty() {
+                messages.push(ChatMessage::system(text));
+            }
+        }
+        "branchSummary" | "compactionSummary" => {
+            if let Some(summary) = message.get("summary").and_then(|summary| summary.as_str()) {
+                if !summary.trim().is_empty() {
+                    messages.push(ChatMessage::system(summary.to_string()));
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn extract_pi_history_content(content: Option<&Value>) -> String {
+    let Some(content) = content else {
+        return String::new();
+    };
+    match content {
+        Value::String(text) => text.clone(),
+        Value::Array(blocks) => {
+            let mut parts = Vec::new();
+            for block in blocks {
+                match block.get("type").and_then(|t| t.as_str()) {
+                    Some("text") => {
+                        if let Some(text) = block.get("text").and_then(|text| text.as_str()) {
+                            parts.push(text.to_string());
+                        }
+                    }
+                    Some("thinking") => {
+                        if let Some(text) = block.get("thinking").and_then(|text| text.as_str()) {
+                            parts.push(text.to_string());
+                        }
+                    }
+                    Some("image") => parts.push("[Image]".to_string()),
+                    _ => {}
+                }
+            }
+            parts.join("\n")
+        }
+        other => other.to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

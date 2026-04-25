@@ -3,7 +3,8 @@
 use std::sync::Arc;
 
 use crate::agent::{
-    ClaudeCodeRunner, CodexCliRunner, CopilotRunner, GeminiCliRunner, ModelRegistry, OpencodeRunner,
+    ClaudeCodeRunner, CodexCliRunner, CopilotRunner, GeminiCliRunner, ModelRegistry,
+    OpencodeRunner, PiRunner,
 };
 use crate::config::Config;
 use crate::data::{
@@ -46,6 +47,8 @@ pub struct ConduitCore {
     opencode_runner: Arc<OpencodeRunner>,
     /// GitHub Copilot runner
     copilot_runner: Arc<CopilotRunner>,
+    /// Pi runner
+    pi_runner: Arc<PiRunner>,
     /// Worktree manager
     worktree_manager: WorkspaceRepoManager,
 }
@@ -111,6 +114,10 @@ impl ConduitCore {
             Some(path) => Arc::new(CopilotRunner::with_path(path.clone())),
             None => Arc::new(CopilotRunner::new()),
         };
+        let pi_runner = match tools.get_path(Tool::Pi) {
+            Some(path) => Arc::new(PiRunner::with_path(path.clone())),
+            None => Arc::new(PiRunner::new()),
+        };
 
         if tools.is_available(Tool::Claude) {
             let models =
@@ -145,6 +152,7 @@ impl ConduitCore {
             gemini_runner,
             opencode_runner,
             copilot_runner,
+            pi_runner,
             worktree_manager,
         }
     }
@@ -234,6 +242,11 @@ impl ConduitCore {
         &self.copilot_runner
     }
 
+    /// Get the Pi runner.
+    pub fn pi_runner(&self) -> &Arc<PiRunner> {
+        &self.pi_runner
+    }
+
     /// Get the worktree manager.
     pub fn worktree_manager(&self) -> &WorkspaceRepoManager {
         &self.worktree_manager
@@ -278,6 +291,10 @@ impl ConduitCore {
         self.copilot_runner = match self.tools.get_path(Tool::Copilot) {
             Some(path) => Arc::new(CopilotRunner::with_path(path.clone())),
             None => Arc::new(CopilotRunner::new()),
+        };
+        self.pi_runner = match self.tools.get_path(Tool::Pi) {
+            Some(path) => Arc::new(PiRunner::with_path(path.clone())),
+            None => Arc::new(PiRunner::new()),
         };
 
         if self.tools.is_available(Tool::Claude) {

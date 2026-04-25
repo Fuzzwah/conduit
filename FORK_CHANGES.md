@@ -254,3 +254,16 @@ While an agent streams output inside a collapsed markdown code block, the web ch
 ## 26. GitHub Issue Picker Integration Test
 
 The GitHub issue picker is now verified end-to-end: selecting an issue when creating a workspace correctly links the workspace to that issue and displays the issue title in the workspace header.
+
+---
+
+## 27. Pi Coding Agent as a 6th Agent
+
+Conduit now supports **Pi** as an additional agent alongside Claude, Codex, Gemini, OpenCode, and Copilot.
+
+- **Invocation:** `pi --mode rpc`
+- **Sessions:** Pi sessions can be resumed, and Conduit preserves the live Pi process across turns so follow-up prompts stay in the same session.
+- **History import:** Conduit can discover Pi sessions from `~/.pi/agent/sessions/` and import their visible chat history from Pi's JSONL session files.
+- **Events/tools:** Pi's structured RPC event stream is mapped into Conduit's chat/debug views, including assistant text, reasoning, and tool execution events.
+
+Pi appears in the agent selector, provider selector, and model selector. Common Pi model presets are included, with `claude-sonnet-4.6` as the default.

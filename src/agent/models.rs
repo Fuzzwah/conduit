@@ -78,6 +78,8 @@ impl ModelRegistry {
 
     /// Default context window for GitHub Copilot models (conservative estimate)
     pub const COPILOT_CONTEXT_WINDOW: i64 = 128_000;
+    /// Default context window for Pi when model metadata is unknown
+    pub const PI_CONTEXT_WINDOW: i64 = 200_000;
 
     const OPENCODE_DEFAULT_MODEL_ID: &'static str = "default";
 
@@ -465,6 +467,45 @@ impl ModelRegistry {
         ]
     }
 
+    /// Get available models for Pi
+    pub fn pi_models() -> Vec<ModelInfo> {
+        vec![
+            ModelInfo::new(
+                AgentType::Pi,
+                "claude-sonnet-4.6",
+                "Claude Sonnet 4.6",
+                "claude-sonnet-4.6",
+                "Anthropic model via Pi",
+                Self::CLAUDE_CONTEXT_WINDOW,
+            )
+            .as_default(),
+            ModelInfo::new(
+                AgentType::Pi,
+                "gpt-5.4",
+                "GPT-5.4",
+                "gpt-5.4",
+                "OpenAI model via Pi",
+                Self::CODEX_CONTEXT_WINDOW,
+            ),
+            ModelInfo::new(
+                AgentType::Pi,
+                "gpt-5.3-codex",
+                "GPT-5.3-Codex",
+                "gpt-5.3-codex",
+                "Codex-optimized model via Pi",
+                Self::CODEX_GPT53_CONTEXT_WINDOW,
+            ),
+            ModelInfo::new(
+                AgentType::Pi,
+                "gemini-2.5-pro",
+                "Gemini 2.5 Pro",
+                "gemini-2.5-pro",
+                "Google model via Pi",
+                Self::GEMINI_CONTEXT_WINDOW,
+            ),
+        ]
+    }
+
     /// Get all models grouped by agent type
     pub fn all_models() -> Vec<ModelInfo> {
         let mut models = Self::claude_models();
@@ -472,6 +513,7 @@ impl ModelRegistry {
         models.extend(Self::gemini_models());
         models.extend(Self::opencode_models());
         models.extend(Self::copilot_models());
+        models.extend(Self::pi_models());
         models
     }
 
@@ -483,6 +525,7 @@ impl ModelRegistry {
             AgentType::Gemini => Self::gemini_models(),
             AgentType::Opencode => Self::opencode_models(),
             AgentType::Copilot => Self::copilot_models(),
+            AgentType::Pi => Self::pi_models(),
         }
     }
 
@@ -494,6 +537,7 @@ impl ModelRegistry {
             AgentType::Gemini => "gemini-2.5-pro".to_string(),
             AgentType::Opencode => Self::OPENCODE_DEFAULT_MODEL_ID.to_string(),
             AgentType::Copilot => "gpt-5.3-codex".to_string(),
+            AgentType::Pi => "claude-sonnet-4.6".to_string(),
         }
     }
 
@@ -533,6 +577,7 @@ impl ModelRegistry {
             AgentType::Gemini => "◆",
             AgentType::Opencode => "◍",
             AgentType::Copilot => "⊙",
+            AgentType::Pi => "◌",
         }
     }
 
@@ -544,6 +589,7 @@ impl ModelRegistry {
             AgentType::Gemini => "Gemini",
             AgentType::Opencode => "OpenCode",
             AgentType::Copilot => "GitHub Copilot",
+            AgentType::Pi => "Pi",
         }
     }
 
@@ -562,6 +608,7 @@ impl ModelRegistry {
             AgentType::Gemini => Self::GEMINI_CONTEXT_WINDOW,
             AgentType::Opencode => Self::OPENCODE_CONTEXT_WINDOW,
             AgentType::Copilot => Self::COPILOT_CONTEXT_WINDOW,
+            AgentType::Pi => Self::PI_CONTEXT_WINDOW,
         }
     }
 }
