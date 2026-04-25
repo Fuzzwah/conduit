@@ -56,6 +56,16 @@ pub struct ConduitCore {
 impl ConduitCore {
     /// Create a new ConduitCore with the given configuration and tool availability.
     pub fn new(config: Config, tools: ToolAvailability) -> Self {
+        Self::new_with_progress(config, tools, &mut |_| {})
+    }
+
+    /// Like `new`, but calls `progress` with a human-readable label at each initialization phase.
+    pub(crate) fn new_with_progress(
+        config: Config,
+        tools: ToolAvailability,
+        progress: &mut impl FnMut(&str),
+    ) -> Self {
+        progress("Connecting to database");
         // Initialize database and DAOs
         let (
             database,
@@ -93,6 +103,7 @@ impl ConduitCore {
         let worktree_manager =
             WorkspaceRepoManager::with_managed_dir(crate::util::workspaces_dir());
 
+        progress("Initializing agent runners");
         // Create runners with configured paths if available
         let claude_runner = match tools.get_path(Tool::Claude) {
             Some(path) => Arc::new(ClaudeCodeRunner::with_path(path.clone())),
@@ -119,6 +130,7 @@ impl ConduitCore {
             None => Arc::new(PiRunner::new()),
         };
 
+        progress("Discovering AI models");
         if tools.is_available(Tool::Claude) {
             let models =
                 crate::agent::claude::load_claude_models(tools.get_path(Tool::Claude).cloned());

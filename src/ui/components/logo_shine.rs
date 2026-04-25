@@ -227,23 +227,25 @@ impl Default for LogoShineAnimation {
     }
 }
 
-/// Draw a static startup splash (logo only, no animation) centered on the full frame.
-pub fn draw_startup_splash(frame: &mut Frame) {
-    let base_color = text_muted();
-    let logo_lines: Vec<Line> = LOGO_LINES
-        .iter()
-        .map(|&line| Line::from(Span::styled(line, Style::default().fg(base_color))))
-        .collect();
+/// Draw the animated startup splash centered on the full frame with a status line below the logo.
+pub fn draw_startup_splash_animated(frame: &mut Frame, anim: &LogoShineAnimation, status: &str) {
+    let mut lines = anim.render_logo_lines();
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        status.to_string(),
+        Style::default().fg(text_muted()),
+    )));
 
-    let paragraph = Paragraph::new(logo_lines).alignment(Alignment::Center);
+    let paragraph = Paragraph::new(lines).alignment(Alignment::Center);
     let area = frame.area();
-    let logo_height = LOGO_LINES.len() as u16;
-    let vertical_offset = area.height.saturating_sub(logo_height) / 2;
+    // logo lines + blank line + status line
+    let total_height = (LOGO_LINES.len() + 2) as u16;
+    let vertical_offset = area.height.saturating_sub(total_height) / 2;
     let centered = Rect {
         x: area.x,
         y: area.y + vertical_offset,
         width: area.width,
-        height: logo_height,
+        height: total_height,
     };
     paragraph.render(centered, frame.buffer_mut());
 }

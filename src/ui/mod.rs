@@ -28,23 +28,25 @@ pub use session::AgentSession;
 pub use tab::Tab;
 pub use tab_manager::TabManager;
 
-/// Enter the terminal and draw the startup splash screen, returning the prepared terminal and guard.
+/// Enter the terminal, animate the startup splash while `App` initializes, then run the app.
 ///
-/// Call this before constructing `App` so the splash is visible during initialization.
-/// Pass the returned values to `App::run_with_prepared_terminal`.
-pub fn prepare_and_show_splash() -> anyhow::Result<(
-    ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>,
-    terminal_guard::TerminalGuard,
-)> {
+/// Runs `App::new_with_progress` on a blocking thread so the logo shine animation can play
+/// on the current async task. Progress labels are shown below the logo as each phase completes.
+pub async fn run_startup_with_splash(
+    config: crate::config::Config,
+    tools: crate::util::ToolAvailability,
+) -> anyhow::Result<()> {
     use crossterm::{
         event::{EnableBracketedPaste, EnableMouseCapture},
         execute,
         terminal::{enable_raw_mode, EnterAlternateScreen},
     };
     use ratatui::{backend::CrosstermBackend, Terminal};
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
 
     enable_raw_mode()?;
-    let guard = terminal_guard::TerminalGuard::new(false);
+    let mut guard = terminal_guard::TerminalGuard::new(false);
     let mut stdout = std::io::stdout();
     execute!(
         stdout,
@@ -54,6 +56,36 @@ pub fn prepare_and_show_splash() -> anyhow::Result<(
     )?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
-    terminal.draw(components::draw_startup_splash)?;
-    Ok((terminal, guard))
+
+    // Shared status message updated by App::new_with_progress on the blocking thread
+    let status = Arc::new(Mutex::new("Starting...".to_string()));
+    let status_for_init = status.clone();
+
+    // Run App::new() on a blocking thread so the animation can play on this task
+    let init_handle = tokio::task::spawn_blocking(move || {
+        App::new_with_progress(config, tools, move |label| {
+            if let Ok(mut s) = status_for_init.lock() {
+                *s = label.to_string();
+            }
+        })
+    });
+
+    let mut anim = components::LogoShineAnimation::new();
+    let mut tick = 0u32;
+    loop {
+        let status_text = status.lock().unwrap().clone();
+        terminal.draw(|f| components::draw_startup_splash_animated(f, &anim, &status_text))?;
+        tick += 1;
+        if tick.is_multiple_of(3) {
+            anim.tick();
+        }
+        tokio::time::sleep(Duration::from_millis(16)).await;
+        if init_handle.is_finished() {
+            break;
+        }
+    }
+
+    let mut app = init_handle.await?;
+    app.run_with_prepared_terminal(&mut terminal, &mut guard)
+        .await
 }
