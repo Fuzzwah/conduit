@@ -103,35 +103,57 @@ impl ConduitCore {
         let worktree_manager =
             WorkspaceRepoManager::with_managed_dir(crate::util::workspaces_dir());
 
-        progress("Initializing agent runners");
-        // Create runners with configured paths if available
+        // Create runners with configured paths if available, reporting each available agent
+        if tools.is_available(Tool::Claude) {
+            progress("Initializing Claude Code");
+        }
         let claude_runner = match tools.get_path(Tool::Claude) {
             Some(path) => Arc::new(ClaudeCodeRunner::with_path(path.clone())),
             None => Arc::new(ClaudeCodeRunner::new()),
         };
+
+        if tools.is_available(Tool::Codex) {
+            progress("Initializing Codex");
+        }
         let codex_runner = match tools.get_path(Tool::Codex) {
             Some(path) => Arc::new(CodexCliRunner::with_path(path.clone())),
             None => Arc::new(CodexCliRunner::new()),
         };
+
+        if tools.is_available(Tool::Gemini) {
+            progress("Initializing Gemini");
+        }
         let gemini_runner = match tools.get_path(Tool::Gemini) {
             Some(path) => Arc::new(GeminiCliRunner::with_path(path.clone())),
             None => Arc::new(GeminiCliRunner::new()),
         };
+
+        if tools.is_available(Tool::Opencode) {
+            progress("Initializing OpenCode");
+        }
         let opencode_runner = match tools.get_path(Tool::Opencode) {
             Some(path) => Arc::new(OpencodeRunner::with_path(path.clone())),
             None => Arc::new(OpencodeRunner::new()),
         };
+
+        if tools.is_available(Tool::Copilot) {
+            progress("Initializing GitHub Copilot");
+        }
         let copilot_runner = match tools.get_path(Tool::Copilot) {
             Some(path) => Arc::new(CopilotRunner::with_path(path.clone())),
             None => Arc::new(CopilotRunner::new()),
         };
+
+        if tools.is_available(Tool::Pi) {
+            progress("Initializing Pi");
+        }
         let pi_runner = match tools.get_path(Tool::Pi) {
             Some(path) => Arc::new(PiRunner::with_path(path.clone())),
             None => Arc::new(PiRunner::new()),
         };
 
-        progress("Discovering AI models");
         if tools.is_available(Tool::Claude) {
+            progress("Discovering Claude Code models");
             let models =
                 crate::agent::claude::load_claude_models(tools.get_path(Tool::Claude).cloned());
             if !models.is_empty() {
@@ -142,6 +164,7 @@ impl ConduitCore {
         }
 
         if tools.is_available(Tool::Opencode) {
+            progress("Discovering OpenCode models");
             let models = crate::agent::opencode::load_opencode_models(
                 tools.get_path(Tool::Opencode).cloned(),
             );
