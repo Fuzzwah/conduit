@@ -183,9 +183,13 @@ async fn run_app() -> Result<()> {
         }
     }
 
+    // Enter terminal and show splash before the (slow) app initialization
+    let (mut terminal, mut guard) = conduit::ui::prepare_and_show_splash()?;
+
     // Create and run app with tool availability
     let mut app = App::new(config, tools);
-    app.run().await
+    app.run_with_prepared_terminal(&mut terminal, &mut guard)
+        .await
 }
 
 /// Run the app pre-loaded with demo data (no API key or real workspaces needed).

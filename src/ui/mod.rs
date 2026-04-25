@@ -27,3 +27,33 @@ pub use git_tracker::{GitTrackerHandle, GitTrackerUpdate};
 pub use session::AgentSession;
 pub use tab::Tab;
 pub use tab_manager::TabManager;
+
+/// Enter the terminal and draw the startup splash screen, returning the prepared terminal and guard.
+///
+/// Call this before constructing `App` so the splash is visible during initialization.
+/// Pass the returned values to `App::run_with_prepared_terminal`.
+pub fn prepare_and_show_splash() -> anyhow::Result<(
+    ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>,
+    terminal_guard::TerminalGuard,
+)> {
+    use crossterm::{
+        event::{EnableBracketedPaste, EnableMouseCapture},
+        execute,
+        terminal::{enable_raw_mode, EnterAlternateScreen},
+    };
+    use ratatui::{backend::CrosstermBackend, Terminal};
+
+    enable_raw_mode()?;
+    let guard = terminal_guard::TerminalGuard::new(false);
+    let mut stdout = std::io::stdout();
+    execute!(
+        stdout,
+        EnterAlternateScreen,
+        EnableMouseCapture,
+        EnableBracketedPaste
+    )?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
+    terminal.draw(components::draw_startup_splash)?;
+    Ok((terminal, guard))
+}

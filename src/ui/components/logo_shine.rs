@@ -5,8 +5,11 @@
 
 use rand::Rng;
 use ratatui::{
+    layout::{Alignment, Rect},
     style::{Color, Style},
     text::{Line, Span},
+    widgets::{Paragraph, Widget},
+    Frame,
 };
 
 use super::{shine_center, shine_edge, shine_mid, shine_peak, text_muted};
@@ -222,6 +225,27 @@ impl Default for LogoShineAnimation {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Draw a static startup splash (logo only, no animation) centered on the full frame.
+pub fn draw_startup_splash(frame: &mut Frame) {
+    let base_color = text_muted();
+    let logo_lines: Vec<Line> = LOGO_LINES
+        .iter()
+        .map(|&line| Line::from(Span::styled(line, Style::default().fg(base_color))))
+        .collect();
+
+    let paragraph = Paragraph::new(logo_lines).alignment(Alignment::Center);
+    let area = frame.area();
+    let logo_height = LOGO_LINES.len() as u16;
+    let vertical_offset = area.height.saturating_sub(logo_height) / 2;
+    let centered = Rect {
+        x: area.x,
+        y: area.y + vertical_offset,
+        width: area.width,
+        height: logo_height,
+    };
+    paragraph.render(centered, frame.buffer_mut());
 }
 
 #[cfg(test)]
