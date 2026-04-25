@@ -1,6 +1,6 @@
 //! Session import picker dialog component
 //!
-//! Allows users to import sessions from Claude Code, Codex CLI, Gemini CLI, and OpenCode.
+//! Allows users to import sessions from Claude Code, Codex CLI, Gemini CLI, OpenCode, and Pi.
 
 use ratatui::{
     buffer::Buffer,
@@ -10,7 +10,7 @@ use ratatui::{
 };
 
 use super::{
-    agent_claude, agent_codex, agent_copilot, agent_gemini, agent_opencode, bg_highlight,
+    agent_claude, agent_codex, agent_copilot, agent_gemini, agent_opencode, agent_pi, bg_highlight,
     dialog_bg, dialog_content_area, ensure_contrast_bg, ensure_contrast_fg,
     render_minimal_scrollbar, selected_bg, text_muted, text_primary, DialogFrame, ScrollbarMetrics,
     SearchableListState,
@@ -568,6 +568,7 @@ impl SessionImportPicker {
                 AgentType::Gemini => "G",
                 AgentType::Opencode => "O",
                 AgentType::Copilot => "P",
+                AgentType::Pi => "π",
             };
             let agent_color = match session.agent_type {
                 AgentType::Claude => agent_claude(),
@@ -575,6 +576,7 @@ impl SessionImportPicker {
                 AgentType::Gemini => agent_gemini(),
                 AgentType::Opencode => agent_opencode(),
                 AgentType::Copilot => agent_copilot(),
+                AgentType::Pi => agent_pi(),
             };
 
             // Calculate widths

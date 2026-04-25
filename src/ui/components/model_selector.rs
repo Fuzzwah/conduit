@@ -129,6 +129,7 @@ impl ModelSelectorState {
                 AgentType::Gemini => ModelRegistry::gemini_models(),
                 AgentType::Opencode => ModelRegistry::opencode_models(),
                 AgentType::Copilot => ModelRegistry::copilot_models(),
+                AgentType::Pi => ModelRegistry::pi_models(),
             };
 
             if models.is_empty() {

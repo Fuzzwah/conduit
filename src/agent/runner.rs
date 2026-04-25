@@ -16,6 +16,7 @@ pub enum AgentType {
     Gemini,
     Opencode,
     Copilot,
+    Pi,
 }
 
 /// Agent mode (Build vs Plan)
@@ -118,13 +119,14 @@ impl AgentMode {
 
 impl AgentType {
     /// Preferred provider priority order used for defaults and UI listing.
-    pub const fn preferred_order() -> [AgentType; 5] {
+    pub const fn preferred_order() -> [AgentType; 6] {
         [
             AgentType::Codex,
             AgentType::Claude,
             AgentType::Gemini,
             AgentType::Opencode,
             AgentType::Copilot,
+            AgentType::Pi,
         ]
     }
 
@@ -142,6 +144,7 @@ impl AgentType {
             AgentType::Gemini => "gemini",
             AgentType::Opencode => "opencode",
             AgentType::Copilot => "copilot",
+            AgentType::Pi => "pi",
         }
     }
 
@@ -151,6 +154,7 @@ impl AgentType {
             "gemini" => AgentType::Gemini,
             "opencode" => AgentType::Opencode,
             "copilot" => AgentType::Copilot,
+            "pi" => AgentType::Pi,
             _ => AgentType::Claude,
         }
     }
@@ -163,6 +167,7 @@ impl AgentType {
             AgentType::Gemini => "Gemini",
             AgentType::Opencode => "OpenCode",
             AgentType::Copilot => "Copilot",
+            AgentType::Pi => "Pi",
         }
     }
 
@@ -173,6 +178,7 @@ impl AgentType {
             AgentType::Gemini => "Gemini CLI",
             AgentType::Opencode => "OpenCode",
             AgentType::Copilot => "GitHub Copilot",
+            AgentType::Pi => "Pi",
         }
     }
 }

@@ -340,6 +340,11 @@ pub fn agent_copilot() -> Color {
     current_theme().agent_claude
 }
 
+#[inline]
+pub fn agent_pi() -> Color {
+    current_theme().agent_opencode
+}
+
 // PR State Colors
 #[inline]
 pub fn pr_open_bg() -> Color {

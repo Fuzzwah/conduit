@@ -36,7 +36,7 @@ use crate::agent::{
     load_opencode_history_for_dir_with_debug, load_opencode_history_with_debug, AgentEvent,
     AgentInput, AgentMode, AgentRunner, AgentStartConfig, AgentType, ClaudeCodeRunner,
     CodexCliRunner, CopilotRunner, GeminiCliRunner, HistoryDebugEntry, MessageDisplay,
-    ModelRegistry, OpencodeRunner, SessionId,
+    ModelRegistry, OpencodeRunner, PiRunner, SessionId,
 };
 use crate::command_resolver::{
     CommandResolver, ConduitCommand, MenuEntryKind, ResolveResult, ResolvedPrompt,
@@ -286,6 +286,12 @@ impl App {
     #[inline]
     fn copilot_runner(&self) -> &Arc<CopilotRunner> {
         self.core.copilot_runner()
+    }
+
+    /// Get the Pi runner.
+    #[inline]
+    fn pi_runner(&self) -> &Arc<PiRunner> {
+        self.core.pi_runner()
     }
 
     /// Get the worktree manager.
@@ -728,6 +734,14 @@ impl App {
                         session.chat_view.push(
                             MessageDisplay::System {
                                 content: "GitHub Copilot history import isn't supported yet, so previous messages won't be shown.".to_string(),
+                            }
+                            .to_chat_message(),
+                        );
+                    }
+                    AgentType::Pi => {
+                        session.chat_view.push(
+                            MessageDisplay::System {
+                                content: "Pi history import isn't supported yet, so previous messages won't be shown.".to_string(),
                             }
                             .to_chat_message(),
                         );
@@ -2328,6 +2342,7 @@ impl App {
                         AgentType::Gemini => self.gemini_runner().clone(),
                         AgentType::Opencode => self.opencode_runner().clone(),
                         AgentType::Copilot => self.copilot_runner().clone(),
+                        AgentType::Pi => self.pi_runner().clone(),
                     };
 
                     let event_tx = self.event_tx.clone();
@@ -4026,6 +4041,14 @@ impl App {
                                 .to_chat_message(),
                             );
                         }
+                        AgentType::Pi => {
+                            session.chat_view.push(
+                                MessageDisplay::System {
+                                    content: "Pi history import isn't supported yet, so previous messages won't be shown.".to_string(),
+                                }
+                                .to_chat_message(),
+                            );
+                        }
                     }
                 } else if saved.agent_type == AgentType::Opencode {
                     if let Some(working_dir) = session.working_dir.as_ref() {
@@ -4121,6 +4144,7 @@ impl App {
             AgentType::Gemini => crate::util::Tool::Gemini,
             AgentType::Opencode => crate::util::Tool::Opencode,
             AgentType::Copilot => crate::util::Tool::Copilot,
+            AgentType::Pi => crate::util::Tool::Pi,
         }
     }
 
@@ -5578,6 +5602,16 @@ impl App {
                 session.chat_view.push(
                     MessageDisplay::System {
                         content: "GitHub Copilot session import isn't supported yet.".to_string(),
+                    }
+                    .to_chat_message(),
+                );
+            }
+            AgentType::Pi => {
+                session.resume_session_id = None;
+                session.agent_session_id = None;
+                session.chat_view.push(
+                    MessageDisplay::System {
+                        content: "Pi session import isn't supported yet.".to_string(),
                     }
                     .to_chat_message(),
                 );
@@ -7652,7 +7686,7 @@ impl App {
                 AgentEvent::TurnCompleted(completed) => {
                     session.add_usage(completed.usage);
                     session.stop_processing();
-                    if session.inline_prompt.is_none() {
+                    if session.inline_prompt.is_none() && !session.capabilities.supports_interactive_input {
                         session.agent_input_tx = None;
                     }
                     if session.inline_prompt.is_none() && !session.queued_messages.is_empty() {
@@ -7685,7 +7719,9 @@ impl App {
                     session.chat_view.finalize_streaming();
                     session.tools_in_flight = 0;
                     session.set_processing_state(ProcessingState::Thinking);
-                    session.agent_input_tx = None;
+                    if !session.capabilities.supports_interactive_input {
+                        session.agent_input_tx = None;
+                    }
                     // Only stop footer spinner if this is the active tab
                     if is_active_tab {
                         should_stop_footer_spinner = true;
@@ -8787,7 +8823,7 @@ impl App {
         // Start agent
         if matches!(
             agent_type,
-            AgentType::Gemini | AgentType::Opencode | AgentType::Copilot
+            AgentType::Gemini | AgentType::Opencode | AgentType::Copilot | AgentType::Pi
         ) && !images.is_empty()
         {
             if let Some(session) = self.state.tab_manager.session_mut(tab_index) {
@@ -8806,6 +8842,9 @@ impl App {
                         AgentType::Copilot => {
                             "Image attachments aren't supported for GitHub Copilot in Conduit yet."
                                 .to_string()
+                        }
+                        AgentType::Pi => {
+                            "Image attachments aren't supported for Pi in Conduit yet.".to_string()
                         }
                         _ => "Image attachments aren't supported for this agent.".to_string(),
                     },
@@ -8826,6 +8865,7 @@ impl App {
                 | AgentType::Gemini
                 | AgentType::Opencode
                 | AgentType::Copilot
+                | AgentType::Pi
         ) {
             agent_prompt = Self::strip_image_placeholders(agent_prompt, &image_placeholders);
         }
@@ -8920,7 +8960,7 @@ impl App {
             }
         }
 
-        if matches!(agent_type, AgentType::Codex | AgentType::Opencode) {
+        if matches!(agent_type, AgentType::Codex | AgentType::Opencode | AgentType::Pi) {
             let is_active_tab = self.state.tab_manager.active_index() == tab_index;
             if let Some(session) = self.state.tab_manager.session_mut(tab_index) {
                 if let Some(ref input_tx) = session.agent_input_tx {

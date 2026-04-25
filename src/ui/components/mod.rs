@@ -116,6 +116,7 @@ pub use theme::{
     agent_copilot,
     agent_gemini,
     agent_opencode,
+    agent_pi,
     // Background colors (functions)
     bg_base,
     bg_elevated,
