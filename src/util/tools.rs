@@ -81,7 +81,9 @@ impl Tool {
             Tool::Gemini => "Gemini CLI is an AI coding assistant from Google.",
             Tool::Opencode => "OpenCode is a multi-provider AI coding assistant.",
             Tool::Copilot => "GitHub Copilot CLI is an AI coding assistant from GitHub.",
-            Tool::Pi => "Pi is a terminal coding agent with persistent sessions and structured RPC.",
+            Tool::Pi => {
+                "Pi is a terminal coding agent with persistent sessions and structured RPC."
+            }
         }
     }
 

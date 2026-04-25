@@ -33,10 +33,10 @@ use uuid::Uuid;
 use crate::agent::events::UserQuestion;
 use crate::agent::{
     load_claude_history_with_debug, load_codex_history_with_debug,
-    load_opencode_history_for_dir_with_debug, load_opencode_history_with_debug, AgentEvent,
-    AgentInput, AgentMode, AgentRunner, AgentStartConfig, AgentType, ClaudeCodeRunner,
-    CodexCliRunner, CopilotRunner, GeminiCliRunner, HistoryDebugEntry, MessageDisplay,
-    ModelRegistry, OpencodeRunner, PiRunner, SessionId,
+    load_opencode_history_for_dir_with_debug, load_opencode_history_with_debug,
+    load_pi_history_with_debug, AgentEvent, AgentInput, AgentMode, AgentRunner, AgentStartConfig,
+    AgentType, ClaudeCodeRunner, CodexCliRunner, CopilotRunner, GeminiCliRunner, HistoryDebugEntry,
+    MessageDisplay, ModelRegistry, OpencodeRunner, PiRunner, SessionId,
 };
 use crate::command_resolver::{
     CommandResolver, ConduitCommand, MenuEntryKind, ResolveResult, ResolvedPrompt,
@@ -739,12 +739,18 @@ impl App {
                         );
                     }
                     AgentType::Pi => {
-                        session.chat_view.push(
-                            MessageDisplay::System {
-                                content: "Pi history import isn't supported yet, so previous messages won't be shown.".to_string(),
+                        if let Ok((msgs, debug_entries, file_path)) =
+                            load_pi_history_with_debug(session_id_str)
+                        {
+                            Self::populate_debug_from_history(
+                                &mut session.raw_events_view,
+                                &debug_entries,
+                                &file_path,
+                            );
+                            for msg in msgs {
+                                session.chat_view.push(msg);
                             }
-                            .to_chat_message(),
-                        );
+                        }
                     }
                 }
             } else if tab.agent_type == AgentType::Opencode {
@@ -4042,12 +4048,18 @@ impl App {
                             );
                         }
                         AgentType::Pi => {
-                            session.chat_view.push(
-                                MessageDisplay::System {
-                                    content: "Pi history import isn't supported yet, so previous messages won't be shown.".to_string(),
+                            if let Ok((msgs, debug_entries, file_path)) =
+                                load_pi_history_with_debug(session_id_str)
+                            {
+                                Self::populate_debug_from_history(
+                                    &mut session.raw_events_view,
+                                    &debug_entries,
+                                    &file_path,
+                                );
+                                for msg in msgs {
+                                    session.chat_view.push(msg);
                                 }
-                                .to_chat_message(),
-                            );
+                            }
                         }
                     }
                 } else if saved.agent_type == AgentType::Opencode {
@@ -5607,14 +5619,18 @@ impl App {
                 );
             }
             AgentType::Pi => {
-                session.resume_session_id = None;
-                session.agent_session_id = None;
-                session.chat_view.push(
-                    MessageDisplay::System {
-                        content: "Pi session import isn't supported yet.".to_string(),
+                if let Ok((msgs, debug_entries, file_path)) =
+                    load_pi_history_with_debug(&session_id_str)
+                {
+                    Self::populate_debug_from_history(
+                        &mut session.raw_events_view,
+                        &debug_entries,
+                        &file_path,
+                    );
+                    for msg in msgs {
+                        session.chat_view.push(msg);
                     }
-                    .to_chat_message(),
-                );
+                }
             }
         }
 
@@ -7686,7 +7702,9 @@ impl App {
                 AgentEvent::TurnCompleted(completed) => {
                     session.add_usage(completed.usage);
                     session.stop_processing();
-                    if session.inline_prompt.is_none() && !session.capabilities.supports_interactive_input {
+                    if session.inline_prompt.is_none()
+                        && !session.capabilities.supports_interactive_input
+                    {
                         session.agent_input_tx = None;
                     }
                     if session.inline_prompt.is_none() && !session.queued_messages.is_empty() {
@@ -8960,7 +8978,10 @@ impl App {
             }
         }
 
-        if matches!(agent_type, AgentType::Codex | AgentType::Opencode | AgentType::Pi) {
+        if matches!(
+            agent_type,
+            AgentType::Codex | AgentType::Opencode | AgentType::Pi
+        ) {
             let is_active_tab = self.state.tab_manager.active_index() == tab_index;
             if let Some(session) = self.state.tab_manager.session_mut(tab_index) {
                 if let Some(ref input_tx) = session.agent_input_tx {
@@ -12897,7 +12918,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_turn_completed_clears_codex_input_channel() {
+    async fn test_turn_completed_keeps_codex_input_channel() {
         let session_id = Uuid::new_v4();
         let mut app = build_test_app_with_sessions(&[session_id]);
 
@@ -12927,7 +12948,7 @@ mod tests {
             .tab_manager
             .session_by_id_mut(session_id)
             .expect("session missing");
-        assert!(session.agent_input_tx.is_none());
+        assert!(session.agent_input_tx.is_some());
         assert!(!session.is_processing);
     }
 

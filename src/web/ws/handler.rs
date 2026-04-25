@@ -454,14 +454,12 @@ impl SessionManager {
             | AgentType::Gemini
             | AgentType::Opencode
             | AgentType::Copilot
-            | AgentType::Pi => {
-                AgentInput::CodexPrompt {
-                    text: input,
-                    images,
-                    model,
-                    skill,
-                }
-            }
+            | AgentType::Pi => AgentInput::CodexPrompt {
+                text: input,
+                images,
+                model,
+                skill,
+            },
         };
 
         input_tx
@@ -1514,7 +1512,9 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                             }
                             continue;
                         }
-                        Some(AgentType::Opencode) | Some(AgentType::Copilot) | Some(AgentType::Pi) => {
+                        Some(AgentType::Opencode)
+                        | Some(AgentType::Copilot)
+                        | Some(AgentType::Pi) => {
                             if let Err(send_err) = tx
                                 .send(ServerMessage::session_error(
                                     session_id,

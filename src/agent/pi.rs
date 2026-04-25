@@ -161,8 +161,14 @@ impl PiRunner {
             })
     }
 
-    async fn convert_event(value: Value, event_tx: &mpsc::Sender<AgentEvent>) -> Result<(), AgentError> {
-        let event_type = value.get("type").and_then(Value::as_str).unwrap_or_default();
+    async fn convert_event(
+        value: Value,
+        event_tx: &mpsc::Sender<AgentEvent>,
+    ) -> Result<(), AgentError> {
+        let event_type = value
+            .get("type")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
         match event_type {
             "message_update" => {
                 let Some(assistant_event) = value.get("assistantMessageEvent") else {
@@ -242,7 +248,9 @@ impl PiRunner {
             "tool_execution_update" => {
                 if value.get("toolName").and_then(Value::as_str) == Some("bash") {
                     let output = Self::extract_text_content(
-                        value.get("partialResult").and_then(|result| result.get("content")),
+                        value
+                            .get("partialResult")
+                            .and_then(|result| result.get("content")),
                     );
                     if !output.is_empty() {
                         event_tx
@@ -263,8 +271,9 @@ impl PiRunner {
                 }
             }
             "tool_execution_end" => {
-                let result_text =
-                    Self::extract_text_content(value.get("result").and_then(|result| result.get("content")));
+                let result_text = Self::extract_text_content(
+                    value.get("result").and_then(|result| result.get("content")),
+                );
                 let is_error = value
                     .get("isError")
                     .and_then(Value::as_bool)
@@ -443,7 +452,10 @@ impl AgentRunner for PiRunner {
                     let message = if stderr_content.trim().is_empty() {
                         format!("Pi process exited with status: {exit_status}")
                     } else {
-                        format!("Pi process failed ({exit_status}): {}", stderr_content.trim())
+                        format!(
+                            "Pi process failed ({exit_status}): {}",
+                            stderr_content.trim()
+                        )
                     };
                     let _ = event_tx_for_monitor
                         .send(AgentEvent::Error(ErrorEvent {
@@ -486,7 +498,9 @@ impl AgentRunner for PiRunner {
             .get("data")
             .and_then(|data| data.get("sessionId"))
             .and_then(Value::as_str)
-            .ok_or_else(|| AgentError::Config("Pi RPC get_state did not return a session id".to_string()))?
+            .ok_or_else(|| {
+                AgentError::Config("Pi RPC get_state did not return a session id".to_string())
+            })?
             .to_string();
 
         event_tx

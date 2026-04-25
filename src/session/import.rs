@@ -1,6 +1,6 @@
 //! Session discovery and import utilities
 //!
-//! Provides functions to discover sessions from Claude Code, Codex CLI, and OpenCode,
+//! Provides functions to discover sessions from Claude Code, Codex CLI, OpenCode, and Pi,
 //! and parse them for display in the import picker. (Gemini CLI discovery
 //! is not supported yet.)
 
@@ -123,12 +123,13 @@ struct ClaudeHistoryEntry {
     session_id: Option<String>,
 }
 
-/// Discover all sessions from both Claude Code and Codex CLI
+/// Discover all sessions from supported external agents.
 pub fn discover_all_sessions() -> Vec<ExternalSession> {
     let mut sessions = Vec::new();
     sessions.extend(discover_claude_sessions());
     sessions.extend(discover_codex_sessions());
     sessions.extend(discover_opencode_sessions());
+    sessions.extend(discover_pi_sessions());
 
     // Sort by timestamp descending (most recent first)
     sessions.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
@@ -231,6 +232,10 @@ fn scan_session_files() -> Vec<(PathBuf, u64)> {
         }
     }
 
+    if let Some(sessions_dir) = pi_sessions_dir() {
+        files.extend(scan_pi_session_files(&sessions_dir));
+    }
+
     files
 }
 
@@ -246,6 +251,33 @@ fn opencode_storage_dir() -> Option<PathBuf> {
         candidates.push(home.join(".local/share/opencode/storage"));
     }
     candidates.into_iter().find(|path| path.exists())
+}
+
+fn pi_sessions_dir() -> Option<PathBuf> {
+    dirs::home_dir()
+        .map(|home| home.join(".pi").join("agent").join("sessions"))
+        .filter(|path| path.exists())
+}
+
+fn scan_recursive_session_files(dir: &Path, extension: &str, files: &mut Vec<(PathBuf, u64)>) {
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                scan_recursive_session_files(&path, extension, files);
+            } else if path.extension().and_then(|e| e.to_str()) == Some(extension) {
+                if let Some(mtime) = get_file_mtime(&path) {
+                    files.push((path, mtime));
+                }
+            }
+        }
+    }
+}
+
+fn scan_pi_session_files(sessions_dir: &Path) -> Vec<(PathBuf, u64)> {
+    let mut files = Vec::new();
+    scan_recursive_session_files(sessions_dir, "jsonl", &mut files);
+    files
 }
 
 /// Scan Claude session files from projects directory
@@ -366,6 +398,11 @@ fn scan_opencode_session_files(sessions_dir: &PathBuf) -> Vec<(PathBuf, u64)> {
 /// Read a single session file and return ExternalSession
 fn read_single_session(path: &PathBuf) -> Option<ExternalSession> {
     let home = dirs::home_dir()?;
+    if let Some(pi_dir) = pi_sessions_dir() {
+        if path.starts_with(&pi_dir) {
+            return parse_pi_session_file(path);
+        }
+    }
 
     // Determine session type based on path
     if path.starts_with(home.join(".claude")) {
@@ -694,6 +731,21 @@ pub fn discover_opencode_sessions() -> Vec<ExternalSession> {
     sessions
 }
 
+/// Discover Pi sessions from ~/.pi/agent/sessions
+pub fn discover_pi_sessions() -> Vec<ExternalSession> {
+    let Some(sessions_dir) = pi_sessions_dir() else {
+        return Vec::new();
+    };
+
+    let mut sessions = Vec::new();
+    for (path, _) in scan_pi_session_files(&sessions_dir) {
+        if let Some(session) = parse_pi_session_file(&path) {
+            sessions.push(session);
+        }
+    }
+    sessions
+}
+
 /// Parse a Codex session file and extract metadata
 fn parse_codex_session_file(path: &PathBuf) -> Option<ExternalSession> {
     let file = File::open(path).ok()?;
@@ -881,6 +933,130 @@ fn parse_opencode_session_file(path: &Path, storage_dir: &Path) -> Option<Extern
         message_count,
         file_path: path.to_path_buf(),
     })
+}
+
+fn parse_pi_session_file(path: &Path) -> Option<ExternalSession> {
+    let file = File::open(path).ok()?;
+    let reader = BufReader::new(file);
+
+    let mut session_id: Option<String> = None;
+    let mut project: Option<String> = None;
+    let mut timestamp: Option<DateTime<Utc>> = None;
+    let mut message_count = 0usize;
+    let mut first_user_message = String::new();
+
+    for (line_number, line) in reader.lines().enumerate() {
+        let line = match line {
+            Ok(line) => line,
+            Err(_) => continue,
+        };
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        let entry: Value = match serde_json::from_str(&line) {
+            Ok(entry) => entry,
+            Err(_) => continue,
+        };
+
+        if line_number == 0 && entry.get("type").and_then(|t| t.as_str()) == Some("session") {
+            session_id = entry
+                .get("id")
+                .and_then(|id| id.as_str())
+                .map(ToOwned::to_owned);
+            project = entry
+                .get("cwd")
+                .and_then(|cwd| cwd.as_str())
+                .map(ToOwned::to_owned);
+            timestamp = entry
+                .get("timestamp")
+                .and_then(|ts| ts.as_str())
+                .and_then(|ts| DateTime::parse_from_rfc3339(ts).ok())
+                .map(|ts| ts.with_timezone(&Utc));
+            continue;
+        }
+
+        if entry.get("type").and_then(|t| t.as_str()) != Some("message") {
+            continue;
+        }
+
+        let Some(message) = entry.get("message") else {
+            continue;
+        };
+        let Some(role) = message.get("role").and_then(|role| role.as_str()) else {
+            continue;
+        };
+
+        match role {
+            "user" | "assistant" | "toolResult" | "bashExecution" => {
+                message_count = message_count.saturating_add(1);
+            }
+            _ => {}
+        }
+
+        if first_user_message.is_empty() && role == "user" {
+            let content = extract_pi_content(message.get("content"));
+            if !content.trim().is_empty() {
+                first_user_message = content;
+            }
+        }
+    }
+
+    let session_id = session_id?;
+    if message_count == 0 {
+        return None;
+    }
+
+    let timestamp = timestamp.unwrap_or_else(|| {
+        path.metadata()
+            .and_then(|m| m.modified())
+            .map(DateTime::<Utc>::from)
+            .unwrap_or_else(|_| Utc::now())
+    });
+
+    Some(ExternalSession {
+        id: session_id,
+        agent_type: AgentType::Pi,
+        display: if first_user_message.is_empty() {
+            "(No message)".to_string()
+        } else {
+            first_user_message
+        },
+        project,
+        timestamp,
+        message_count,
+        file_path: path.to_path_buf(),
+    })
+}
+
+fn extract_pi_content(content: Option<&Value>) -> String {
+    let Some(content) = content else {
+        return String::new();
+    };
+    match content {
+        Value::String(text) => text.clone(),
+        Value::Array(blocks) => {
+            let mut parts = Vec::new();
+            for block in blocks {
+                match block.get("type").and_then(|t| t.as_str()) {
+                    Some("text") => {
+                        if let Some(text) = block.get("text").and_then(|t| t.as_str()) {
+                            parts.push(text.to_string());
+                        }
+                    }
+                    Some("thinking") => {
+                        if let Some(text) = block.get("thinking").and_then(|t| t.as_str()) {
+                            parts.push(text.to_string());
+                        }
+                    }
+                    Some("image") => parts.push("[Image]".to_string()),
+                    _ => {}
+                }
+            }
+            parts.join("\n")
+        }
+        _ => String::new(),
+    }
 }
 
 /// Peek at a Claude session file to get message count and first user message

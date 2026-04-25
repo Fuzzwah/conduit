@@ -3,8 +3,8 @@
 use std::sync::Arc;
 
 use crate::agent::{
-    ClaudeCodeRunner, CodexCliRunner, CopilotRunner, GeminiCliRunner, ModelRegistry, OpencodeRunner,
-    PiRunner,
+    ClaudeCodeRunner, CodexCliRunner, CopilotRunner, GeminiCliRunner, ModelRegistry,
+    OpencodeRunner, PiRunner,
 };
 use crate::config::Config;
 use crate::data::{
