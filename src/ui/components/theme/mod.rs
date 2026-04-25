@@ -342,6 +342,8 @@ pub fn agent_copilot() -> Color {
 
 #[inline]
 pub fn agent_pi() -> Color {
+    // Reuse the OpenCode color for now; both are multi-provider agents and a dedicated
+    // theme field can be added later if Pi needs separate branding.
     current_theme().agent_opencode
 }
 

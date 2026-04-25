@@ -12918,7 +12918,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_turn_completed_keeps_codex_input_channel() {
+    async fn test_turn_completed_keeps_interactive_input_channel() {
         let session_id = Uuid::new_v4();
         let mut app = build_test_app_with_sessions(&[session_id]);
 
