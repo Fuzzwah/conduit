@@ -4,6 +4,8 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use reqwest::Client;
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -825,6 +827,53 @@ fn parse_claude_models_output(text: &str) -> Vec<ClaudeModelEntry> {
     entries
 }
 
+/// Fetch available Claude models from the Anthropic REST API.
+///
+/// Requires `ANTHROPIC_API_KEY` to be set in the environment.
+async fn fetch_claude_models_from_api() -> Option<Vec<ClaudeModelEntry>> {
+    let api_key = std::env::var("ANTHROPIC_API_KEY").ok()?;
+
+    #[derive(Deserialize)]
+    struct ApiModel {
+        id: String,
+        display_name: String,
+    }
+    #[derive(Deserialize)]
+    struct ModelsResponse {
+        data: Vec<ApiModel>,
+    }
+
+    let response = Client::new()
+        .get("https://api.anthropic.com/v1/models")
+        .header("x-api-key", &api_key)
+        .header("anthropic-version", "2023-06-01")
+        .send()
+        .await
+        .ok()?;
+
+    if !response.status().is_success() {
+        tracing::debug!(status = %response.status(), "Anthropic models API returned non-success");
+        return None;
+    }
+
+    let body: ModelsResponse = response.json().await.ok()?;
+    let entries: Vec<ClaudeModelEntry> = body
+        .data
+        .into_iter()
+        .filter(|m| m.id.starts_with("claude-"))
+        .map(|m| ClaudeModelEntry {
+            id: m.id,
+            display_name: m.display_name,
+        })
+        .collect();
+
+    if entries.is_empty() {
+        None
+    } else {
+        Some(entries)
+    }
+}
+
 fn discover_claude_models(binary: &PathBuf) -> Option<Vec<ClaudeModelEntry>> {
     let output = std::process::Command::new(binary)
         .arg("models")
@@ -847,9 +896,6 @@ pub fn load_claude_models(binary_path: Option<PathBuf>) -> Vec<ClaudeModelEntry>
     let binary = binary_path
         .filter(|path| path.exists())
         .or_else(|| which::which("claude").ok());
-    let Some(binary) = binary else {
-        return Vec::new();
-    };
 
     // Read the cache once and decide whether a background refresh is needed.
     let (cached_models, is_fresh) =
@@ -862,10 +908,25 @@ pub fn load_claude_models(binary_path: Option<PathBuf>) -> Vec<ClaudeModelEntry>
         };
 
     // Spawn a background refresh whenever the cache is absent or stale so startup
-    // is never blocked on the `claude models` CLI call.
+    // is never blocked. Tries the Anthropic API first; falls back to CLI if needed.
     if !is_fresh {
-        std::thread::spawn(move || {
-            if let Some(entries) = discover_claude_models(&binary) {
+        tokio::task::spawn(async move {
+            // API is preferred: reliable JSON, no output-format guesswork.
+            let entries = fetch_claude_models_from_api().await;
+
+            // Fall back to the `claude models` CLI subprocess if the API is unavailable.
+            let entries = if entries.is_some() {
+                entries
+            } else if let Some(bin) = binary {
+                tokio::task::spawn_blocking(move || discover_claude_models(&bin))
+                    .await
+                    .ok()
+                    .flatten()
+            } else {
+                None
+            };
+
+            if let Some(entries) = entries {
                 if let Some(path) = claude_cache_path() {
                     if let Err(err) = save_claude_cache(&path, &entries) {
                         tracing::debug!(error = %err, "Failed to save Claude model cache");
