@@ -359,10 +359,19 @@ impl App {
     // When false, auto-scroll only starts after the cursor leaves the chat area.
     const AUTO_SCROLL_ON_EDGE_INCLUSIVE: bool = true;
     pub fn new(config: Config, tools: ToolAvailability) -> Self {
+        Self::new_with_progress(config, tools, |_| {})
+    }
+
+    /// Like `new`, but calls `progress` with a human-readable label at each initialization phase.
+    pub(crate) fn new_with_progress(
+        config: Config,
+        tools: ToolAvailability,
+        mut progress: impl FnMut(&str),
+    ) -> Self {
         let (event_tx, event_rx) = mpsc::unbounded_channel();
 
         // Create core infrastructure (database, runners, worktree manager)
-        let core = ConduitCore::new(config.clone(), tools);
+        let core = ConduitCore::new_with_progress(config.clone(), tools, &mut progress);
 
         // Initialize git tracker
         let (git_update_tx, mut git_update_rx) = mpsc::unbounded_channel();
@@ -396,10 +405,10 @@ impl App {
             .agent_selector_state
             .update_available_agents(&tools);
 
-        // Load sidebar data
+        progress("Loading projects");
         app.refresh_sidebar_data();
 
-        // Restore session state
+        progress("Restoring sessions");
         app.restore_session_state();
 
         // Honour always_show_sidebar: force visible regardless of saved state
