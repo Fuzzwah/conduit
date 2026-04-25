@@ -1203,8 +1203,29 @@ impl App {
         // Clear screen
         terminal.clear()?;
 
-        // Main event loop
-        let result = self.event_loop(&mut terminal, &mut guard).await;
+        self.run_terminal_event_loop(&mut terminal, &mut guard)
+            .await
+    }
+
+    /// Run with an already-prepared terminal (raw mode + alternate screen already active).
+    /// Used when the caller has entered the terminal before constructing the App, e.g. to
+    /// show a startup splash while initialization runs.
+    pub async fn run_with_prepared_terminal(
+        &mut self,
+        terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+        guard: &mut TerminalGuard,
+    ) -> anyhow::Result<()> {
+        self.spawn_shutdown_listeners();
+        terminal.clear()?;
+        self.run_terminal_event_loop(terminal, guard).await
+    }
+
+    async fn run_terminal_event_loop(
+        &mut self,
+        terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+        guard: &mut TerminalGuard,
+    ) -> anyhow::Result<()> {
+        let result = self.event_loop(terminal, guard).await;
 
         // Best-effort persistence on any exit path.
         self.persist_session_state_on_exit();
