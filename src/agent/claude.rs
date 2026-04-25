@@ -815,6 +815,11 @@ fn parse_claude_models_output(text: &str) -> Vec<ClaudeModelEntry> {
         {
             continue;
         }
+        // Validate: all real Claude model IDs start with "claude-".
+        // This rejects column headers and garbage from unexpected output formats.
+        if !id.starts_with("claude-") {
+            continue;
+        }
         entries.push(ClaudeModelEntry { id, display_name });
     }
     entries
@@ -846,43 +851,32 @@ pub fn load_claude_models(binary_path: Option<PathBuf>) -> Vec<ClaudeModelEntry>
         return Vec::new();
     };
 
-    if let Some(path) = claude_cache_path() {
-        if let Some(cache) = load_claude_cache(&path) {
-            if claude_cache_is_fresh(&cache) {
-                return cache.models;
+    // Read the cache once and decide whether a background refresh is needed.
+    let (cached_models, is_fresh) =
+        match claude_cache_path().and_then(|p| load_claude_cache(&p).map(|c| (p, c))) {
+            Some((_, cache)) => {
+                let fresh = claude_cache_is_fresh(&cache);
+                (cache.models, fresh)
             }
-            // Cache is stale — return it immediately and refresh in the background so
-            // startup isn't blocked waiting for the `claude models` CLI call.
-            let stale_models = cache.models.clone();
-            let binary_bg = binary.clone();
-            let path_bg = path.clone();
-            std::thread::spawn(move || {
-                if let Some(entries) = discover_claude_models(&binary_bg) {
-                    if let Err(err) = save_claude_cache(&path_bg, &entries) {
+            None => (Vec::new(), false),
+        };
+
+    // Spawn a background refresh whenever the cache is absent or stale so startup
+    // is never blocked on the `claude models` CLI call.
+    if !is_fresh {
+        std::thread::spawn(move || {
+            if let Some(entries) = discover_claude_models(&binary) {
+                if let Some(path) = claude_cache_path() {
+                    if let Err(err) = save_claude_cache(&path, &entries) {
                         tracing::debug!(error = %err, "Failed to save Claude model cache");
                     }
-                    crate::agent::ModelRegistry::set_claude_models(entries);
                 }
-            });
-            return stale_models;
-        }
+                crate::agent::ModelRegistry::set_claude_models(entries);
+            }
+        });
     }
 
-    // No cache at all — discover synchronously (first run only).
-    match discover_claude_models(&binary) {
-        Some(entries) => {
-            if let Some(path) = claude_cache_path() {
-                if let Err(err) = save_claude_cache(&path, &entries) {
-                    tracing::debug!(error = %err, "Failed to save Claude model cache");
-                }
-            }
-            entries
-        }
-        None => {
-            tracing::debug!("claude models subcommand unavailable or returned no models");
-            Vec::new()
-        }
-    }
+    cached_models
 }
 
 #[cfg(test)]

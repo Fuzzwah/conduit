@@ -2425,46 +2425,34 @@ pub fn load_opencode_models(binary_path: Option<PathBuf>) -> Vec<String> {
         return Vec::new();
     };
 
-    if let Some(path) = cache_path() {
-        if let Some(cache) = load_cache(&path) {
-            if cache_is_fresh(&cache) {
-                return cache.models;
-            }
-            // Cache is stale — return it immediately and refresh in the background so
-            // startup isn't blocked waiting for the `opencode models` CLI call.
-            let stale_models = cache.models.clone();
-            let binary_bg = binary.clone();
-            let path_bg = path.clone();
-            std::thread::spawn(move || {
-                if let Ok(models) = discover_models(&binary_bg) {
-                    if !models.is_empty() {
-                        if let Err(err) = save_cache(&path_bg, &models) {
+    // Read the cache once and decide whether a background refresh is needed.
+    let (cached_models, is_fresh) = match cache_path().and_then(|p| load_cache(&p).map(|c| (p, c)))
+    {
+        Some((_, cache)) => {
+            let fresh = cache_is_fresh(&cache);
+            (cache.models, fresh)
+        }
+        None => (Vec::new(), false),
+    };
+
+    // Spawn a background refresh whenever the cache is absent or stale so startup
+    // is never blocked on the `opencode models` CLI call.
+    if !is_fresh {
+        std::thread::spawn(move || {
+            if let Ok(models) = discover_models(&binary) {
+                if !models.is_empty() {
+                    if let Some(path) = cache_path() {
+                        if let Err(err) = save_cache(&path, &models) {
                             tracing::debug!(error = %err, "Failed to save OpenCode model cache");
                         }
-                        ModelRegistry::set_opencode_models(models);
                     }
-                }
-            });
-            return stale_models;
-        }
-    }
-
-    // No cache at all — discover synchronously (first run only).
-    match discover_models(&binary) {
-        Ok(models) if !models.is_empty() => {
-            if let Some(path) = cache_path() {
-                if let Err(err) = save_cache(&path, &models) {
-                    tracing::debug!(error = %err, "Failed to save OpenCode model cache");
+                    ModelRegistry::set_opencode_models(models);
                 }
             }
-            models
-        }
-        Ok(_) => Vec::new(),
-        Err(err) => {
-            tracing::debug!(error = %err, "Failed to discover OpenCode models");
-            Vec::new()
-        }
+        });
     }
+
+    cached_models
 }
 
 #[cfg(test)]
