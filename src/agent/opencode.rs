@@ -2425,17 +2425,31 @@ pub fn load_opencode_models(binary_path: Option<PathBuf>) -> Vec<String> {
         return Vec::new();
     };
 
-    let cache = cache_path().and_then(|path| {
-        let cached = load_cache(&path);
-        if cached.as_ref().is_some_and(cache_is_fresh) {
-            return cached.map(|cache| cache.models);
+    if let Some(path) = cache_path() {
+        if let Some(cache) = load_cache(&path) {
+            if cache_is_fresh(&cache) {
+                return cache.models;
+            }
+            // Cache is stale — return it immediately and refresh in the background so
+            // startup isn't blocked waiting for the `opencode models` CLI call.
+            let stale_models = cache.models.clone();
+            let binary_bg = binary.clone();
+            let path_bg = path.clone();
+            std::thread::spawn(move || {
+                if let Ok(models) = discover_models(&binary_bg) {
+                    if !models.is_empty() {
+                        if let Err(err) = save_cache(&path_bg, &models) {
+                            tracing::debug!(error = %err, "Failed to save OpenCode model cache");
+                        }
+                        ModelRegistry::set_opencode_models(models);
+                    }
+                }
+            });
+            return stale_models;
         }
-        None
-    });
-    if let Some(models) = cache {
-        return models;
     }
 
+    // No cache at all — discover synchronously (first run only).
     match discover_models(&binary) {
         Ok(models) if !models.is_empty() => {
             if let Some(path) = cache_path() {
@@ -2448,11 +2462,6 @@ pub fn load_opencode_models(binary_path: Option<PathBuf>) -> Vec<String> {
         Ok(_) => Vec::new(),
         Err(err) => {
             tracing::debug!(error = %err, "Failed to discover OpenCode models");
-            if let Some(path) = cache_path() {
-                if let Some(cache) = load_cache(&path) {
-                    return cache.models;
-                }
-            }
             Vec::new()
         }
     }
