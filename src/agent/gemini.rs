@@ -837,3 +837,151 @@ impl AgentRunner for GeminiCliRunner {
         Self::find_binary().or_else(Self::find_npx)
     }
 }
+
+// ============================================================================
+// Model discovery via Google AI API
+// ============================================================================
+
+const GEMINI_MODEL_CACHE_TTL_SECS: u64 = 60 * 60 * 24;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GeminiModelEntry {
+    pub id: String,
+    pub display_name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct GeminiModelApiCache {
+    generated_at: u64,
+    models: Vec<GeminiModelEntry>,
+}
+
+fn gemini_api_cache_path() -> Option<PathBuf> {
+    dirs::cache_dir().map(|dir| dir.join("conduit").join("gemini_api_models.json"))
+}
+
+fn gemini_api_now_secs() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
+}
+
+fn load_gemini_api_cache(path: &PathBuf) -> Option<GeminiModelApiCache> {
+    let data = match std::fs::read_to_string(path) {
+        Ok(data) => data,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return None,
+        Err(err) => {
+            tracing::debug!(path = %path.display(), error = %err, "Failed to read Gemini model cache");
+            return None;
+        }
+    };
+    match serde_json::from_str(&data) {
+        Ok(cache) => Some(cache),
+        Err(err) => {
+            tracing::debug!(path = %path.display(), error = %err, "Failed to parse Gemini model cache");
+            None
+        }
+    }
+}
+
+fn gemini_api_cache_is_fresh(cache: &GeminiModelApiCache) -> bool {
+    gemini_api_now_secs().saturating_sub(cache.generated_at) <= GEMINI_MODEL_CACHE_TTL_SECS
+}
+
+fn save_gemini_api_cache(path: &PathBuf, models: &[GeminiModelEntry]) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let cache = GeminiModelApiCache {
+        generated_at: gemini_api_now_secs(),
+        models: models.to_vec(),
+    };
+    let payload = serde_json::to_string_pretty(&cache)
+        .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidData, err))?;
+    std::fs::write(path, payload)
+}
+
+async fn fetch_gemini_models_from_api() -> Option<Vec<GeminiModelEntry>> {
+    let api_key = std::env::var("GEMINI_API_KEY")
+        .or_else(|_| std::env::var("GOOGLE_API_KEY"))
+        .ok()?;
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct ApiModel {
+        name: String,
+        #[serde(default)]
+        display_name: String,
+    }
+    #[derive(Deserialize)]
+    struct ModelsResponse {
+        models: Vec<ApiModel>,
+    }
+
+    let url = format!(
+        "https://generativelanguage.googleapis.com/v1beta/models?key={}",
+        api_key
+    );
+    let response = reqwest::Client::new().get(&url).send().await.ok()?;
+
+    if !response.status().is_success() {
+        tracing::debug!(status = %response.status(), "Gemini models API returned non-success");
+        return None;
+    }
+
+    let body: ModelsResponse = response.json().await.ok()?;
+    let mut entries: Vec<GeminiModelEntry> = body
+        .models
+        .into_iter()
+        .filter_map(|m| {
+            let id = m.name.strip_prefix("models/")?.to_string();
+            if !id.starts_with("gemini-") {
+                return None;
+            }
+            if id.contains("embedding") || id.contains("aqa") {
+                return None;
+            }
+            let display_name = if m.display_name.is_empty() {
+                id.clone()
+            } else {
+                m.display_name
+            };
+            Some(GeminiModelEntry { id, display_name })
+        })
+        .collect();
+    entries.sort_by(|a, b| b.id.cmp(&a.id));
+
+    if entries.is_empty() {
+        None
+    } else {
+        Some(entries)
+    }
+}
+
+pub fn load_gemini_models() -> Vec<GeminiModelEntry> {
+    let (cached_models, is_fresh) =
+        match gemini_api_cache_path().and_then(|p| load_gemini_api_cache(&p).map(|c| (p, c))) {
+            Some((_, cache)) => {
+                let fresh = gemini_api_cache_is_fresh(&cache);
+                (cache.models, fresh)
+            }
+            None => (Vec::new(), false),
+        };
+
+    if !is_fresh {
+        tokio::task::spawn(async move {
+            let entries = fetch_gemini_models_from_api().await;
+            if let Some(entries) = entries {
+                if let Some(path) = gemini_api_cache_path() {
+                    if let Err(err) = save_gemini_api_cache(&path, &entries) {
+                        tracing::debug!(error = %err, "Failed to save Gemini model cache");
+                    }
+                }
+                crate::agent::ModelRegistry::set_gemini_models(entries);
+            }
+        });
+    }
+
+    cached_models
+}

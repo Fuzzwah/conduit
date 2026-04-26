@@ -1671,3 +1671,176 @@ mod tests {
         }
     }
 }
+
+// ============================================================================
+// Model discovery
+// ============================================================================
+
+const CODEX_MODEL_CACHE_TTL_SECS: u64 = 60 * 60 * 24;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodexModelEntry {
+    pub id: String,
+    pub display_name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct CodexModelCache {
+    generated_at: u64,
+    models: Vec<CodexModelEntry>,
+}
+
+fn codex_cache_path() -> Option<PathBuf> {
+    dirs::cache_dir().map(|dir| dir.join("conduit").join("codex_models.json"))
+}
+
+fn codex_now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
+}
+
+fn load_codex_cache(path: &PathBuf) -> Option<CodexModelCache> {
+    let data = match std::fs::read_to_string(path) {
+        Ok(data) => data,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return None,
+        Err(err) => {
+            tracing::debug!(path = %path.display(), error = %err, "Failed to read Codex model cache");
+            return None;
+        }
+    };
+    match serde_json::from_str(&data) {
+        Ok(cache) => Some(cache),
+        Err(err) => {
+            tracing::debug!(path = %path.display(), error = %err, "Failed to parse Codex model cache");
+            None
+        }
+    }
+}
+
+fn codex_cache_is_fresh(cache: &CodexModelCache) -> bool {
+    codex_now_secs().saturating_sub(cache.generated_at) <= CODEX_MODEL_CACHE_TTL_SECS
+}
+
+fn save_codex_cache(path: &PathBuf, models: &[CodexModelEntry]) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let cache = CodexModelCache {
+        generated_at: codex_now_secs(),
+        models: models.to_vec(),
+    };
+    let payload = serde_json::to_string_pretty(&cache)
+        .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidData, err))?;
+    std::fs::write(path, payload)
+}
+
+fn is_codex_chat_model(id: &str) -> bool {
+    let has_prefix = id.starts_with("gpt-")
+        || id.starts_with("o1")
+        || id.starts_with("o3")
+        || id.starts_with("o4")
+        || id.starts_with("codex-");
+    if !has_prefix {
+        return false;
+    }
+    let excluded = [
+        "instruct",
+        "embedding",
+        "whisper",
+        "tts",
+        "dall-e",
+        "search",
+        "moderation",
+        "audio",
+        "realtime",
+    ];
+    !excluded.iter().any(|e| id.contains(e)) && !id.contains("ft:")
+}
+
+fn codex_display_name(id: &str) -> String {
+    id.split('-')
+        .map(|part| {
+            let mut chars = part.chars();
+            match chars.next() {
+                None => String::new(),
+                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+async fn fetch_codex_models_from_api() -> Option<Vec<CodexModelEntry>> {
+    let api_key = std::env::var("OPENAI_API_KEY").ok()?;
+
+    #[derive(Deserialize)]
+    struct ApiModel {
+        id: String,
+    }
+    #[derive(Deserialize)]
+    struct ModelsResponse {
+        data: Vec<ApiModel>,
+    }
+
+    let response = reqwest::Client::new()
+        .get("https://api.openai.com/v1/models")
+        .bearer_auth(&api_key)
+        .send()
+        .await
+        .ok()?;
+
+    if !response.status().is_success() {
+        tracing::debug!(status = %response.status(), "OpenAI models API returned non-success");
+        return None;
+    }
+
+    let body: ModelsResponse = response.json().await.ok()?;
+    let mut entries: Vec<CodexModelEntry> = body
+        .data
+        .into_iter()
+        .filter(|m| is_codex_chat_model(&m.id))
+        .map(|m| {
+            let display_name = codex_display_name(&m.id);
+            CodexModelEntry {
+                id: m.id,
+                display_name,
+            }
+        })
+        .collect();
+    entries.sort_by(|a, b| b.id.cmp(&a.id));
+
+    if entries.is_empty() {
+        None
+    } else {
+        Some(entries)
+    }
+}
+
+pub fn load_codex_models(_binary_path: Option<PathBuf>) -> Vec<CodexModelEntry> {
+    let (cached_models, is_fresh) =
+        match codex_cache_path().and_then(|p| load_codex_cache(&p).map(|c| (p, c))) {
+            Some((_, cache)) => {
+                let fresh = codex_cache_is_fresh(&cache);
+                (cache.models, fresh)
+            }
+            None => (Vec::new(), false),
+        };
+
+    if !is_fresh {
+        tokio::task::spawn(async move {
+            let entries = fetch_codex_models_from_api().await;
+            if let Some(entries) = entries {
+                if let Some(path) = codex_cache_path() {
+                    if let Err(err) = save_codex_cache(&path, &entries) {
+                        tracing::debug!(error = %err, "Failed to save Codex model cache");
+                    }
+                }
+                crate::agent::ModelRegistry::set_codex_models(entries);
+            }
+        });
+    }
+
+    cached_models
+}

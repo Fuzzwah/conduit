@@ -622,3 +622,159 @@ impl AgentRunner for PiRunner {
         }
     }
 }
+
+// ============================================================================
+// Model discovery
+// ============================================================================
+
+const PI_MODEL_CACHE_TTL_SECS: u64 = 60 * 60 * 24;
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct PiModelEntry {
+    pub id: String,
+    pub display_name: String,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct PiModelCache {
+    generated_at: u64,
+    models: Vec<PiModelEntry>,
+}
+
+fn pi_cache_path() -> Option<PathBuf> {
+    dirs::cache_dir().map(|dir| dir.join("conduit").join("pi_models.json"))
+}
+
+fn pi_now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
+}
+
+fn load_pi_cache(path: &PathBuf) -> Option<PiModelCache> {
+    let data = match std::fs::read_to_string(path) {
+        Ok(data) => data,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return None,
+        Err(err) => {
+            tracing::debug!(path = %path.display(), error = %err, "Failed to read Pi model cache");
+            return None;
+        }
+    };
+    match serde_json::from_str(&data) {
+        Ok(cache) => Some(cache),
+        Err(err) => {
+            tracing::debug!(path = %path.display(), error = %err, "Failed to parse Pi model cache");
+            None
+        }
+    }
+}
+
+fn pi_cache_is_fresh(cache: &PiModelCache) -> bool {
+    pi_now_secs().saturating_sub(cache.generated_at) <= PI_MODEL_CACHE_TTL_SECS
+}
+
+fn save_pi_cache(path: &PathBuf, models: &[PiModelEntry]) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let cache = PiModelCache {
+        generated_at: pi_now_secs(),
+        models: models.to_vec(),
+    };
+    let payload = serde_json::to_string_pretty(&cache)
+        .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidData, err))?;
+    std::fs::write(path, payload)
+}
+
+fn discover_pi_models(binary_path: &PathBuf) -> Option<Vec<PiModelEntry>> {
+    let output = std::process::Command::new(binary_path)
+        .arg("--list-models")
+        .output()
+        .ok()?;
+
+    let text = String::from_utf8_lossy(&output.stdout);
+
+    let parse_entry = |v: &serde_json::Value| -> Option<PiModelEntry> {
+        let id = v
+            .get("id")
+            .or_else(|| v.get("name"))
+            .and_then(|s| s.as_str())
+            .map(str::to_string)?;
+        if id.is_empty() {
+            return None;
+        }
+        let display_name = v
+            .get("displayName")
+            .or_else(|| v.get("display_name"))
+            .and_then(|s| s.as_str())
+            .unwrap_or(&id)
+            .to_string();
+        Some(PiModelEntry { id, display_name })
+    };
+
+    if let Ok(arr) = serde_json::from_str::<Vec<serde_json::Value>>(&text) {
+        let entries: Vec<PiModelEntry> = arr.iter().filter_map(parse_entry).collect();
+        if !entries.is_empty() {
+            return Some(entries);
+        }
+    }
+
+    if let Ok(obj) = serde_json::from_str::<serde_json::Value>(&text) {
+        if let Some(arr) = obj.get("models").and_then(|v| v.as_array()) {
+            let entries: Vec<PiModelEntry> = arr.iter().filter_map(parse_entry).collect();
+            if !entries.is_empty() {
+                return Some(entries);
+            }
+        }
+    }
+
+    let text_entries: Vec<PiModelEntry> = text
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .map(|id| PiModelEntry {
+            id: id.to_string(),
+            display_name: id.to_string(),
+        })
+        .collect();
+
+    if text_entries.is_empty() {
+        None
+    } else {
+        Some(text_entries)
+    }
+}
+
+pub fn load_pi_models(binary_path: Option<PathBuf>) -> Vec<PiModelEntry> {
+    let binary = binary_path
+        .filter(|p| p.exists())
+        .or_else(|| which::which("pi").ok());
+
+    let (cached_models, is_fresh) =
+        match pi_cache_path().and_then(|p| load_pi_cache(&p).map(|c| (p, c))) {
+            Some((_, cache)) => {
+                let fresh = pi_cache_is_fresh(&cache);
+                (cache.models, fresh)
+            }
+            None => (Vec::new(), false),
+        };
+
+    if !is_fresh {
+        if let Some(bin) = binary {
+            std::thread::spawn(move || {
+                let entries = discover_pi_models(&bin);
+                if let Some(entries) = entries {
+                    if let Some(path) = pi_cache_path() {
+                        if let Err(err) = save_pi_cache(&path, &entries) {
+                            tracing::debug!(error = %err, "Failed to save Pi model cache");
+                        }
+                    }
+                    crate::agent::ModelRegistry::set_pi_models(entries);
+                }
+            });
+        }
+    }
+
+    cached_models
+}
