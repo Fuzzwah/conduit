@@ -5,7 +5,10 @@ use std::sync::{OnceLock, RwLock};
 use tracing::error;
 
 use crate::agent::claude::{load_claude_models, ClaudeModelEntry};
+use crate::agent::codex::CodexModelEntry;
+use crate::agent::gemini::GeminiModelEntry;
 use crate::agent::opencode::load_opencode_models;
+use crate::agent::pi::PiModelEntry;
 use crate::agent::AgentType;
 
 /// Information about a model
@@ -302,8 +305,159 @@ impl ModelRegistry {
         ]
     }
 
+    fn codex_store() -> &'static RwLock<Vec<ModelInfo>> {
+        static CODEX_MODELS: OnceLock<RwLock<Vec<ModelInfo>>> = OnceLock::new();
+        CODEX_MODELS.get_or_init(|| RwLock::new(Vec::new()))
+    }
+
+    pub fn set_codex_models(entries: Vec<CodexModelEntry>) {
+        let mut models: Vec<ModelInfo> = entries
+            .into_iter()
+            .enumerate()
+            .map(|(i, entry)| {
+                let mut info = ModelInfo::new(
+                    AgentType::Codex,
+                    &entry.id,
+                    &entry.display_name,
+                    &entry.id,
+                    "",
+                    Self::CODEX_CONTEXT_WINDOW,
+                );
+                if i == 0 {
+                    info = info.as_default();
+                }
+                info
+            })
+            .collect();
+        models.sort_by(|a, b| b.id.cmp(&a.id));
+        let mut store = match Self::codex_store().write() {
+            Ok(guard) => guard,
+            Err(err) => {
+                error!(error = %err, "codex_store poisoned in set_codex_models");
+                err.into_inner()
+            }
+        };
+        *store = models;
+    }
+
+    pub fn clear_codex_models() {
+        let mut store = match Self::codex_store().write() {
+            Ok(guard) => guard,
+            Err(err) => {
+                error!(error = %err, "codex_store poisoned in clear_codex_models");
+                err.into_inner()
+            }
+        };
+        store.clear();
+    }
+
+    fn gemini_store() -> &'static RwLock<Vec<ModelInfo>> {
+        static GEMINI_MODELS: OnceLock<RwLock<Vec<ModelInfo>>> = OnceLock::new();
+        GEMINI_MODELS.get_or_init(|| RwLock::new(Vec::new()))
+    }
+
+    pub fn set_gemini_models(entries: Vec<GeminiModelEntry>) {
+        let mut models: Vec<ModelInfo> = entries
+            .into_iter()
+            .enumerate()
+            .map(|(i, entry)| {
+                let mut info = ModelInfo::new(
+                    AgentType::Gemini,
+                    &entry.id,
+                    &entry.display_name,
+                    &entry.id,
+                    "",
+                    Self::GEMINI_CONTEXT_WINDOW,
+                );
+                if i == 0 {
+                    info = info.as_default();
+                }
+                info
+            })
+            .collect();
+        models.sort_by(|a, b| b.id.cmp(&a.id));
+        let mut store = match Self::gemini_store().write() {
+            Ok(guard) => guard,
+            Err(err) => {
+                error!(error = %err, "gemini_store poisoned in set_gemini_models");
+                err.into_inner()
+            }
+        };
+        *store = models;
+    }
+
+    pub fn clear_gemini_models() {
+        let mut store = match Self::gemini_store().write() {
+            Ok(guard) => guard,
+            Err(err) => {
+                error!(error = %err, "gemini_store poisoned in clear_gemini_models");
+                err.into_inner()
+            }
+        };
+        store.clear();
+    }
+
+    fn pi_store() -> &'static RwLock<Vec<ModelInfo>> {
+        static PI_MODELS: OnceLock<RwLock<Vec<ModelInfo>>> = OnceLock::new();
+        PI_MODELS.get_or_init(|| RwLock::new(Vec::new()))
+    }
+
+    pub fn set_pi_models(entries: Vec<PiModelEntry>) {
+        let models: Vec<ModelInfo> = entries
+            .into_iter()
+            .enumerate()
+            .map(|(i, entry)| {
+                let mut info = ModelInfo::new(
+                    AgentType::Pi,
+                    &entry.id,
+                    &entry.display_name,
+                    &entry.id,
+                    "",
+                    Self::PI_CONTEXT_WINDOW,
+                );
+                if i == 0 {
+                    info = info.as_default();
+                }
+                info
+            })
+            .collect();
+        let mut store = match Self::pi_store().write() {
+            Ok(guard) => guard,
+            Err(err) => {
+                error!(error = %err, "pi_store poisoned in set_pi_models");
+                err.into_inner()
+            }
+        };
+        *store = models;
+    }
+
+    pub fn clear_pi_models() {
+        let mut store = match Self::pi_store().write() {
+            Ok(guard) => guard,
+            Err(err) => {
+                error!(error = %err, "pi_store poisoned in clear_pi_models");
+                err.into_inner()
+            }
+        };
+        store.clear();
+    }
+
     /// Get available models for Codex CLI
     pub fn codex_models() -> Vec<ModelInfo> {
+        let dynamic = match Self::codex_store().read() {
+            Ok(guard) => guard.clone(),
+            Err(err) => {
+                error!(error = %err, "codex_store poisoned in codex_models");
+                Vec::new()
+            }
+        };
+        if !dynamic.is_empty() {
+            return dynamic;
+        }
+        Self::codex_models_static()
+    }
+
+    fn codex_models_static() -> Vec<ModelInfo> {
         vec![
             ModelInfo::new(
                 AgentType::Codex,
@@ -367,6 +521,20 @@ impl ModelRegistry {
 
     /// Get available models for Gemini CLI
     pub fn gemini_models() -> Vec<ModelInfo> {
+        let dynamic = match Self::gemini_store().read() {
+            Ok(guard) => guard.clone(),
+            Err(err) => {
+                error!(error = %err, "gemini_store poisoned in gemini_models");
+                Vec::new()
+            }
+        };
+        if !dynamic.is_empty() {
+            return dynamic;
+        }
+        Self::gemini_models_static()
+    }
+
+    fn gemini_models_static() -> Vec<ModelInfo> {
         vec![
             ModelInfo::new(
                 AgentType::Gemini,
@@ -469,6 +637,20 @@ impl ModelRegistry {
 
     /// Get available models for Pi
     pub fn pi_models() -> Vec<ModelInfo> {
+        let dynamic = match Self::pi_store().read() {
+            Ok(guard) => guard.clone(),
+            Err(err) => {
+                error!(error = %err, "pi_store poisoned in pi_models");
+                Vec::new()
+            }
+        };
+        if !dynamic.is_empty() {
+            return dynamic;
+        }
+        Self::pi_models_static()
+    }
+
+    fn pi_models_static() -> Vec<ModelInfo> {
         vec![
             ModelInfo::new(
                 AgentType::Pi,

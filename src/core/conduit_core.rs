@@ -2,6 +2,9 @@
 
 use std::sync::Arc;
 
+use crate::agent::codex::load_codex_models;
+use crate::agent::gemini::load_gemini_models;
+use crate::agent::pi::load_pi_models;
 use crate::agent::{
     ClaudeCodeRunner, CodexCliRunner, CopilotRunner, GeminiCliRunner, ModelRegistry,
     OpencodeRunner, PiRunner,
@@ -171,6 +174,36 @@ impl ConduitCore {
             ModelRegistry::set_opencode_models(models);
         } else {
             ModelRegistry::clear_opencode_models();
+        }
+
+        if tools.is_available(Tool::Codex) {
+            progress("Discovering Codex models");
+            let models = load_codex_models(tools.get_path(Tool::Codex).cloned());
+            if !models.is_empty() {
+                ModelRegistry::set_codex_models(models);
+            }
+        } else {
+            ModelRegistry::clear_codex_models();
+        }
+
+        if tools.is_available(Tool::Gemini) {
+            progress("Discovering Gemini models");
+            let models = load_gemini_models();
+            if !models.is_empty() {
+                ModelRegistry::set_gemini_models(models);
+            }
+        } else {
+            ModelRegistry::clear_gemini_models();
+        }
+
+        if tools.is_available(Tool::Pi) {
+            progress("Discovering Pi models");
+            let models = load_pi_models(tools.get_path(Tool::Pi).cloned());
+            if !models.is_empty() {
+                ModelRegistry::set_pi_models(models);
+            }
+        } else {
+            ModelRegistry::clear_pi_models();
         }
 
         Self {
@@ -350,6 +383,33 @@ impl ConduitCore {
             ModelRegistry::set_opencode_models(models);
         } else {
             ModelRegistry::clear_opencode_models();
+        }
+
+        if self.tools.is_available(Tool::Codex) {
+            let models = load_codex_models(self.tools.get_path(Tool::Codex).cloned());
+            if !models.is_empty() {
+                ModelRegistry::set_codex_models(models);
+            }
+        } else {
+            ModelRegistry::clear_codex_models();
+        }
+
+        if self.tools.is_available(Tool::Gemini) {
+            let models = load_gemini_models();
+            if !models.is_empty() {
+                ModelRegistry::set_gemini_models(models);
+            }
+        } else {
+            ModelRegistry::clear_gemini_models();
+        }
+
+        if self.tools.is_available(Tool::Pi) {
+            let models = load_pi_models(self.tools.get_path(Tool::Pi).cloned());
+            if !models.is_empty() {
+                ModelRegistry::set_pi_models(models);
+            }
+        } else {
+            ModelRegistry::clear_pi_models();
         }
     }
 }
