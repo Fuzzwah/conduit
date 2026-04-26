@@ -8,9 +8,9 @@ interface ModelSelectorDialogProps {
   isOpen: boolean;
   onClose: () => void;
   currentModel: string | null;
-  agentType: 'claude' | 'codex' | 'gemini' | 'opencode';
-  onSelect: (modelId: string, newAgentType: 'claude' | 'codex' | 'gemini' | 'opencode') => void;
-  onSetDefault: (modelId: string, newAgentType: 'claude' | 'codex' | 'gemini' | 'opencode') => void;
+  agentType: 'claude' | 'codex' | 'gemini' | 'opencode' | 'pi';
+  onSelect: (modelId: string, newAgentType: 'claude' | 'codex' | 'gemini' | 'opencode' | 'pi') => void;
+  onSetDefault: (modelId: string, newAgentType: 'claude' | 'codex' | 'gemini' | 'opencode' | 'pi') => void;
   isUpdating?: boolean;
   isSettingDefault?: boolean;
 }
