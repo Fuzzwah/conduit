@@ -487,6 +487,8 @@ pub struct ChatView {
     last_visible_height: usize,
     /// Cycling index for Alt+y: 0 = most recent code block, increments on each press
     code_block_cycle_idx: usize,
+    /// Total code block count seen on the last Alt+y press; resets cycle when it grows
+    code_block_last_total: usize,
 }
 
 /// Information about a hovered file path for rendering
@@ -529,6 +531,7 @@ impl ChatView {
             flat_cache_entry_spans: Vec::new(),
             last_visible_height: 0,
             code_block_cycle_idx: 0,
+            code_block_last_total: 0,
         }
     }
 
@@ -570,8 +573,14 @@ impl ChatView {
         let total = all_blocks.len();
         if total == 0 {
             self.code_block_cycle_idx = 0;
+            self.code_block_last_total = 0;
             return None;
         }
+
+        if total > self.code_block_last_total {
+            self.code_block_cycle_idx = 0;
+        }
+        self.code_block_last_total = total;
 
         let idx = self.code_block_cycle_idx % total;
         self.code_block_cycle_idx = (idx + 1) % total;
