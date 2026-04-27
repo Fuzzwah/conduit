@@ -114,6 +114,7 @@ pub use theme::{
     agent_claude,
     agent_codex,
     agent_copilot,
+    agent_dirac,
     agent_gemini,
     agent_opencode,
     agent_pi,

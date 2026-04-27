@@ -10,8 +10,8 @@ use ratatui::{
 };
 
 use super::{
-    agent_claude, agent_codex, agent_copilot, agent_gemini, agent_opencode, agent_pi, bg_highlight,
-    dialog_bg, dialog_content_area, ensure_contrast_bg, ensure_contrast_fg,
+    agent_claude, agent_codex, agent_copilot, agent_dirac, agent_gemini, agent_opencode, agent_pi,
+    bg_highlight, dialog_bg, dialog_content_area, ensure_contrast_bg, ensure_contrast_fg,
     render_minimal_scrollbar, selected_bg, text_muted, text_primary, DialogFrame, ScrollbarMetrics,
     SearchableListState,
 };
@@ -581,7 +581,7 @@ impl SessionImportPicker {
             let agent_color = match session.agent_type {
                 AgentType::Claude => agent_claude(),
                 AgentType::Codex => agent_codex(),
-                AgentType::Dirac => agent_codex(),
+                AgentType::Dirac => agent_dirac(),
                 AgentType::Gemini => agent_gemini(),
                 AgentType::Opencode => agent_opencode(),
                 AgentType::Copilot => agent_copilot(),

@@ -135,11 +135,35 @@ impl DiracRunner {
         cmd
     }
 
+    async fn complete_pending_tool(
+        tx: &mpsc::Sender<AgentEvent>,
+        pending_tool: &mut Option<(String, String)>,
+    ) -> Result<(), AgentError> {
+        if let Some((tool_id, _)) = pending_tool.take() {
+            tx.send(AgentEvent::ToolCompleted(ToolCompletedEvent {
+                tool_id,
+                success: true,
+                result: None,
+                error: None,
+            }))
+            .await
+            .map_err(|_| AgentError::ChannelClosed)?;
+        }
+        Ok(())
+    }
+
+    fn next_tool_id(kind: &str, next_tool_id: &mut u64) -> String {
+        let tool_id = format!("dirac-{kind}-{}", *next_tool_id);
+        *next_tool_id += 1;
+        tool_id
+    }
+
     async fn handle_json_line(
         value: Value,
         tx: &mpsc::Sender<AgentEvent>,
         usage: &mut DiracUsageAccumulator,
         pending_tool: &mut Option<(String, String)>,
+        next_tool_id: &mut u64,
     ) -> Result<(), AgentError> {
         let event_type = value
             .get("type")
@@ -206,6 +230,7 @@ impl DiracRunner {
 
                 match (say, ask) {
                     (Some("text"), _) => {
+                        Self::complete_pending_tool(tx, pending_tool).await?;
                         if !text.is_empty() {
                             tx.send(AgentEvent::AssistantMessage(AssistantMessageEvent {
                                 text,
@@ -216,6 +241,7 @@ impl DiracRunner {
                         }
                     }
                     (Some("completion_result"), _) | (_, Some("completion_result")) => {
+                        Self::complete_pending_tool(tx, pending_tool).await?;
                         if !text.is_empty() {
                             tx.send(AgentEvent::AssistantMessage(AssistantMessageEvent {
                                 text,
@@ -226,7 +252,8 @@ impl DiracRunner {
                         }
                     }
                     (Some("command"), _) => {
-                        let tool_id = format!("dirac-command-{}", usage.total_tokens.max(0) + 1);
+                        Self::complete_pending_tool(tx, pending_tool).await?;
+                        let tool_id = Self::next_tool_id("command", next_tool_id);
                         tx.send(AgentEvent::ToolStarted(ToolStartedEvent {
                             tool_name: "command".to_string(),
                             tool_id: tool_id.clone(),
@@ -251,7 +278,8 @@ impl DiracRunner {
                         .map_err(|_| AgentError::ChannelClosed)?;
                     }
                     (Some("tool"), _) => {
-                        let tool_id = format!("dirac-tool-{}", usage.total_tokens.max(0) + 1);
+                        Self::complete_pending_tool(tx, pending_tool).await?;
+                        let tool_id = Self::next_tool_id("tool", next_tool_id);
                         tx.send(AgentEvent::ToolStarted(ToolStartedEvent {
                             tool_name: "tool".to_string(),
                             tool_id: tool_id.clone(),
@@ -270,6 +298,7 @@ impl DiracRunner {
                         }
                     }
                     (Some("error"), _) | (_, Some("api_req_failed")) => {
+                        Self::complete_pending_tool(tx, pending_tool).await?;
                         if !text.is_empty() {
                             tx.send(AgentEvent::TurnFailed(TurnFailedEvent { error: text }))
                                 .await
@@ -277,21 +306,6 @@ impl DiracRunner {
                         }
                     }
                     _ => {}
-                }
-
-                let should_complete_pending =
-                    !matches!(say, Some("command_output") | Some("api_req_finished"));
-                if should_complete_pending {
-                    if let Some((tool_id, _)) = pending_tool.take() {
-                        tx.send(AgentEvent::ToolCompleted(ToolCompletedEvent {
-                            tool_id,
-                            success: true,
-                            result: None,
-                            error: None,
-                        }))
-                        .await
-                        .map_err(|_| AgentError::ChannelClosed)?;
-                    }
                 }
             }
             _ => {
@@ -344,12 +358,19 @@ impl AgentRunner for DiracRunner {
             let mut lines = reader.lines();
             let mut usage = DiracUsageAccumulator::default();
             let mut pending_tool: Option<(String, String)> = None;
+            let mut next_tool_id: u64 = 1;
 
             while let Ok(Some(line)) = lines.next_line().await {
                 match serde_json::from_str::<Value>(&line) {
                     Ok(value) => {
-                        if let Err(err) =
-                            Self::handle_json_line(value, &tx, &mut usage, &mut pending_tool).await
+                        if let Err(err) = Self::handle_json_line(
+                            value,
+                            &tx,
+                            &mut usage,
+                            &mut pending_tool,
+                            &mut next_tool_id,
+                        )
+                        .await
                         {
                             tracing::debug!(error = %err, "Failed to forward dirac event");
                             return;
@@ -369,16 +390,7 @@ impl AgentRunner for DiracRunner {
                 }
             }
 
-            if let Some((tool_id, _)) = pending_tool.take() {
-                let _ = tx
-                    .send(AgentEvent::ToolCompleted(ToolCompletedEvent {
-                        tool_id,
-                        success: true,
-                        result: None,
-                        error: None,
-                    }))
-                    .await;
-            }
+            let _ = Self::complete_pending_tool(&tx, &mut pending_tool).await;
 
             let stderr_content = stderr_task.await.unwrap_or_default();
             match child.wait().await {
