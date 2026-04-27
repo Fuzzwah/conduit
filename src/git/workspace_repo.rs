@@ -47,10 +47,42 @@ impl WorkspaceRepoManager {
         progress("Fetching from remote...");
         self.worktree
             .fetch_origin_with_progress(repo_path, &progress);
+
+        // When the target branch doesn't exist yet (new workspace), branch from
+        // origin/<default> rather than the current local HEAD, so the workspace
+        // always starts from the freshly-fetched remote state even if local main
+        // is behind origin.
+        let branch_is_new = !self.worktree.ref_exists(repo_path, branch).unwrap_or(true);
+
         progress("Creating worktree...");
-        match mode {
-            WorkspaceMode::Worktree => self.worktree.create_worktree(repo_path, branch, name),
-            WorkspaceMode::Checkout => self.create_checkout(repo_path, branch, name),
+        if branch_is_new {
+            let default_branch = self
+                .worktree
+                .get_main_branch(repo_path)
+                .unwrap_or_else(|_| "main".to_string());
+            let origin_ref = format!("origin/{}", default_branch);
+            let base = if self
+                .worktree
+                .ref_exists(repo_path, &origin_ref)
+                .unwrap_or(false)
+            {
+                origin_ref
+            } else {
+                default_branch
+            };
+            match mode {
+                WorkspaceMode::Worktree => self
+                    .worktree
+                    .create_worktree_from_branch(repo_path, &base, branch, name),
+                WorkspaceMode::Checkout => {
+                    self.create_checkout_from_branch(repo_path, &base, branch, name)
+                }
+            }
+        } else {
+            match mode {
+                WorkspaceMode::Worktree => self.worktree.create_worktree(repo_path, branch, name),
+                WorkspaceMode::Checkout => self.create_checkout(repo_path, branch, name),
+            }
         }
     }
 
@@ -561,5 +593,78 @@ mod tests {
         assert!(!manager
             .remote_branch_exists(&repo_path, "missing-branch")
             .unwrap());
+    }
+
+    fn get_head_sha(path: &Path) -> String {
+        let output = Command::new("git")
+            .args(["rev-parse", "HEAD"])
+            .current_dir(path)
+            .output()
+            .expect("failed to run git rev-parse");
+        assert!(output.status.success(), "git rev-parse HEAD failed");
+        String::from_utf8_lossy(&output.stdout).trim().to_string()
+    }
+
+    /// Verify that a new workspace starts from `origin/main` even when local `main`
+    /// is behind origin. This exercises the fetch-then-use-origin-ref path added to
+    /// `create_workspace`.
+    #[test]
+    fn test_create_workspace_uses_origin_main_when_local_main_is_stale() {
+        let dir = tempdir().unwrap();
+
+        // Set up "remote": a non-bare repo acting as origin.
+        let remote_path = dir.path().join("remote");
+        std::fs::create_dir(&remote_path).unwrap();
+        run_git(&remote_path, &["init", "-b", "main"]);
+        run_git(&remote_path, &["config", "user.email", "test@test.com"]);
+        run_git(&remote_path, &["config", "user.name", "Test"]);
+        run_git(
+            &remote_path,
+            &["config", "receive.denyCurrentBranch", "ignore"],
+        );
+        std::fs::write(remote_path.join("README.md"), "# Remote").unwrap();
+        run_git(&remote_path, &["add", "."]);
+        run_git(&remote_path, &["commit", "-m", "initial"]);
+
+        // Clone remote to get the local repo (local main = initial commit).
+        let local_path = dir.path().join("local");
+        run_git(
+            dir.path(),
+            &["clone", remote_path.to_str().unwrap(), "local"],
+        );
+        run_git(&local_path, &["config", "user.email", "test@test.com"]);
+        run_git(&local_path, &["config", "user.name", "Test"]);
+
+        // Add a second commit to the remote; local main stays at the first commit.
+        std::fs::write(remote_path.join("extra.txt"), "new content").unwrap();
+        run_git(&remote_path, &["add", "."]);
+        run_git(&remote_path, &["commit", "-m", "second commit"]);
+        let remote_head = get_head_sha(&remote_path);
+
+        // Sanity: local main is still at the old commit before create_workspace runs.
+        let local_main_sha = get_head_sha(&local_path);
+        assert_ne!(
+            local_main_sha, remote_head,
+            "test setup: local main should be behind origin before workspace creation"
+        );
+
+        // create_workspace must fetch and branch from origin/main (remote_head).
+        let manager = WorkspaceRepoManager::with_managed_dir(dir.path().join("workspaces"));
+        let wt_path = manager
+            .create_workspace(
+                WorkspaceMode::Worktree,
+                &local_path,
+                "fuz/new-feature",
+                "new-feature",
+                |_| {},
+            )
+            .expect("create_workspace failed");
+
+        let workspace_head = get_head_sha(&wt_path);
+        assert_eq!(
+            workspace_head, remote_head,
+            "workspace should start from origin/main ({}), not stale local main ({})",
+            remote_head, local_main_sha
+        );
     }
 }
