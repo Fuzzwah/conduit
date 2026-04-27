@@ -92,6 +92,11 @@ async fn list_agents(State(state): State<WebAppState>) -> Json<AgentsResponse> {
                 available: tools.is_available(Tool::Gemini),
             },
             AgentInfo {
+                id: "dirac",
+                name: "Dirac CLI",
+                available: tools.is_available(Tool::Dirac),
+            },
+            AgentInfo {
                 id: "opencode",
                 name: "OpenCode",
                 available: tools.is_available(Tool::Opencode),

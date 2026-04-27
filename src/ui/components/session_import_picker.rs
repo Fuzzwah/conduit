@@ -572,6 +572,7 @@ impl SessionImportPicker {
             let agent_icon = match session.agent_type {
                 AgentType::Claude => "C",
                 AgentType::Codex => "X",
+                AgentType::Dirac => "D",
                 AgentType::Gemini => "G",
                 AgentType::Opencode => "O",
                 AgentType::Copilot => "P",
@@ -580,6 +581,7 @@ impl SessionImportPicker {
             let agent_color = match session.agent_type {
                 AgentType::Claude => agent_claude(),
                 AgentType::Codex => agent_codex(),
+                AgentType::Dirac => agent_codex(),
                 AgentType::Gemini => agent_gemini(),
                 AgentType::Opencode => agent_opencode(),
                 AgentType::Copilot => agent_copilot(),
