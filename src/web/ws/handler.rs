@@ -198,7 +198,10 @@ impl SessionManager {
             config = config.with_skill(skill);
         }
 
-        if matches!(agent_type, AgentType::Dirac | AgentType::Opencode | AgentType::Pi) {
+        if matches!(
+            agent_type,
+            AgentType::Dirac | AgentType::Opencode | AgentType::Pi
+        ) {
             match SessionService::get_session(&core, session_id) {
                 Ok(session_tab) => {
                     if let Some(agent_session_id) = session_tab.agent_session_id {

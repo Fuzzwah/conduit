@@ -14,7 +14,7 @@ use crate::agent::events::{
     TurnCompletedEvent, TurnFailedEvent,
 };
 use crate::agent::runner::{
-    AgentHandle, AgentMode, AgentInput, AgentRunner, AgentStartConfig, AgentType,
+    AgentHandle, AgentInput, AgentMode, AgentRunner, AgentStartConfig, AgentType,
 };
 use crate::agent::session::SessionId;
 
@@ -29,12 +29,18 @@ struct DiracUsageAccumulator {
 impl DiracUsageAccumulator {
     fn update_from_metrics(&mut self, metrics: &Value) -> Option<TokenUsageEvent> {
         let input_tokens = metrics.get("tokensIn").and_then(Value::as_i64).unwrap_or(0);
-        let output_tokens = metrics.get("tokensOut").and_then(Value::as_i64).unwrap_or(0);
+        let output_tokens = metrics
+            .get("tokensOut")
+            .and_then(Value::as_i64)
+            .unwrap_or(0);
         let reasoning_tokens = metrics
             .get("reasoningTokens")
             .and_then(Value::as_i64)
             .unwrap_or(0);
-        let cached_tokens = metrics.get("cacheReads").and_then(Value::as_i64).unwrap_or(0);
+        let cached_tokens = metrics
+            .get("cacheReads")
+            .and_then(Value::as_i64)
+            .unwrap_or(0);
 
         self.input_tokens += input_tokens;
         self.output_tokens += output_tokens + reasoning_tokens;
@@ -135,7 +141,10 @@ impl DiracRunner {
         usage: &mut DiracUsageAccumulator,
         pending_tool: &mut Option<(String, String)>,
     ) -> Result<(), AgentError> {
-        let event_type = value.get("type").and_then(Value::as_str).unwrap_or_default();
+        let event_type = value
+            .get("type")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
         match event_type {
             "task_started" => {
                 if let Some(task_id) = value.get("taskId").and_then(Value::as_str) {
@@ -188,9 +197,11 @@ impl DiracRunner {
                         .map_err(|_| AgentError::ChannelClosed)?;
                     }
                 } else if say == Some("reasoning") && !text.is_empty() {
-                    tx.send(AgentEvent::AssistantReasoning(ReasoningEvent { text: text.clone() }))
-                        .await
-                        .map_err(|_| AgentError::ChannelClosed)?;
+                    tx.send(AgentEvent::AssistantReasoning(ReasoningEvent {
+                        text: text.clone(),
+                    }))
+                    .await
+                    .map_err(|_| AgentError::ChannelClosed)?;
                 }
 
                 match (say, ask) {
@@ -268,7 +279,8 @@ impl DiracRunner {
                     _ => {}
                 }
 
-                let should_complete_pending = !matches!(say, Some("command_output") | Some("api_req_finished"));
+                let should_complete_pending =
+                    !matches!(say, Some("command_output") | Some("api_req_finished"));
                 if should_complete_pending {
                     if let Some((tool_id, _)) = pending_tool.take() {
                         tx.send(AgentEvent::ToolCompleted(ToolCompletedEvent {
@@ -381,7 +393,11 @@ impl AgentRunner for DiracRunner {
                     let error_msg = if stderr_content.trim().is_empty() {
                         format!("dirac exited with status: {}", status)
                     } else {
-                        format!("dirac exited with status {}: {}", status, stderr_content.trim())
+                        format!(
+                            "dirac exited with status {}: {}",
+                            status,
+                            stderr_content.trim()
+                        )
                     };
                     let _ = tx
                         .send(AgentEvent::TurnFailed(TurnFailedEvent { error: error_msg }))

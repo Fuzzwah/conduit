@@ -242,7 +242,7 @@ mod tests {
             .iter()
             .filter_map(|item| item["id"].as_str())
             .collect();
-        assert_eq!(ids, vec!["codex", "claude", "gemini", "opencode"]);
+        assert_eq!(ids, vec!["codex", "claude", "gemini", "dirac", "opencode"]);
     }
 
     #[tokio::test]

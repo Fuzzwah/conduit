@@ -6,8 +6,8 @@ use crate::agent::codex::load_codex_models;
 use crate::agent::gemini::load_gemini_models;
 use crate::agent::pi::load_pi_models;
 use crate::agent::{
-    ClaudeCodeRunner, CodexCliRunner, CopilotRunner, DiracRunner, GeminiCliRunner,
-    ModelRegistry, OpencodeRunner, PiRunner,
+    ClaudeCodeRunner, CodexCliRunner, CopilotRunner, DiracRunner, GeminiCliRunner, ModelRegistry,
+    OpencodeRunner, PiRunner,
 };
 use crate::config::Config;
 use crate::data::{
