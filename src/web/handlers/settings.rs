@@ -150,6 +150,7 @@ pub async fn get_providers(
             let tool = match agent {
                 AgentType::Claude => crate::util::Tool::Claude,
                 AgentType::Codex => crate::util::Tool::Codex,
+                AgentType::Dirac => crate::util::Tool::Dirac,
                 AgentType::Gemini => crate::util::Tool::Gemini,
                 AgentType::Opencode => crate::util::Tool::Opencode,
                 AgentType::Copilot => crate::util::Tool::Copilot,
@@ -180,12 +181,13 @@ pub async fn set_providers(
     let providers: Vec<AgentType> = req
         .enabled
         .iter()
-        .filter_map(|s| match s.to_lowercase().as_str() {
-            "codex" => Some(AgentType::Codex),
-            "claude" => Some(AgentType::Claude),
-            "gemini" => Some(AgentType::Gemini),
-            "opencode" => Some(AgentType::Opencode),
-            "copilot" => Some(AgentType::Copilot),
+            .filter_map(|s| match s.to_lowercase().as_str() {
+                "codex" => Some(AgentType::Codex),
+                "claude" => Some(AgentType::Claude),
+                "dirac" => Some(AgentType::Dirac),
+                "gemini" => Some(AgentType::Gemini),
+                "opencode" => Some(AgentType::Opencode),
+                "copilot" => Some(AgentType::Copilot),
             "pi" => Some(AgentType::Pi),
             _ => None,
         })

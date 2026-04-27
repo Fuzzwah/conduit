@@ -24,7 +24,11 @@ impl AgentCapabilities {
             supports_follow_up: matches!(agent_type, AgentType::Pi),
             supports_native_slash_commands: matches!(
                 agent_type,
-                AgentType::Claude | AgentType::Gemini | AgentType::Opencode | AgentType::Pi
+                AgentType::Claude
+                    | AgentType::Dirac
+                    | AgentType::Gemini
+                    | AgentType::Opencode
+                    | AgentType::Pi
             ),
             supports_direct_user_skill_invocation: matches!(
                 agent_type,

@@ -646,6 +646,7 @@ impl Config {
         match value.trim().to_ascii_lowercase().as_str() {
             "claude" => Some(AgentType::Claude),
             "codex" => Some(AgentType::Codex),
+            "dirac" => Some(AgentType::Dirac),
             "gemini" => Some(AgentType::Gemini),
             "opencode" => Some(AgentType::Opencode),
             "copilot" => Some(AgentType::Copilot),
@@ -837,6 +838,7 @@ impl Config {
         match provider {
             AgentType::Claude => Tool::Claude,
             AgentType::Codex => Tool::Codex,
+            AgentType::Dirac => Tool::Dirac,
             AgentType::Gemini => Tool::Gemini,
             AgentType::Opencode => Tool::Opencode,
             AgentType::Copilot => Tool::Copilot,

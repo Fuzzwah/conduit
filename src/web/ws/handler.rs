@@ -168,6 +168,7 @@ impl SessionManager {
         let runner: Arc<dyn AgentRunner> = match agent_type {
             AgentType::Claude => core.claude_runner().clone(),
             AgentType::Codex => core.codex_runner().clone(),
+            AgentType::Dirac => core.dirac_runner().clone(),
             AgentType::Gemini => core.gemini_runner().clone(),
             AgentType::Opencode => core.opencode_runner().clone(),
             AgentType::Copilot => core.copilot_runner().clone(),
@@ -197,7 +198,7 @@ impl SessionManager {
             config = config.with_skill(skill);
         }
 
-        if matches!(agent_type, AgentType::Opencode | AgentType::Pi) {
+        if matches!(agent_type, AgentType::Dirac | AgentType::Opencode | AgentType::Pi) {
             match SessionService::get_session(&core, session_id) {
                 Ok(session_tab) => {
                     if let Some(agent_session_id) = session_tab.agent_session_id {
@@ -451,6 +452,7 @@ impl SessionManager {
         let agent_input = match agent_type {
             AgentType::Claude => AgentInput::ClaudeJsonl(input),
             AgentType::Codex
+            | AgentType::Dirac
             | AgentType::Gemini
             | AgentType::Opencode
             | AgentType::Copilot
