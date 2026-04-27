@@ -267,3 +267,41 @@ Conduit now supports **Pi** as an additional agent alongside Claude, Codex, Gemi
 - **Events/tools:** Pi's structured RPC event stream is mapped into Conduit's chat/debug views, including assistant text, reasoning, and tool execution events.
 
 Pi appears in the agent selector, provider selector, and model selector. Common Pi model presets are included, with `claude-sonnet-4.6` as the default.
+
+---
+
+## 28. `/btw` Command — Queue a Note Without Interrupting
+
+The `/btw` command, available natively in the Claude Code CLI, is now supported in the Conduit TUI.
+
+- **`/btw <note>`** — immediately queues the note as a follow-up message without interrupting the agent. Works whether the agent is idle or actively running.
+- **`/btw`** (no args) — opens the queue editor.
+- The command appears in the `/` autocomplete menu with description "Queue a note without interrupting".
+
+### Claude Code command tracking
+
+Claude Code's built-in slash commands are compiled into the CLI binary and not discoverable programmatically. The table below tracks which commands conduit implements and how they map:
+
+Verified against Claude Code v2.1.119 (`strings` on the binary).
+
+| Claude Code command | Conduit equivalent | Status |
+|---|---|---|
+| `/btw <note>` | `/btw` → queues as `FollowUp` message | ✅ Implemented (this change) |
+| `/clear` | `/new` → starts a new session | ✅ Equivalent |
+| `/config` | `Ctrl+P` → Settings | ✅ Partial equivalent |
+| `/effort <level>` | `/reasoning` | ✅ Equivalent |
+| `/fast` | — | ❌ Not implemented |
+| `/feedback` | — | ❌ Not implemented |
+| `/help` | `?` on empty input | ✅ Equivalent |
+| `/hooks` | — | ❌ Not implemented |
+| `/init` | — | ❌ Not implemented |
+| `/login` / `/logout` | — | ❌ Not implemented |
+| `/mcp` | — | ❌ Not implemented |
+| `/memory` | — | ❌ Not implemented |
+| `/model` | `/model` | ✅ Implemented |
+| `/quit` | `Ctrl+Q` | ✅ Equivalent |
+| `/resume` | session import picker | ✅ Partial equivalent |
+| `/rewind` | `/rewind` → removes last turn from display + truncates Claude session file | ✅ Implemented (Claude only) |
+| `/status` | `/status` → shows agent/model/session/ctx%/turns/dir as a chat message | ✅ Implemented (all agents) |
+
+To add a new command: add a variant to `ConduitCommand` in `src/command_resolver.rs`, handle it in `handle_submit_action` in `src/ui/app.rs`, update `slash_command_action` and `execute_resolved_conduit_command`, and add a row to this table.
