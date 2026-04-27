@@ -12,6 +12,8 @@ export function agentDisplayName(agentType: AgentType, options?: { short?: boole
       return short ? 'Codex' : 'Codex CLI';
     case 'gemini':
       return short ? 'Gemini' : 'Gemini CLI';
+    case 'dirac':
+      return short ? 'Dirac' : 'Dirac CLI';
     case 'opencode':
       return 'OpenCode';
     case 'pi':
@@ -25,6 +27,8 @@ export function agentAccentColor(agentType: AgentType): string {
       return 'bg-orange-400';
     case 'codex':
       return 'bg-green-400';
+    case 'dirac':
+      return 'bg-fuchsia-400';
     case 'opencode':
       return 'bg-teal-400';
     case 'gemini':

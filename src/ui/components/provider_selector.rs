@@ -18,7 +18,7 @@ impl ProviderSelectorState {
         }
     }
 
-    fn all_providers() -> [AgentType; 6] {
+    fn all_providers() -> [AgentType; 7] {
         AgentType::preferred_order()
     }
 
@@ -26,6 +26,7 @@ impl ProviderSelectorState {
         match provider {
             AgentType::Claude => Tool::Claude,
             AgentType::Codex => Tool::Codex,
+            AgentType::Dirac => Tool::Dirac,
             AgentType::Gemini => Tool::Gemini,
             AgentType::Opencode => Tool::Opencode,
             AgentType::Copilot => Tool::Copilot,

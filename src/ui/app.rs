@@ -35,8 +35,8 @@ use crate::agent::{
     load_claude_history_with_debug, load_codex_history_with_debug,
     load_opencode_history_for_dir_with_debug, load_opencode_history_with_debug,
     load_pi_history_with_debug, AgentEvent, AgentInput, AgentMode, AgentRunner, AgentStartConfig,
-    AgentType, ClaudeCodeRunner, CodexCliRunner, CopilotRunner, GeminiCliRunner, HistoryDebugEntry,
-    MessageDisplay, ModelRegistry, OpencodeRunner, PiRunner, SessionId,
+    AgentType, ClaudeCodeRunner, CodexCliRunner, CopilotRunner, DiracRunner, GeminiCliRunner,
+    HistoryDebugEntry, MessageDisplay, ModelRegistry, OpencodeRunner, PiRunner, SessionId,
 };
 use crate::command_resolver::{
     CommandResolver, ConduitCommand, MenuEntryKind, ResolveResult, ResolvedPrompt,
@@ -274,6 +274,12 @@ impl App {
     #[inline]
     fn gemini_runner(&self) -> &Arc<GeminiCliRunner> {
         self.core.gemini_runner()
+    }
+
+    /// Get the Dirac runner.
+    #[inline]
+    fn dirac_runner(&self) -> &Arc<DiracRunner> {
+        self.core.dirac_runner()
     }
 
     /// Get the OpenCode runner.
@@ -716,6 +722,14 @@ impl App {
                                 session.chat_view.push(msg);
                             }
                         }
+                    }
+                    AgentType::Dirac => {
+                        session.chat_view.push(
+                            MessageDisplay::System {
+                                content: "Dirac history import isn't supported yet, so previous messages won't be shown.".to_string(),
+                            }
+                            .to_chat_message(),
+                        );
                     }
                     AgentType::Gemini => {
                         session.chat_view.push(
@@ -2445,6 +2459,7 @@ impl App {
                     let runner: Arc<dyn AgentRunner> = match agent_type {
                         AgentType::Claude => self.claude_runner().clone(),
                         AgentType::Codex => self.codex_runner().clone(),
+                        AgentType::Dirac => self.dirac_runner().clone(),
                         AgentType::Gemini => self.gemini_runner().clone(),
                         AgentType::Opencode => self.opencode_runner().clone(),
                         AgentType::Copilot => self.copilot_runner().clone(),
@@ -4123,6 +4138,14 @@ impl App {
                                 }
                             }
                         }
+                        AgentType::Dirac => {
+                            session.chat_view.push(
+                                MessageDisplay::System {
+                                    content: "Dirac history import isn't supported yet, so previous messages won't be shown.".to_string(),
+                                }
+                                .to_chat_message(),
+                            );
+                        }
                         AgentType::Gemini => {
                             session.chat_view.push(
                                 MessageDisplay::System {
@@ -4259,6 +4282,7 @@ impl App {
         match agent_type {
             AgentType::Claude => crate::util::Tool::Claude,
             AgentType::Codex => crate::util::Tool::Codex,
+            AgentType::Dirac => crate::util::Tool::Dirac,
             AgentType::Gemini => crate::util::Tool::Gemini,
             AgentType::Opencode => crate::util::Tool::Opencode,
             AgentType::Copilot => crate::util::Tool::Copilot,
@@ -5689,6 +5713,16 @@ impl App {
                         session.chat_view.push(msg);
                     }
                 }
+            }
+            AgentType::Dirac => {
+                session.resume_session_id = None;
+                session.agent_session_id = None;
+                session.chat_view.push(
+                    MessageDisplay::System {
+                        content: "Dirac session import isn't supported yet.".to_string(),
+                    }
+                    .to_chat_message(),
+                );
             }
             AgentType::Gemini => {
                 session.resume_session_id = None;

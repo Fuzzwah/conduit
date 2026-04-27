@@ -13,6 +13,7 @@ use crate::command_resolver::SkillReference;
 pub enum AgentType {
     Claude,
     Codex,
+    Dirac,
     Gemini,
     Opencode,
     Copilot,
@@ -119,10 +120,11 @@ impl AgentMode {
 
 impl AgentType {
     /// Preferred provider priority order used for defaults and UI listing.
-    pub const fn preferred_order() -> [AgentType; 6] {
+    pub const fn preferred_order() -> [AgentType; 7] {
         [
             AgentType::Codex,
             AgentType::Claude,
+            AgentType::Dirac,
             AgentType::Gemini,
             AgentType::Opencode,
             AgentType::Copilot,
@@ -133,7 +135,7 @@ impl AgentType {
     pub fn supports_plan_mode(&self) -> bool {
         matches!(
             self,
-            AgentType::Claude | AgentType::Codex | AgentType::Gemini
+            AgentType::Claude | AgentType::Codex | AgentType::Dirac | AgentType::Gemini
         )
     }
 
@@ -141,6 +143,7 @@ impl AgentType {
         match self {
             AgentType::Claude => "claude",
             AgentType::Codex => "codex",
+            AgentType::Dirac => "dirac",
             AgentType::Gemini => "gemini",
             AgentType::Opencode => "opencode",
             AgentType::Copilot => "copilot",
@@ -151,6 +154,7 @@ impl AgentType {
     pub fn parse(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "codex" => AgentType::Codex,
+            "dirac" => AgentType::Dirac,
             "gemini" => AgentType::Gemini,
             "opencode" => AgentType::Opencode,
             "copilot" => AgentType::Copilot,
@@ -164,6 +168,7 @@ impl AgentType {
         match self {
             AgentType::Claude => "Claude",
             AgentType::Codex => "Codex",
+            AgentType::Dirac => "Dirac",
             AgentType::Gemini => "Gemini",
             AgentType::Opencode => "OpenCode",
             AgentType::Copilot => "Copilot",
@@ -175,6 +180,7 @@ impl AgentType {
         match self {
             AgentType::Claude => "Claude Code",
             AgentType::Codex => "Codex CLI",
+            AgentType::Dirac => "Dirac CLI",
             AgentType::Gemini => "Gemini CLI",
             AgentType::Opencode => "OpenCode",
             AgentType::Copilot => "GitHub Copilot",
