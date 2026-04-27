@@ -14,16 +14,22 @@ pub enum ConduitCommand {
     NewSession,
     Fork,
     Handoff,
+    Btw,
+    Status,
+    Rewind,
 }
 
 impl ConduitCommand {
-    pub const ALL: [ConduitCommand; 6] = [
+    pub const ALL: [ConduitCommand; 9] = [
         ConduitCommand::Model,
         ConduitCommand::Reasoning,
         ConduitCommand::Providers,
         ConduitCommand::NewSession,
         ConduitCommand::Fork,
         ConduitCommand::Handoff,
+        ConduitCommand::Btw,
+        ConduitCommand::Status,
+        ConduitCommand::Rewind,
     ];
 
     pub fn label(self) -> &'static str {
@@ -34,6 +40,9 @@ impl ConduitCommand {
             ConduitCommand::NewSession => "/new",
             ConduitCommand::Fork => "/fork",
             ConduitCommand::Handoff => "/handoff",
+            ConduitCommand::Btw => "/btw",
+            ConduitCommand::Status => "/status",
+            ConduitCommand::Rewind => "/rewind",
         }
     }
 
@@ -49,6 +58,9 @@ impl ConduitCommand {
             ConduitCommand::NewSession => "Start a new session",
             ConduitCommand::Fork => "Fork current session",
             ConduitCommand::Handoff => "Handoff current session",
+            ConduitCommand::Btw => "Queue a note without interrupting",
+            ConduitCommand::Status => "Show current session status",
+            ConduitCommand::Rewind => "Remove the last turn from the conversation (Claude only)",
         }
     }
 

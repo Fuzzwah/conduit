@@ -782,6 +782,32 @@ impl ChatView {
         // Keep cache_width so we don't have to recalculate on next render
     }
 
+    /// Remove the last user message and all subsequent messages.
+    /// Returns true if a turn was removed, false if there were no user messages.
+    pub fn pop_last_turn(&mut self) -> bool {
+        let Some(last_user_idx) = self
+            .messages
+            .iter()
+            .rposition(|m| m.role == MessageRole::User)
+        else {
+            return false;
+        };
+        self.messages.truncate(last_user_idx);
+        self.streaming_messages.clear();
+        self.scroll_offset = 0;
+        self.pinned_scroll_top = None;
+        self.clear_selection();
+        self.last_render_extra_lines = 0;
+        self.line_cache = LineCache::default();
+        self.flat_cache.clear();
+        self.flat_cache_width = self.cache_width;
+        self.flat_cache_dirty = false;
+        self.streaming_cache = None;
+        self.joiner_before.clear();
+        self.streaming_joiner_before = None;
+        true
+    }
+
     /// Scroll up by n lines
     pub fn scroll_up(&mut self, n: usize) {
         self.scroll_offset = self.scroll_offset.saturating_add(n);

@@ -1654,6 +1654,76 @@ impl App {
         }
     }
 
+    fn format_session_status(session: &crate::ui::session::AgentSession) -> String {
+        let agent = session.agent_type.to_string();
+        let model = session.model.as_deref().unwrap_or("—");
+        let session_id = session
+            .agent_session_id
+            .as_ref()
+            .map(|s| s.as_str().to_string())
+            .unwrap_or_else(|| "—".to_string());
+        let ctx_pct = (session.context_state.usage_percent() * 100.0) as u32;
+        let current = session.context_state.current_tokens;
+        let max = session.context_state.max_tokens;
+        let turns = session.turn_count;
+        let dir = session
+            .working_dir
+            .as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "—".to_string());
+        format!(
+            "Agent:    {agent}\nModel:    {model}\nSession:  {session_id}\nContext:  {ctx_pct}% ({current} / {max} tokens)\nTurns:    {turns}\nDir:      {dir}"
+        )
+    }
+
+    fn truncate_claude_session(
+        session_id: &SessionId,
+        working_dir: &std::path::Path,
+    ) -> std::io::Result<()> {
+        let encoded = working_dir.to_str().unwrap_or("").replace('/', "-");
+        let Some(home) = dirs::home_dir() else {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "home directory not found",
+            ));
+        };
+        let file_path = home
+            .join(".claude")
+            .join("projects")
+            .join(&encoded)
+            .join(format!("{}.jsonl", session_id.as_str()));
+
+        if !file_path.exists() {
+            return Ok(());
+        }
+
+        let content = std::fs::read_to_string(&file_path)?;
+        let lines: Vec<&str> = content.lines().collect();
+
+        // Find the last non-meta user message — that's the start of the turn to remove.
+        let last_user_idx = lines.iter().rposition(|line| {
+            serde_json::from_str::<serde_json::Value>(line)
+                .ok()
+                .filter(|v| {
+                    v.get("type").and_then(|t| t.as_str()) == Some("user")
+                        && v.get("isMeta").and_then(|m| m.as_bool()) != Some(true)
+                })
+                .is_some()
+        });
+
+        let Some(idx) = last_user_idx else {
+            return Ok(());
+        };
+
+        let truncated = lines[..idx].join("\n");
+        let truncated = if truncated.is_empty() {
+            truncated
+        } else {
+            truncated + "\n"
+        };
+        std::fs::write(&file_path, truncated)
+    }
+
     fn spawn_agent_termination(
         &self,
         pid: u32,
@@ -3578,7 +3648,10 @@ impl App {
             ConduitCommand::Providers => Some(Action::ShowProvidersSelector),
             ConduitCommand::Fork => Some(Action::ForkSession),
             ConduitCommand::Handoff => Some(Action::HandoffSession),
-            ConduitCommand::NewSession => None,
+            ConduitCommand::NewSession
+            | ConduitCommand::Btw
+            | ConduitCommand::Status
+            | ConduitCommand::Rewind => None,
         }
     }
 
@@ -3599,6 +3672,9 @@ impl App {
             Ok(effects)
         } else if matches!(command, ConduitCommand::NewSession) {
             self.start_new_session_in_place();
+            Ok(Vec::new())
+        } else if matches!(command, ConduitCommand::Btw) {
+            self.open_queue_editor();
             Ok(Vec::new())
         } else {
             Ok(Vec::new())
@@ -9138,6 +9214,8 @@ impl App {
         let mut shell_command: Option<(Uuid, usize, String, Option<PathBuf>)> = None;
         let mut shell_error: Option<String> = None;
         let mut queued_handled = false;
+        let mut open_queue_editor_after = false;
+        let mut rewind_kill_process = false;
 
         // Extract config values before the mutable borrow
         let steer_behavior = self.config().steer.behavior;
@@ -9186,6 +9264,58 @@ impl App {
                     ));
                 }
                 queued_handled = true;
+            }
+
+            if !queued_handled {
+                if let Some(note) = submission_text
+                    .trim()
+                    .strip_prefix("/btw")
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                {
+                    let queued = QueuedMessage {
+                        id: Uuid::new_v4(),
+                        mode: QueuedMessageMode::FollowUp,
+                        text: note.to_string(),
+                        images: Vec::new(),
+                        created_at: Utc::now(),
+                    };
+                    session.queue_message(queued);
+                    footer_message = Some("Note queued".to_string());
+                    queued_handled = true;
+                } else if submission_text.trim() == "/btw" {
+                    open_queue_editor_after = true;
+                    queued_handled = true;
+                } else if submission_text.trim() == "/status" {
+                    let msg = Self::format_session_status(session);
+                    session.chat_view.push(ChatMessage::system(msg));
+                    queued_handled = true;
+                } else if submission_text.trim() == "/rewind" {
+                    if session.is_processing {
+                        footer_message =
+                            Some("Cannot rewind while the agent is running".to_string());
+                    } else if session.agent_type != AgentType::Claude {
+                        footer_message = Some(format!(
+                            "/rewind is only supported for Claude sessions (current: {})",
+                            session.agent_type
+                        ));
+                    } else if session.agent_session_id.is_none() {
+                        footer_message = Some("No session to rewind".to_string());
+                    } else if !session.chat_view.pop_last_turn() {
+                        footer_message = Some("Nothing to rewind".to_string());
+                    } else {
+                        if let (Some(session_id), Some(working_dir)) =
+                            (&session.agent_session_id, &session.working_dir)
+                        {
+                            if let Err(e) = Self::truncate_claude_session(session_id, working_dir) {
+                                tracing::warn!(error = %e, "Failed to truncate Claude session file during rewind");
+                            }
+                        }
+                        rewind_kill_process = true;
+                        footer_message = Some("Rewound 1 turn".to_string());
+                    }
+                    queued_handled = true;
+                }
             }
 
             if !queued_handled {
@@ -9273,6 +9403,15 @@ impl App {
                 working_dir,
             });
             return Ok(effects);
+        }
+
+        if open_queue_editor_after {
+            self.open_queue_editor();
+            return Ok(effects);
+        }
+
+        if rewind_kill_process {
+            self.interrupt_agent();
         }
 
         if let Some(message) = footer_message {

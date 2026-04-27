@@ -538,6 +538,9 @@ fn web_conduit_command_error(command: ConduitCommand) -> String {
         }
         ConduitCommand::Fork => "Fork is only available from the TUI right now.".to_string(),
         ConduitCommand::Handoff => "Handoff is only available from the TUI right now.".to_string(),
+        ConduitCommand::Btw => "Use the queue editor in the TUI for `/btw`.".to_string(),
+        ConduitCommand::Status => "Use `/status` in the TUI to view session info.".to_string(),
+        ConduitCommand::Rewind => "Rewind is only available from the TUI.".to_string(),
     }
 }
 
