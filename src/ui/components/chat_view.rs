@@ -2476,12 +2476,64 @@ impl ChatView {
         // Store extra lines for file path hover detection in prompts
         self.last_extra_lines = extra_lines.clone();
         self.last_extra_lines_start = cached_len + streaming_len;
-        let total_lines = cached_len + streaming_len + extra_len;
         let visible_height = content.height as usize;
         self.last_visible_height = visible_height;
 
+        // Pinned header: keep the latest assistant message at the top once it reaches
+        // the top of the viewport (pushed there by accumulating tool output below it).
+        const MAX_PIN_LINES: usize = 10;
+        const MIN_SCROLLABLE_ROWS: usize = 4;
+
+        // Probe the first visible line using full content dimensions (before any pin
+        // adjustment) to break circularity. The pin activates when the message's first
+        // line is at or above this probe value — i.e. it has naturally reached the top.
+        let total_lines_full = cached_len + streaming_len + extra_len;
+        let probe_start = total_lines_full
+            .saturating_sub(self.scroll_offset)
+            .saturating_sub(visible_height);
+
+        let pinned_span = self
+            .messages
+            .iter()
+            .rposition(|m| matches!(m.role, MessageRole::Assistant) && !m.content.is_empty())
+            .and_then(|i| self.flat_cache_entry_spans.get(i).copied())
+            .filter(|&(ps, pe)| pe > ps && ps <= probe_start);
+
+        let (pin_start, pin_end) = pinned_span.unwrap_or((cached_len, cached_len));
+        let pin_content_lines = pin_end - pin_start;
+        let pin_content_height = pin_content_lines.min(MAX_PIN_LINES);
+        // +1 for separator line drawn below the pinned block
+        let pin_total_height = if pin_content_height > 0
+            && visible_height > pin_content_height + 1 + MIN_SCROLLABLE_ROWS
+        {
+            pin_content_height + 1
+        } else {
+            0
+        };
+
+        // Scroll-space dimensions: exclude the pinned message from the cached line count
+        // so scroll offsets and ranges refer only to the scrollable portion.
+        let s_cached_len = cached_len
+            - if pin_total_height > 0 {
+                pin_content_lines
+            } else {
+                0
+            };
+        let s_visible = visible_height - pin_total_height;
+        let s_total = s_cached_len + streaming_len + extra_len;
+
+        // Map a scrollable flat-cache index to an actual flat_cache index, skipping the
+        // pinned span.  When the pin is inactive the mapping is identity.
+        let to_actual = |si: usize| -> usize {
+            if pin_total_height > 0 && si >= pin_start {
+                si + pin_content_lines
+            } else {
+                si
+            }
+        };
+
         // Clamp scroll offset (respect locks if active)
-        let max_scroll = total_lines.saturating_sub(visible_height);
+        let max_scroll = s_total.saturating_sub(s_visible);
         let scroll_from_top = if let Some(lock) = self.selection_scroll_lock {
             // Selection drag in progress — hold absolute position
             let locked = lock.min(max_scroll);
@@ -2507,28 +2559,26 @@ impl ChatView {
             }
         }
 
-        let start_line = total_lines.saturating_sub(self.scroll_offset + visible_height);
-        let end_line = total_lines.saturating_sub(self.scroll_offset);
-        let mut visible_lines: Vec<(Line<'static>, Option<usize>)> =
-            Vec::with_capacity(visible_height);
+        let start_line = s_total.saturating_sub(self.scroll_offset + s_visible);
+        let end_line = s_total.saturating_sub(self.scroll_offset);
+        let mut visible_lines: Vec<(Line<'static>, Option<usize>)> = Vec::with_capacity(s_visible);
 
-        // Cached lines range
-        let cached_end = cached_len;
-        if start_line < cached_end {
-            let slice_end = end_line.min(cached_end);
-            for (idx, line) in self.flat_cache[start_line..slice_end]
-                .iter()
-                .cloned()
-                .enumerate()
-            {
-                let line_index = start_line + idx;
-                visible_lines.push((line, Some(line_index)));
+        // Cached lines range (scrollable index space; pinned span is excluded).
+        // line_index values are stored as actual flat_cache indices so that hover
+        // detection and selection (which compare against flat_cache_entry_spans)
+        // remain correct.
+        let s_cached_end = s_cached_len;
+        if start_line < s_cached_end {
+            let slice_end = end_line.min(s_cached_end);
+            for si in start_line..slice_end {
+                let ai = to_actual(si);
+                visible_lines.push((self.flat_cache[ai].clone(), Some(ai)));
             }
         }
 
         // Streaming lines range
-        let streaming_start = cached_end;
-        let streaming_end = cached_end + streaming_len;
+        let streaming_start = s_cached_end;
+        let streaming_end = s_cached_end + streaming_len;
         if streaming_len > 0 && end_line > streaming_start && start_line < streaming_end {
             if let Some(ref cached_streaming) = self.streaming_cache {
                 let range_start = start_line.max(streaming_start) - streaming_start;
@@ -2538,7 +2588,8 @@ impl ChatView {
                     .cloned()
                     .enumerate()
                 {
-                    let line_index = streaming_start + range_start + idx;
+                    // Actual index: streaming content lives at [cached_len, cached_len+streaming_len)
+                    let line_index = cached_len + range_start + idx;
                     visible_lines.push((line, Some(line_index)));
                 }
             }
@@ -2556,29 +2607,64 @@ impl ChatView {
                     .cloned()
                     .enumerate()
                 {
-                    // Include line_index for hover detection on file paths in prompts
-                    let line_index = extra_start + range_start + idx;
+                    // Actual index for hover detection on file paths in prompts
+                    let line_index = cached_len + streaming_len + range_start + idx;
                     visible_lines.push((line, Some(line_index)));
                 }
             }
         }
+
         let highlighted = self.apply_selection_highlight(visible_lines, content.width);
 
-        // When content is shorter than visible area, render at bottom (not top)
+        // Scrollable content renders below the pinned header (or at full area when no pin)
+        let scrollable_rect = Rect {
+            x: content.x,
+            y: content.y + pin_total_height as u16,
+            width: content.width,
+            height: content.height.saturating_sub(pin_total_height as u16),
+        };
         let actual_lines = highlighted.len();
-        let render_area = if actual_lines < visible_height {
-            // Calculate top offset to push content to bottom
-            let top_offset = (visible_height - actual_lines) as u16;
+        let render_area = if actual_lines < s_visible {
+            // Push short content to the bottom of the scrollable area
+            let top_offset = (s_visible - actual_lines) as u16;
             Rect {
-                x: content.x,
-                y: content.y + top_offset,
-                width: content.width,
+                x: scrollable_rect.x,
+                y: scrollable_rect.y + top_offset,
+                width: scrollable_rect.width,
                 height: actual_lines as u16,
             }
         } else {
-            content
+            scrollable_rect
         };
         Paragraph::new(highlighted).render(render_area, buf);
+
+        // Render pinned header and separator
+        if pin_total_height > 0 {
+            let pin_lines: Vec<Line<'static>> =
+                self.flat_cache[pin_start..(pin_start + pin_content_height)].to_vec();
+            Paragraph::new(pin_lines).render(
+                Rect {
+                    x: content.x,
+                    y: content.y,
+                    width: content.width,
+                    height: pin_content_height as u16,
+                },
+                buf,
+            );
+            let sep_line = Line::from(Span::styled(
+                "─".repeat(content.width as usize),
+                Style::default().fg(text_muted()),
+            ));
+            Paragraph::new(vec![sep_line]).render(
+                Rect {
+                    x: content.x,
+                    y: content.y + pin_content_height as u16,
+                    width: content.width,
+                    height: 1,
+                },
+                buf,
+            );
+        }
 
         if show_scrollbar {
             render_minimal_scrollbar(
@@ -2589,8 +2675,8 @@ impl ChatView {
                     height: area.height,
                 },
                 buf,
-                total_lines,
-                visible_height,
+                s_total,
+                s_visible,
                 scroll_from_top,
             );
         }
