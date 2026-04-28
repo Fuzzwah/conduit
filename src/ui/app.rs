@@ -338,6 +338,15 @@ impl App {
             self.state.provider_selector_state.show();
         }
     }
+
+    /// Re-detect installed tools and refresh runners and UI selector state.
+    fn redetect_tools(&mut self) {
+        self.core.redetect_tools();
+        let tools = self.tools().clone();
+        self.state
+            .agent_selector_state
+            .update_available_agents(&tools);
+    }
 }
 
 fn send_app_event(
@@ -511,6 +520,7 @@ impl App {
             "providers" => {
                 self.state.close_overlays();
                 self.state.pending_new_project_target = None;
+                self.redetect_tools();
                 self.state.provider_selector_state =
                     crate::ui::components::ProviderSelectorState::configure_for(
                         self.config(),
@@ -6143,6 +6153,7 @@ impl App {
             TabBarHitTarget::None => {
                 if self.state.tab_manager.can_add_tab() {
                     self.state.close_overlays();
+                    self.redetect_tools();
                     let default_provider = self
                         .preferred_provider_for_new_sessions()
                         .unwrap_or(self.config().default_agent);
