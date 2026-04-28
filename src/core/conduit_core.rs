@@ -351,6 +351,15 @@ impl ConduitCore {
         &mut self.config
     }
 
+    /// Re-run tool detection and refresh all agent runners.
+    ///
+    /// Call this when the user opens a selector that shows available providers,
+    /// so newly installed tools are reflected without restarting.
+    pub fn redetect_tools(&mut self) {
+        self.tools = ToolAvailability::detect(&self.config.tool_paths);
+        self.refresh_runners();
+    }
+
     /// Refresh agent runners using the latest tool configuration.
     ///
     /// This should be called after updating tool paths (e.g., when the user
