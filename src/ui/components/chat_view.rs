@@ -2635,13 +2635,24 @@ fn wrap_spans_with_joiners(
     }
 
     let mut chars: Vec<(char, Style)> = Vec::new();
+    let mut col: usize = 0;
     for span in spans {
         let style = span.style;
         for ch in span.content.chars() {
+            if ch == '\t' {
+                let spaces = 8 - (col % 8);
+                for _ in 0..spaces {
+                    chars.push((' ', style));
+                    col += 1;
+                }
+                continue;
+            }
             if ch.is_control() {
                 continue;
             }
+            let w = UnicodeWidthChar::width(ch).unwrap_or(0);
             chars.push((ch, style));
+            col += w;
         }
     }
 
