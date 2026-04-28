@@ -2136,11 +2136,18 @@ impl ChatView {
             let command = match tool_name {
                 "Bash" | "exec_command" | "shell" | "local_shell_call" | "command_execution" => {
                     json.get("command")
+                        .or_else(|| json.get("cmd"))
                         .and_then(|c| c.as_str())
                         .map(String::from)
                 }
                 "Read" | "read_file" => {
-                    let path = json.get("file_path").and_then(|p| p.as_str()).unwrap_or("");
+                    let path = json
+                        .get("file_path")
+                        .or_else(|| json.get("filePath"))
+                        .or_else(|| json.get("path"))
+                        .or_else(|| json.get("file"))
+                        .and_then(|p| p.as_str())
+                        .unwrap_or("");
                     let offset = json.get("offset").and_then(|o| o.as_i64());
                     let limit = json.get("limit").and_then(|l| l.as_i64());
                     if let (Some(off), Some(lim)) = (offset, limit) {
@@ -2152,6 +2159,9 @@ impl ChatView {
                 }
                 "Write" | "write_file" | "Edit" => json
                     .get("file_path")
+                    .or_else(|| json.get("filePath"))
+                    .or_else(|| json.get("path"))
+                    .or_else(|| json.get("file"))
                     .and_then(|p| p.as_str())
                     .map(String::from),
                 "Glob" => {
@@ -2188,8 +2198,13 @@ impl ChatView {
             }
         }
 
-        // Fallback: use raw args (truncated)
-        truncate_to_width(tool_args, max_width)
+        // Fallback: use raw args (truncated), but skip unhelpful empty JSON
+        let fallback = truncate_to_width(tool_args, max_width);
+        if matches!(fallback.trim(), "{}" | "null" | "") {
+            String::new()
+        } else {
+            fallback
+        }
     }
 
     /// Check if tool_args refers to an image file
