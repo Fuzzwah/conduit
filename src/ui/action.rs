@@ -52,6 +52,8 @@ pub enum Action {
     CopySelection,
     /// Copy the bottommost visible code block to clipboard (dedented)
     CopyCodeBlock,
+    /// Cycle backwards (toward newer blocks) through code blocks for clipboard copy
+    CopyCodeBlockPrev,
 
     // ========== Tab Management ==========
     /// Close current tab
@@ -277,6 +279,7 @@ impl Action {
             Action::CopyWorkspacePath => "Copy workspace path",
             Action::CopySelection => "Copy selection",
             Action::CopyCodeBlock => "Copy code block",
+            Action::CopyCodeBlockPrev => "Copy code block (previous)",
 
             // Tab management
             Action::CloseTab => "Close tab",
@@ -441,6 +444,7 @@ impl Action {
                 | Action::CopyWorkspacePath
                 | Action::CopySelection
                 | Action::CopyCodeBlock
+                | Action::CopyCodeBlockPrev
                 // Tab management
                 | Action::CloseTab
                 | Action::NextTab

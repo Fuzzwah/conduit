@@ -111,6 +111,8 @@ pub fn default_keybindings() -> KeybindingConfig {
     bind(&mut config.global, "M-c", Action::CopySelection);
     // Copy nearest visible code block to clipboard
     bind(&mut config.global, "M-y", Action::CopyCodeBlock);
+    // Cycle backwards through code blocks (toward newer) for clipboard copy
+    bind(&mut config.global, "M-Y", Action::CopyCodeBlockPrev);
 
     // Ctrl+Arrow for scrolling
     config.global.insert(
@@ -252,6 +254,7 @@ pub fn default_keybindings() -> KeybindingConfig {
     bind(scrolling, "q", Action::Cancel);
     bind(scrolling, "i", Action::Cancel);
     bind(scrolling, "y", Action::CopyCodeBlock);
+    bind(scrolling, "Y", Action::CopyCodeBlockPrev);
 
     // ========== File Viewer ==========
     let file_viewer = config.context.entry(KeyContext::FileViewer).or_default();

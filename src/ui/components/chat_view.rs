@@ -607,8 +607,117 @@ impl ChatView {
         }
         self.highlighted_code_block = found;
         self.flat_cache_dirty = true;
+        self.scroll_to_show_highlighted_code_block();
 
         Some((Self::dedent(&all_blocks[idx]), idx + 1, total))
+    }
+
+    /// Like `nearest_code_block_content` but cycles in reverse (toward newer blocks).
+    pub fn prev_code_block_content(&mut self) -> Option<(String, usize, usize)> {
+        let all_blocks: Vec<String> = self
+            .line_cache
+            .entries
+            .iter()
+            .rev()
+            .filter_map(|e| e.as_ref())
+            .flat_map(|e| e.code_blocks.iter().rev().cloned())
+            .collect();
+
+        let total = all_blocks.len();
+        if total == 0 {
+            self.code_block_cycle_idx = 0;
+            self.code_block_last_total = 0;
+            return None;
+        }
+
+        if total > self.code_block_last_total {
+            self.code_block_cycle_idx = 0;
+        }
+        self.code_block_last_total = total;
+
+        // Step backwards: decrement, wrapping to total-1 at 0.
+        let idx = if self.code_block_cycle_idx == 0 {
+            total - 1
+        } else {
+            self.code_block_cycle_idx - 1
+        };
+        self.code_block_cycle_idx = idx;
+
+        let mut remaining = idx;
+        let mut found: Option<(usize, usize)> = None;
+        'find: for (fwd_entry_idx, entry_opt) in self.line_cache.entries.iter().enumerate().rev() {
+            if let Some(entry) = entry_opt {
+                let n = entry.code_blocks.len();
+                if remaining < n {
+                    found = Some((fwd_entry_idx, n - 1 - remaining));
+                    break 'find;
+                }
+                remaining = remaining.saturating_sub(n);
+            }
+        }
+        self.highlighted_code_block = found;
+        self.flat_cache_dirty = true;
+        self.scroll_to_show_highlighted_code_block();
+
+        Some((Self::dedent(&all_blocks[idx]), idx + 1, total))
+    }
+
+    /// Scroll so the currently highlighted code block is visible.
+    /// Must be called after `highlighted_code_block` and `flat_cache_dirty` are set.
+    fn scroll_to_show_highlighted_code_block(&mut self) {
+        if self.last_visible_height == 0 {
+            return;
+        }
+        let Some((entry_idx, block_within)) = self.highlighted_code_block else {
+            return;
+        };
+
+        // Rebuild flat cache so spans reflect the current state.
+        self.ensure_flat_cache();
+
+        let span = self
+            .flat_code_block_spans
+            .iter()
+            .find(|(ei, bi, _, _)| *ei == entry_idx && *bi == block_within)
+            .copied();
+        let Some((_, _, flat_start, flat_end)) = span else {
+            return;
+        };
+
+        let total = self.flat_cache.len();
+        let visible = self.last_visible_height;
+        let max_scroll = total.saturating_sub(visible);
+
+        // Compute the current visible range [view_top, view_top + visible).
+        let current_offset = self.scroll_offset.min(max_scroll);
+        let view_top = total.saturating_sub(current_offset + visible);
+
+        // Check if the entire block is already on screen.
+        if flat_start >= view_top && flat_end <= view_top + visible {
+            return;
+        }
+
+        // Choose a new view_top that brings the block into view.
+        let new_view_top = if flat_start < view_top {
+            // Block is above the viewport — scroll up, leaving a small margin.
+            flat_start.saturating_sub(2)
+        } else {
+            // Block is below the viewport — scroll down to show its end, with margin.
+            let block_height = flat_end.saturating_sub(flat_start);
+            if block_height >= visible {
+                flat_start
+            } else {
+                flat_end.saturating_sub(visible.saturating_sub(2))
+            }
+        };
+
+        self.scroll_offset = max_scroll.saturating_sub(new_view_top.min(max_scroll));
+        // Pin the position so it stays fixed while new content arrives.
+        self.pinned_scroll_top = if self.scroll_offset > 0 {
+            Some(new_view_top)
+        } else {
+            None
+        };
     }
 
     fn dedent(content: &str) -> String {

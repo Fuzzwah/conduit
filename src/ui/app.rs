@@ -2173,7 +2173,8 @@ impl App {
             | Action::DumpDebugState
             | Action::CopyWorkspacePath
             | Action::CopySelection
-            | Action::CopyCodeBlock => {
+            | Action::CopyCodeBlock
+            | Action::CopyCodeBlockPrev => {
                 self.handle_global_action(action, &mut effects);
             }
             Action::OpenPr => {
