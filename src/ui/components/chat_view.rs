@@ -485,8 +485,8 @@ pub struct ChatView {
     flat_cache_entry_spans: Vec<(usize, usize)>,
     /// Viewport height from the last render pass (used by nearest_code_block_content)
     last_visible_height: usize,
-    /// Cycling index for Alt+y: 0 = most recent code block, increments on each press
-    code_block_cycle_idx: usize,
+    /// Currently selected code block index (newest-first order). None = nothing selected yet.
+    code_block_cycle_idx: Option<usize>,
     /// Total code block count seen on the last Alt+y press; resets cycle when it grows
     code_block_last_total: usize,
     /// Which code block is currently highlighted after a copy: (entry_idx, block_within_entry) in forward order
@@ -534,7 +534,7 @@ impl ChatView {
             agent_label: "Claude".to_string(),
             flat_cache_entry_spans: Vec::new(),
             last_visible_height: 0,
-            code_block_cycle_idx: 0,
+            code_block_cycle_idx: None,
             code_block_last_total: 0,
             highlighted_code_block: None,
             flat_code_block_spans: Vec::new(),
@@ -578,18 +578,21 @@ impl ChatView {
 
         let total = all_blocks.len();
         if total == 0 {
-            self.code_block_cycle_idx = 0;
+            self.code_block_cycle_idx = None;
             self.code_block_last_total = 0;
             return None;
         }
 
         if total > self.code_block_last_total {
-            self.code_block_cycle_idx = 0;
+            self.code_block_cycle_idx = None;
         }
         self.code_block_last_total = total;
 
-        let idx = self.code_block_cycle_idx % total;
-        self.code_block_cycle_idx = (idx + 1) % total;
+        let idx = match self.code_block_cycle_idx {
+            None => 0,
+            Some(i) => (i + 1) % total,
+        };
+        self.code_block_cycle_idx = Some(idx);
 
         // Find (entry_idx, block_within_entry) for idx in the newest-first ordering.
         // Entries are visited in reverse (newest first), blocks within each entry in reverse.
@@ -625,23 +628,21 @@ impl ChatView {
 
         let total = all_blocks.len();
         if total == 0 {
-            self.code_block_cycle_idx = 0;
+            self.code_block_cycle_idx = None;
             self.code_block_last_total = 0;
             return None;
         }
 
         if total > self.code_block_last_total {
-            self.code_block_cycle_idx = 0;
+            self.code_block_cycle_idx = None;
         }
         self.code_block_last_total = total;
 
-        // Step backwards: decrement, wrapping to total-1 at 0.
-        let idx = if self.code_block_cycle_idx == 0 {
-            total - 1
-        } else {
-            self.code_block_cycle_idx - 1
+        let idx = match self.code_block_cycle_idx {
+            None | Some(0) => total - 1,
+            Some(i) => i - 1,
         };
-        self.code_block_cycle_idx = idx;
+        self.code_block_cycle_idx = Some(idx);
 
         let mut remaining = idx;
         let mut found: Option<(usize, usize)> = None;
@@ -911,7 +912,7 @@ impl ChatView {
         self.streaming_cache = None;
         self.joiner_before.clear();
         self.streaming_joiner_before = None;
-        self.code_block_cycle_idx = 0;
+        self.code_block_cycle_idx = None;
         // Keep cache_width so we don't have to recalculate on next render
     }
 
