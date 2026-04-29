@@ -695,54 +695,30 @@ fn discover_pi_models(binary_path: &PathBuf) -> Option<Vec<PiModelEntry>> {
 
     let text = String::from_utf8_lossy(&output.stdout);
 
-    let parse_entry = |v: &serde_json::Value| -> Option<PiModelEntry> {
-        let id = v
-            .get("id")
-            .or_else(|| v.get("name"))
-            .and_then(|s| s.as_str())
-            .map(str::to_string)?;
-        if id.is_empty() {
-            return None;
-        }
-        let display_name = v
-            .get("displayName")
-            .or_else(|| v.get("display_name"))
-            .and_then(|s| s.as_str())
-            .unwrap_or(&id)
-            .to_string();
-        Some(PiModelEntry { id, display_name })
-    };
-
-    if let Ok(arr) = serde_json::from_str::<Vec<serde_json::Value>>(&text) {
-        let entries: Vec<PiModelEntry> = arr.iter().filter_map(parse_entry).collect();
-        if !entries.is_empty() {
-            return Some(entries);
-        }
-    }
-
-    if let Ok(obj) = serde_json::from_str::<serde_json::Value>(&text) {
-        if let Some(arr) = obj.get("models").and_then(|v| v.as_array()) {
-            let entries: Vec<PiModelEntry> = arr.iter().filter_map(parse_entry).collect();
-            if !entries.is_empty() {
-                return Some(entries);
-            }
-        }
-    }
-
-    let text_entries: Vec<PiModelEntry> = text
+    // pi --list-models outputs a table: "provider  model  context  max-out  thinking  images"
+    // Parse each data row and combine as "provider/model_id" so pi resolves it correctly.
+    let table_entries: Vec<PiModelEntry> = text
         .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty() && !line.starts_with('#'))
-        .map(|id| PiModelEntry {
-            id: id.to_string(),
-            display_name: id.to_string(),
+        .filter_map(|line| {
+            let mut cols = line.split_whitespace();
+            let provider = cols.next()?;
+            let model_id = cols.next()?;
+            // Skip the header row
+            if provider == "provider" && model_id == "model" {
+                return None;
+            }
+            let id = format!("{provider}/{model_id}");
+            Some(PiModelEntry {
+                display_name: model_id.to_string(),
+                id,
+            })
         })
         .collect();
 
-    if text_entries.is_empty() {
+    if table_entries.is_empty() {
         None
     } else {
-        Some(text_entries)
+        Some(table_entries)
     }
 }
 

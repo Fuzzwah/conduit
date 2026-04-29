@@ -410,8 +410,24 @@ impl ModelRegistry {
     }
 
     pub fn set_pi_models(entries: Vec<PiModelEntry>) {
-        let _ = entries;
-        let models = Self::build_pi_models();
+        let models: Vec<ModelInfo> = entries
+            .into_iter()
+            .enumerate()
+            .map(|(i, entry)| {
+                let mut info = ModelInfo::new(
+                    AgentType::Pi,
+                    &entry.id,
+                    &entry.display_name,
+                    &entry.id,
+                    "",
+                    Self::PI_CONTEXT_WINDOW,
+                );
+                if i == 0 {
+                    info = info.as_default();
+                }
+                info
+            })
+            .collect();
         let mut store = match Self::pi_store().write() {
             Ok(guard) => guard,
             Err(err) => {
@@ -787,26 +803,26 @@ impl ModelRegistry {
         vec![
             ModelInfo::new(
                 AgentType::Pi,
+                "openrouter/deepseek/deepseek-v4-flash",
                 "deepseek/deepseek-v4-flash",
-                "deepseek/deepseek-v4-flash [openrouter]",
-                "deepseek/deepseek-v4-flash",
+                "openrouter/deepseek/deepseek-v4-flash",
                 "DeepSeek model via OpenRouter",
                 Self::PI_CONTEXT_WINDOW,
             )
             .as_default(),
             ModelInfo::new(
                 AgentType::Pi,
+                "openrouter/google/gemini-3.1-flash-lite-preview",
                 "google/gemini-3.1-flash-lite-preview",
-                "google/gemini-3.1-flash-lite-preview [openrouter]",
-                "google/gemini-3.1-flash-lite-preview",
+                "openrouter/google/gemini-3.1-flash-lite-preview",
                 "Google model via OpenRouter",
                 Self::PI_CONTEXT_WINDOW,
             ),
             ModelInfo::new(
                 AgentType::Pi,
+                "openrouter/mistralai/mistral-nemo",
                 "mistralai/mistral-nemo",
-                "mistralai/mistral-nemo [openrouter]",
-                "mistralai/mistral-nemo",
+                "openrouter/mistralai/mistral-nemo",
                 "Mistral model via OpenRouter",
                 Self::PI_CONTEXT_WINDOW,
             ),
@@ -877,7 +893,7 @@ impl ModelRegistry {
             AgentType::Gemini => "gemini-2.5-pro".to_string(),
             AgentType::Opencode => Self::OPENCODE_DEFAULT_MODEL_ID.to_string(),
             AgentType::Copilot => "gpt-5.3-codex".to_string(),
-            AgentType::Pi => "deepseek/deepseek-v4-flash".to_string(),
+            AgentType::Pi => "openrouter/deepseek/deepseek-v4-flash".to_string(),
         }
     }
 
@@ -983,10 +999,10 @@ mod tests {
             .find(|model| model.is_default)
             .expect("expected default Pi model");
 
-        assert_eq!(default_model.id, "deepseek/deepseek-v4-flash");
+        assert_eq!(default_model.id, "openrouter/deepseek/deepseek-v4-flash");
         assert_eq!(
             ModelRegistry::default_model(AgentType::Pi),
-            "deepseek/deepseek-v4-flash"
+            "openrouter/deepseek/deepseek-v4-flash"
         );
         assert_eq!(
             models
@@ -994,9 +1010,9 @@ mod tests {
                 .map(|model| model.id.as_str())
                 .collect::<Vec<_>>(),
             vec![
-                "deepseek/deepseek-v4-flash",
-                "google/gemini-3.1-flash-lite-preview",
-                "mistralai/mistral-nemo",
+                "openrouter/deepseek/deepseek-v4-flash",
+                "openrouter/google/gemini-3.1-flash-lite-preview",
+                "openrouter/mistralai/mistral-nemo",
             ]
         );
     }
