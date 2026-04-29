@@ -1614,6 +1614,7 @@ impl App {
 
         // Tick issue picker spinner (for loading state)
         self.state.issue_picker_state.tick();
+        self.state.spec_picker_state.tick();
 
         if let Some(session) = self.state.tab_manager.active_session_mut() {
             session.tick();
@@ -2794,7 +2795,33 @@ impl App {
                         );
                     });
                 }
-                Effect::CreateWorkspace { repo_id, issue } => {
+                Effect::FetchOpenSpecs { repo_id } => {
+                    let repo_dao = self.repo_dao_clone();
+                    let event_tx = self.event_tx.clone();
+
+                    tokio::task::spawn_blocking(move || {
+                        let specs = repo_dao
+                            .and_then(|dao| dao.get_by_id(repo_id).ok().flatten())
+                            .and_then(|repo| repo.base_path)
+                            .map(|path| crate::git::fetch_open_specs(&path))
+                            .unwrap_or_default();
+
+                        send_app_event(
+                            &event_tx,
+                            AppEvent::OpenSpecsFetched { repo_id, specs },
+                            "open_specs_fetched",
+                        );
+                    });
+                }
+                Effect::ShowSpecPicker { repo_id: _, issue } => {
+                    self.state.spec_picker_state.show(issue);
+                    self.state.input_mode = InputMode::SelectingSpec;
+                }
+                Effect::CreateWorkspace {
+                    repo_id,
+                    issue,
+                    spec,
+                } => {
                     let repo_dao = self.repo_dao_clone();
                     let workspace_dao = self.workspace_dao_clone();
                     let worktree_manager = self.worktree_manager().clone();
@@ -2839,8 +2866,8 @@ impl App {
                                 .unwrap_or_default();
 
                             let username = crate::util::get_git_username();
-                            let (workspace_name, branch_name) = match issue {
-                                Some(ref gh) => {
+                            let (workspace_name, branch_name) = match (&issue, &spec) {
+                                (Some(gh), _) => {
                                     let name = format!("gh#{}", gh.number);
                                     let branch = crate::util::generate_branch_name(
                                         &username,
@@ -2848,7 +2875,12 @@ impl App {
                                     );
                                     (name, branch)
                                 }
-                                None => {
+                                (None, Some(s)) => {
+                                    let branch =
+                                        crate::util::generate_branch_name(&username, &s.change_id);
+                                    (s.change_id.clone(), branch)
+                                }
+                                (None, None) => {
                                     let name =
                                         crate::util::generate_workspace_name(&existing_names);
                                     let branch =
@@ -4822,12 +4854,14 @@ impl App {
     }
 
     /// Schedule the workspace creation process for a repository.
-    fn start_workspace_creation(&mut self, repo_id: uuid::Uuid) -> Option<Effect> {
-        let repo_dao = self.repo_dao()?;
+    fn start_workspace_creation(&mut self, repo_id: uuid::Uuid) -> Vec<Effect> {
+        let Some(repo_dao) = self.repo_dao() else {
+            return Vec::new();
+        };
 
         let Ok(Some(repo)) = repo_dao.get_by_id(repo_id) else {
             tracing::error!(repo_id = %repo_id, "Repository not found");
-            return None;
+            return Vec::new();
         };
 
         if repo.workspace_mode.is_none() {
@@ -4851,14 +4885,19 @@ impl App {
                 self.state.confirmation_dialog_state.select_cancel();
             }
             self.state.input_mode = InputMode::Confirming;
-            return None;
+            return Vec::new();
         }
 
         self.mark_repo_action_busy(repo_id);
         self.state.issue_picker_state =
             crate::ui::components::IssuePickerState::show_loading(repo_id);
+        self.state.spec_picker_state =
+            crate::ui::components::SpecPickerState::show_loading(repo_id, None);
         self.state.input_mode = InputMode::SelectingIssue;
-        Some(Effect::FetchGithubIssues { repo_id })
+        vec![
+            Effect::FetchGithubIssues { repo_id },
+            Effect::FetchOpenSpecs { repo_id },
+        ]
     }
 
     /// Find the visible index of a workspace by its ID
@@ -5878,9 +5917,7 @@ impl App {
         // Check sidebar first (if visible)
         if let Some(sidebar_area) = self.state.sidebar_area {
             if Self::point_in_rect(x, y, sidebar_area) {
-                if let Some(effect) = self.handle_sidebar_click(x, y, sidebar_area) {
-                    effects.push(effect);
-                }
+                effects.extend(self.handle_sidebar_click(x, y, sidebar_area));
                 return Ok(effects);
             }
         }
@@ -5988,11 +6025,11 @@ impl App {
     }
 
     /// Handle click in sidebar area
-    fn handle_sidebar_click(&mut self, x: u16, y: u16, sidebar_area: Rect) -> Option<Effect> {
+    fn handle_sidebar_click(&mut self, x: u16, y: u16, sidebar_area: Rect) -> Vec<Effect> {
         // Use centralized constant for header height (same as hover hit-testing)
         let tree_start_y = sidebar_area.y.saturating_add(SIDEBAR_HEADER_ROWS);
         if y < tree_start_y {
-            return None; // Clicked on title or separator
+            return Vec::new(); // Clicked on title or separator
         }
 
         // Check if clicking on "Add Project" button (when sidebar is empty)
@@ -6000,7 +6037,7 @@ impl App {
             if Self::point_in_rect(x, y, button_area) {
                 // Trigger new project dialog (same logic as Action::NewProject)
                 self.open_project_picker_or_base_dir();
-                return None;
+                return Vec::new();
             }
         }
 
@@ -6010,10 +6047,13 @@ impl App {
 
         let visual_row = (y - tree_start_y) as usize;
         let scroll_offset = self.state.sidebar_state.tree_state.offset;
-        let clicked_index = self
+        let Some(clicked_index) = self
             .state
             .sidebar_data
-            .index_from_visual_row(visual_row, scroll_offset)?;
+            .index_from_visual_row(visual_row, scroll_offset)
+        else {
+            return Vec::new();
+        };
 
         // Detect double-click (same index within 500ms)
         let now = Instant::now();
@@ -6054,7 +6094,7 @@ impl App {
             }
         }
 
-        None
+        Vec::new()
     }
 
     fn build_tab_bar(&self, focused: bool) -> TabBar {
@@ -6877,16 +6917,19 @@ impl App {
             }
             AppEvent::GithubIssuesFetched { repo_id, issues } => {
                 if issues.is_empty() {
-                    // No issues (or not a GitHub repo): skip picker, create with random name
+                    // No issues (or not a GitHub repo): skip issue picker, go to spec picker
                     self.state.issue_picker_state.hide();
                     self.state.input_mode = InputMode::SidebarNavigation;
-                    effects.push(Effect::CreateWorkspace {
+                    effects.push(Effect::ShowSpecPicker {
                         repo_id,
                         issue: None,
                     });
                 } else {
                     self.state.issue_picker_state.load_issues(issues);
                 }
+            }
+            AppEvent::OpenSpecsFetched { repo_id: _, specs } => {
+                self.state.spec_picker_state.load_specs(specs);
             }
             AppEvent::WorkspaceCreated { repo_id, result } => {
                 self.clear_repo_action_busy(repo_id);
@@ -11569,6 +11612,11 @@ impl App {
         if self.state.issue_picker_state.visible {
             use crate::ui::components::IssuePicker;
             IssuePicker::new().render(size, f.buffer_mut(), &self.state.issue_picker_state);
+        }
+
+        if self.state.spec_picker_state.visible {
+            use crate::ui::components::SpecPicker;
+            SpecPicker::new().render(size, f.buffer_mut(), &self.state.spec_picker_state);
         }
 
         // Draw cloning repository spinner overlay

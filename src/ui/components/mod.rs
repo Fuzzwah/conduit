@@ -37,6 +37,7 @@ mod settings_menu;
 mod sidebar;
 mod slash_menu;
 pub(crate) mod source_highlighter;
+mod spec_picker;
 mod spinner;
 mod status_bar;
 mod tab_bar;
@@ -97,6 +98,7 @@ pub use session_import_picker::{AgentFilter, SessionImportPicker, SessionImportP
 pub use settings_menu::{SettingsMenu, SettingsMenuEntry, SettingsMenuEntryId, SettingsMenuState};
 pub use sidebar::{Sidebar, SidebarState, SIDEBAR_HEADER_ROWS};
 pub use slash_menu::{SlashMenu, SlashMenuEntry, SlashMenuState};
+pub use spec_picker::{SpecPicker, SpecPickerState, SpecSortOrder};
 pub use spinner::Spinner;
 pub use status_bar::StatusBar;
 pub use tab_bar::{TabBar, TabBarHitTarget};

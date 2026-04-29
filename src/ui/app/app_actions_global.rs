@@ -92,9 +92,7 @@ impl App {
                 };
 
                 if let Some(repo_id) = repo_id {
-                    if let Some(effect) = self.start_workspace_creation(repo_id) {
-                        effects.push(effect);
-                    }
+                    effects.extend(self.start_workspace_creation(repo_id));
                 } else {
                     self.state.set_timed_footer_message(
                         "No project selected to create a workspace".to_string(),

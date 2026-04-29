@@ -38,9 +38,7 @@ impl App {
                     match node.node_type {
                         NodeType::Action(ActionType::NewWorkspace) => {
                             if let Some(parent_id) = node.parent_id {
-                                if let Some(effect) = self.start_workspace_creation(parent_id) {
-                                    effects.push(effect);
-                                }
+                                effects.extend(self.start_workspace_creation(parent_id));
                             }
                         }
                         NodeType::Workspace => {
@@ -370,9 +368,7 @@ impl App {
                                 Ok(()) => {
                                     self.state.confirmation_dialog_state.hide();
                                     self.state.input_mode = InputMode::SidebarNavigation;
-                                    if let Some(effect) = self.start_workspace_creation(repo_id) {
-                                        effects.push(effect);
-                                    }
+                                    effects.extend(self.start_workspace_creation(repo_id));
                                 }
                                 Err(err) => {
                                     self.state.confirmation_dialog_state.hide();
