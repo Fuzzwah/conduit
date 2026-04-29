@@ -74,6 +74,15 @@ pub fn highlight_markdown_code_block(
     highlighted.into_iter().map(pad_code_line).collect()
 }
 
+pub fn highlight_file_for_tool(file_path: &Path, lines: &[String]) -> Vec<Line<'static>> {
+    let syntax_set = syntax_set();
+    let syntax = resolve_file_syntax(FileKind::PlainText, file_path, syntax_set);
+    match highlight_lines_with_syntect(lines, syntax, CodeSurfaceKind::MarkdownBlock) {
+        Some(highlighted) => highlighted,
+        None => lines.iter().map(|l| Line::from(l.clone())).collect(),
+    }
+}
+
 pub fn highlight_inline_code(code: &str) -> Vec<Span<'static>> {
     let syntax_set = syntax_set();
     let syntax = syntax_set.find_syntax_plain_text();

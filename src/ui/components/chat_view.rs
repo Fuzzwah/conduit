@@ -7,10 +7,12 @@ use ratatui::{
     widgets::{Paragraph, Widget},
 };
 use std::borrow::Cow;
+use std::path::Path;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use super::{
     render_minimal_scrollbar,
+    source_highlighter::highlight_file_for_tool,
     theme::{
         accent_error, accent_primary, accent_success, bg_base, bg_highlight, diff_add, diff_remove,
         markdown_code_bg, text_muted, theme_revision, tool_block_bg, tool_command, tool_comment,
@@ -251,6 +253,30 @@ fn truncate_to_width_exact(s: &str, max_width: usize) -> String {
 }
 
 /// Normalize carriage returns and backspaces while preserving ANSI sequences.
+/// Strip the `cat -n` style line-number prefix ("   N\t") that the Read tool prepends.
+fn strip_line_number_prefix(line: &str) -> &str {
+    // Format is optional leading spaces, one or more digits, then a tab character.
+    let trimmed = line.trim_start_matches(' ');
+    let digits_end = trimmed
+        .find(|c: char| !c.is_ascii_digit())
+        .unwrap_or(trimmed.len());
+    if digits_end > 0 && trimmed.as_bytes().get(digits_end) == Some(&b'\t') {
+        &trimmed[digits_end + 1..]
+    } else {
+        line
+    }
+}
+
+/// Extract the `file_path` field from JSON tool args (used by the Read tool).
+fn extract_file_path_from_args(tool_args: &str) -> Option<String> {
+    let json: serde_json::Value = serde_json::from_str(tool_args).ok()?;
+    json.get("file_path")
+        .or_else(|| json.get("filePath"))
+        .or_else(|| json.get("path"))
+        .and_then(|v| v.as_str())
+        .map(String::from)
+}
+
 fn normalize_tool_output_line(line: &str) -> Cow<'_, str> {
     let bytes = line.as_bytes();
     let has_cr = bytes.contains(&b'\r');
@@ -2178,54 +2204,85 @@ impl ChatView {
                 &content_lines[..]
             };
 
-            for line in display_lines {
-                let normalized = normalize_tool_output_line(line);
-                let sanitized = sanitize_tool_output_line(normalized.as_ref());
-                let display_line = sanitized.as_ref();
-                // Check for diff-style lines
-                let (line_color, line_text) = if display_line.starts_with('+')
-                    && !display_line.starts_with("+++")
-                {
-                    (diff_add(), sanitized.to_string())
-                } else if display_line.starts_with('-') && !display_line.starts_with("---") {
-                    (diff_remove(), sanitized.to_string())
-                } else if display_line.starts_with("Error:") || display_line.contains("error:") {
-                    (accent_error(), sanitized.to_string())
-                } else {
-                    // Parse ANSI escape codes
-                    let parsed = sanitized.as_ref().as_bytes().into_text();
-                    match parsed {
-                        Ok(text) => {
-                            // If ANSI parsed successfully, add spans with background
-                            let mut spans: Vec<Span<'static>> = text
-                                .lines
-                                .into_iter()
-                                .flat_map(|l| l.spans)
-                                .map(|s| {
-                                    Span::styled(
-                                        s.content.into_owned(),
-                                        s.style.bg(tool_block_bg()),
-                                    )
-                                })
-                                .collect();
-                            if spans.is_empty() {
-                                spans.push(Span::styled("", builder.bg_style()));
-                            }
-                            // Wrap ANSI-parsed lines
-                            for line in builder.wrapped_custom(spans) {
-                                lines.push(line);
-                                joiner_before.push(None);
-                            }
-                            continue;
-                        }
-                        Err(_) => (tool_output(), sanitized.to_string()),
-                    }
-                };
+            if tool_name == "Read" && !is_image {
+                // Syntax-highlight file content.
+                // The Read tool prefixes each line with cat-n style numbers ("   N\t");
+                // strip them before passing to the highlighter.
+                let stripped: Vec<String> = display_lines
+                    .iter()
+                    .map(|l| strip_line_number_prefix(l).to_string())
+                    .collect();
 
-                // Wrap long lines
-                for line in builder.wrapped_output_colored(&line_text, line_color) {
-                    lines.push(line);
-                    joiner_before.push(None);
+                let file_path = extract_file_path_from_args(tool_args);
+                let path_ref = file_path.as_deref().unwrap_or("");
+                let highlighted = highlight_file_for_tool(Path::new(path_ref), &stripped);
+
+                for hl_line in highlighted {
+                    let spans: Vec<Span<'static>> = if hl_line.spans.is_empty() {
+                        vec![Span::styled("", builder.bg_style())]
+                    } else {
+                        hl_line
+                            .spans
+                            .into_iter()
+                            .map(|s| Span::styled(s.content, s.style.bg(tool_block_bg())))
+                            .collect()
+                    };
+                    for wrapped_line in builder.wrapped_custom(spans) {
+                        lines.push(wrapped_line);
+                        joiner_before.push(None);
+                    }
+                }
+            } else {
+                for line in display_lines {
+                    let normalized = normalize_tool_output_line(line);
+                    let sanitized = sanitize_tool_output_line(normalized.as_ref());
+                    let display_line = sanitized.as_ref();
+                    // Check for diff-style lines
+                    let (line_color, line_text) = if display_line.starts_with('+')
+                        && !display_line.starts_with("+++")
+                    {
+                        (diff_add(), sanitized.to_string())
+                    } else if display_line.starts_with('-') && !display_line.starts_with("---") {
+                        (diff_remove(), sanitized.to_string())
+                    } else if display_line.starts_with("Error:") || display_line.contains("error:")
+                    {
+                        (accent_error(), sanitized.to_string())
+                    } else {
+                        // Parse ANSI escape codes
+                        let parsed = sanitized.as_ref().as_bytes().into_text();
+                        match parsed {
+                            Ok(text) => {
+                                // If ANSI parsed successfully, add spans with background
+                                let mut spans: Vec<Span<'static>> = text
+                                    .lines
+                                    .into_iter()
+                                    .flat_map(|l| l.spans)
+                                    .map(|s| {
+                                        Span::styled(
+                                            s.content.into_owned(),
+                                            s.style.bg(tool_block_bg()),
+                                        )
+                                    })
+                                    .collect();
+                                if spans.is_empty() {
+                                    spans.push(Span::styled("", builder.bg_style()));
+                                }
+                                // Wrap ANSI-parsed lines
+                                for line in builder.wrapped_custom(spans) {
+                                    lines.push(line);
+                                    joiner_before.push(None);
+                                }
+                                continue;
+                            }
+                            Err(_) => (tool_output(), sanitized.to_string()),
+                        }
+                    };
+
+                    // Wrap long lines
+                    for line in builder.wrapped_output_colored(&line_text, line_color) {
+                        lines.push(line);
+                        joiner_before.push(None);
+                    }
                 }
             }
 
