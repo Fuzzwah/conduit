@@ -2915,12 +2915,23 @@ fn line_gutter_cols(line: &Line<'_>) -> u16 {
 
 fn highlight_code_block_line(line: &Line<'static>) -> Line<'static> {
     let bg = accent_success();
-    let spans: Vec<Span<'static>> = line
-        .spans
-        .iter()
-        .map(|span| Span::styled(span.content.clone(), span.style.bg(bg)))
-        .collect();
-    Line::from(spans).style(line.style.bg(bg))
+    let mut spans: Vec<Span<'static>> = Vec::with_capacity(line.spans.len() + 1);
+    spans.push(Span::styled(" ", Style::default().bg(bg)));
+    let mut first_span = true;
+    for span in &line.spans {
+        if first_span && span.content.chars().all(|c| c == ' ' || c == '\t') {
+            // Replace leading whitespace span with a single gap space, preserving original width minus the bar cell
+            let gap = span.content.len().saturating_sub(1);
+            if gap > 0 {
+                spans.push(Span::raw(" ".repeat(gap)));
+            }
+            first_span = false;
+        } else {
+            first_span = false;
+            spans.push(span.clone());
+        }
+    }
+    Line::from(spans).style(line.style)
 }
 
 fn highlight_line_by_cols(line: &Line<'static>, start_col: u16, end_col: u16) -> Line<'static> {
