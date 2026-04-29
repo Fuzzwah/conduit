@@ -17,4 +17,4 @@ pub use specs::{fetch_open_specs, OpenSpec};
 pub use status::{get_ahead_behind, GitDiffStats};
 pub use workspace_mode::WorkspaceMode;
 pub use workspace_repo::WorkspaceRepoManager;
-pub use worktree::{WorktreeInfo, WorktreeManager};
+pub use worktree::{sync_remote, WorktreeInfo, WorktreeManager};

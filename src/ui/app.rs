@@ -2777,6 +2777,25 @@ impl App {
                         );
                     });
                 }
+                Effect::SyncRemote { repo_id } => {
+                    let repo_dao = self.repo_dao_clone();
+                    let event_tx = self.event_tx.clone();
+
+                    tokio::task::spawn_blocking(move || {
+                        if let Some(path) = repo_dao
+                            .and_then(|dao| dao.get_by_id(repo_id).ok().flatten())
+                            .and_then(|repo| repo.base_path)
+                        {
+                            crate::git::sync_remote(&path);
+                        }
+
+                        send_app_event(
+                            &event_tx,
+                            AppEvent::RemoteSynced { repo_id },
+                            "remote_synced",
+                        );
+                    });
+                }
                 Effect::FetchGithubIssues { repo_id } => {
                     let repo_dao = self.repo_dao_clone();
                     let event_tx = self.event_tx.clone();
@@ -2813,9 +2832,31 @@ impl App {
                         );
                     });
                 }
-                Effect::ShowSpecPicker { repo_id: _, issue } => {
-                    self.state.spec_picker_state.show(issue);
-                    self.state.input_mode = InputMode::SelectingSpec;
+                Effect::ShowSpecPicker { repo_id, issue } => {
+                    if self.state.spec_picker_state.loading {
+                        // Specs still loading; show spinner and defer show/skip decision
+                        self.state.spec_picker_state.show(issue);
+                        self.state.spec_picker_state.pending_show = true;
+                        self.state.input_mode = InputMode::SelectingSpec;
+                    } else if self.state.spec_picker_state.specs.is_empty() {
+                        // No specs found; skip picker entirely
+                        self.state.spec_picker_state.issue = issue;
+                        self.state.spec_picker_state.pending_show = true;
+                        // Re-trigger decision via event (specs already loaded as empty)
+                        let event_tx = self.event_tx.clone();
+                        send_app_event(
+                            &event_tx,
+                            AppEvent::OpenSpecsFetched {
+                                repo_id,
+                                specs: Vec::new(),
+                            },
+                            "spec_picker_no_specs",
+                        );
+                    } else {
+                        // Specs already loaded and non-empty; show picker directly
+                        self.state.spec_picker_state.show(issue);
+                        self.state.input_mode = InputMode::SelectingSpec;
+                    }
                 }
                 Effect::CreateWorkspace {
                     repo_id,
@@ -4894,10 +4935,7 @@ impl App {
         self.state.spec_picker_state =
             crate::ui::components::SpecPickerState::show_loading(repo_id, None);
         self.state.input_mode = InputMode::SelectingIssue;
-        vec![
-            Effect::FetchGithubIssues { repo_id },
-            Effect::FetchOpenSpecs { repo_id },
-        ]
+        vec![Effect::SyncRemote { repo_id }]
     }
 
     /// Find the visible index of a workspace by its ID
@@ -6915,6 +6953,10 @@ impl App {
                 }
                 self.state.workspace_progress_dialog_state.push(message);
             }
+            AppEvent::RemoteSynced { repo_id } => {
+                effects.push(Effect::FetchGithubIssues { repo_id });
+                effects.push(Effect::FetchOpenSpecs { repo_id });
+            }
             AppEvent::GithubIssuesFetched { repo_id, issues } => {
                 if issues.is_empty() {
                     // No issues (or not a GitHub repo): skip issue picker, go to spec picker
@@ -6928,8 +6970,24 @@ impl App {
                     self.state.issue_picker_state.load_issues(issues);
                 }
             }
-            AppEvent::OpenSpecsFetched { repo_id: _, specs } => {
+            AppEvent::OpenSpecsFetched { repo_id, specs } => {
+                let pending_show = self.state.spec_picker_state.pending_show;
                 self.state.spec_picker_state.load_specs(specs);
+                if pending_show {
+                    self.state.spec_picker_state.pending_show = false;
+                    let issue = self.state.spec_picker_state.issue.clone();
+                    if self.state.spec_picker_state.specs.is_empty() {
+                        // No incomplete specs; skip picker and go straight to workspace creation
+                        self.state.spec_picker_state.hide();
+                        self.state.input_mode = InputMode::SidebarNavigation;
+                        effects.push(Effect::CreateWorkspace {
+                            repo_id,
+                            issue,
+                            spec: None,
+                        });
+                    }
+                    // else: picker is already visible with loaded specs; stay in SelectingSpec
+                }
             }
             AppEvent::WorkspaceCreated { repo_id, result } => {
                 self.clear_repo_action_busy(repo_id);

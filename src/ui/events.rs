@@ -89,6 +89,9 @@ pub enum AppEvent {
     /// Progress update during workspace creation (git fetch output, stage labels)
     WorkspaceCreationProgress { message: String },
 
+    /// Remote sync completed; issue and spec fetches can now begin
+    RemoteSynced { repo_id: Uuid },
+
     /// GitHub issues fetched for workspace creation issue picker
     GithubIssuesFetched {
         repo_id: Uuid,

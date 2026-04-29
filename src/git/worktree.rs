@@ -980,6 +980,27 @@ impl WorktreeManager {
     }
 }
 
+/// Fetch from origin to bring local refs up to date with remote.
+/// Failures are logged as warnings and do not propagate.
+pub fn sync_remote(repo_path: &Path) {
+    match Command::new("git")
+        .args(["fetch", "origin", "--quiet"])
+        .current_dir(repo_path)
+        .output()
+    {
+        Ok(output) if !output.status.success() => {
+            tracing::warn!(
+                stderr = %String::from_utf8_lossy(&output.stderr),
+                "git fetch origin failed"
+            );
+        }
+        Ok(_) => {}
+        Err(e) => {
+            tracing::warn!(error = %e, "Failed to run git fetch origin");
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

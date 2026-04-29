@@ -59,6 +59,8 @@ pub struct SpecPickerState {
     pub loading: bool,
     pub spinner_frame: usize,
     pub sort_order: SpecSortOrder,
+    /// Waiting for specs to load before deciding whether to show or skip
+    pub pending_show: bool,
 }
 
 impl Default for SpecPickerState {
@@ -73,6 +75,7 @@ impl Default for SpecPickerState {
             loading: false,
             spinner_frame: 0,
             sort_order: SpecSortOrder::default(),
+            pending_show: false,
         }
     }
 }
@@ -89,6 +92,7 @@ impl SpecPickerState {
             loading: true,
             spinner_frame: 0,
             sort_order: SpecSortOrder::default(),
+            pending_show: false,
         }
     }
 
@@ -107,6 +111,7 @@ impl SpecPickerState {
     pub fn hide(&mut self) {
         self.visible = false;
         self.loading = false;
+        self.pending_show = false;
         self.specs.clear();
     }
 
