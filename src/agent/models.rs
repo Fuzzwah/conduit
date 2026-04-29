@@ -410,24 +410,8 @@ impl ModelRegistry {
     }
 
     pub fn set_pi_models(entries: Vec<PiModelEntry>) {
-        let models: Vec<ModelInfo> = entries
-            .into_iter()
-            .enumerate()
-            .map(|(i, entry)| {
-                let mut info = ModelInfo::new(
-                    AgentType::Pi,
-                    &entry.id,
-                    &entry.display_name,
-                    &entry.id,
-                    "",
-                    Self::PI_CONTEXT_WINDOW,
-                );
-                if i == 0 {
-                    info = info.as_default();
-                }
-                info
-            })
-            .collect();
+        let _ = entries;
+        let models = Self::build_pi_models();
         let mut store = match Self::pi_store().write() {
             Ok(guard) => guard,
             Err(err) => {
@@ -796,39 +780,35 @@ impl ModelRegistry {
     }
 
     fn pi_models_static() -> Vec<ModelInfo> {
+        Self::build_pi_models()
+    }
+
+    fn build_pi_models() -> Vec<ModelInfo> {
         vec![
             ModelInfo::new(
                 AgentType::Pi,
-                "claude-sonnet-4.6",
-                "Claude Sonnet 4.6",
-                "claude-sonnet-4.6",
-                "Anthropic model via Pi",
-                Self::CLAUDE_CONTEXT_WINDOW,
+                "deepseek/deepseek-v4-flash",
+                "deepseek/deepseek-v4-flash [openrouter]",
+                "deepseek/deepseek-v4-flash",
+                "DeepSeek model via OpenRouter",
+                Self::PI_CONTEXT_WINDOW,
             )
             .as_default(),
             ModelInfo::new(
                 AgentType::Pi,
-                "gpt-5.4",
-                "GPT-5.4",
-                "gpt-5.4",
-                "OpenAI model via Pi",
-                Self::CODEX_CONTEXT_WINDOW,
+                "google/gemini-3.1-flash-lite-preview",
+                "google/gemini-3.1-flash-lite-preview [openrouter]",
+                "google/gemini-3.1-flash-lite-preview",
+                "Google model via OpenRouter",
+                Self::PI_CONTEXT_WINDOW,
             ),
             ModelInfo::new(
                 AgentType::Pi,
-                "gpt-5.3-codex",
-                "GPT-5.3-Codex",
-                "gpt-5.3-codex",
-                "Codex-optimized model via Pi",
-                Self::CODEX_GPT53_CONTEXT_WINDOW,
-            ),
-            ModelInfo::new(
-                AgentType::Pi,
-                "gemini-2.5-pro",
-                "Gemini 2.5 Pro",
-                "gemini-2.5-pro",
-                "Google model via Pi",
-                Self::GEMINI_CONTEXT_WINDOW,
+                "mistralai/mistral-nemo",
+                "mistralai/mistral-nemo [openrouter]",
+                "mistralai/mistral-nemo",
+                "Mistral model via OpenRouter",
+                Self::PI_CONTEXT_WINDOW,
             ),
         ]
     }
@@ -897,7 +877,7 @@ impl ModelRegistry {
             AgentType::Gemini => "gemini-2.5-pro".to_string(),
             AgentType::Opencode => Self::OPENCODE_DEFAULT_MODEL_ID.to_string(),
             AgentType::Copilot => "gpt-5.3-codex".to_string(),
-            AgentType::Pi => "claude-sonnet-4.6".to_string(),
+            AgentType::Pi => "deepseek/deepseek-v4-flash".to_string(),
         }
     }
 
@@ -991,5 +971,33 @@ mod tests {
         assert_eq!(default_model.id, "gpt-5.4");
         assert_eq!(ModelRegistry::default_model(AgentType::Codex), "gpt-5.4");
         assert!(models.iter().any(|model| model.id == "gpt-5.3-codex"));
+    }
+
+    #[test]
+    fn test_pi_models_match_guardrails_allowlist() {
+        ModelRegistry::clear_pi_models();
+
+        let models = ModelRegistry::pi_models();
+        let default_model = models
+            .iter()
+            .find(|model| model.is_default)
+            .expect("expected default Pi model");
+
+        assert_eq!(default_model.id, "deepseek/deepseek-v4-flash");
+        assert_eq!(
+            ModelRegistry::default_model(AgentType::Pi),
+            "deepseek/deepseek-v4-flash"
+        );
+        assert_eq!(
+            models
+                .iter()
+                .map(|model| model.id.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "deepseek/deepseek-v4-flash",
+                "google/gemini-3.1-flash-lite-preview",
+                "mistralai/mistral-nemo",
+            ]
+        );
     }
 }
