@@ -19,6 +19,8 @@ pub(super) struct CachedMessageLines {
     pub(super) content_hash: u64,
     /// Raw code block contents from this message (for clipboard copy)
     pub(super) code_blocks: Vec<String>,
+    /// Line ranges [start, end) within `lines` for each code block (parallel to code_blocks)
+    pub(super) code_block_line_ranges: Vec<(usize, usize)>,
 }
 
 /// Line cache for efficient rendering
@@ -64,7 +66,7 @@ impl ChatView {
     ) -> CachedMessageLines {
         let mut lines = Vec::new();
         let mut joiner_before = Vec::new();
-        let code_blocks =
+        let (code_blocks, code_block_line_ranges) =
             self.format_message_with_joiners(msg, width, &mut lines, &mut joiner_before);
         if add_spacing {
             lines.push(Line::from(""));
@@ -75,6 +77,7 @@ impl ChatView {
             joiner_before,
             content_hash: Self::compute_message_hash(msg),
             code_blocks,
+            code_block_line_ranges,
         }
     }
 
@@ -175,10 +178,20 @@ impl ChatView {
         self.joiner_before.clear();
         self.joiner_before.reserve(self.line_cache.total_line_count);
         self.flat_cache_entry_spans.clear();
-        for entry_opt in self.line_cache.entries.iter() {
+        self.flat_code_block_spans.clear();
+        for (entry_idx, entry_opt) in self.line_cache.entries.iter().enumerate() {
             let entry_start = self.flat_cache.len();
             if let Some(cached) = entry_opt {
-                for (line, joiner) in cached.lines.iter().zip(cached.joiner_before.iter()) {
+                let n_blocks = cached.code_block_line_ranges.len();
+                let mut block_flat_starts: Vec<Option<usize>> = vec![None; n_blocks];
+                let mut block_flat_ends: Vec<usize> = vec![0; n_blocks];
+
+                for (local_idx, (line, joiner)) in cached
+                    .lines
+                    .iter()
+                    .zip(cached.joiner_before.iter())
+                    .enumerate()
+                {
                     // Skip consecutive blank lines to avoid excessive spacing
                     let is_blank = is_blank_line(line);
                     let last_is_blank = self.flat_cache.last().map(is_blank_line).unwrap_or(false);
@@ -186,8 +199,32 @@ impl ChatView {
                     if is_blank && last_is_blank {
                         continue;
                     }
+
+                    let flat_idx = self.flat_cache.len();
+                    for (bi, &(cb_start, cb_end)) in
+                        cached.code_block_line_ranges.iter().enumerate()
+                    {
+                        if local_idx >= cb_start && local_idx < cb_end {
+                            if block_flat_starts[bi].is_none() {
+                                block_flat_starts[bi] = Some(flat_idx);
+                            }
+                            block_flat_ends[bi] = flat_idx + 1;
+                        }
+                    }
+
                     self.flat_cache.push(line.clone());
                     self.joiner_before.push(joiner.clone());
+                }
+
+                for (bi, (start_opt, end)) in block_flat_starts
+                    .into_iter()
+                    .zip(block_flat_ends.into_iter())
+                    .enumerate()
+                {
+                    if let Some(flat_start) = start_opt {
+                        self.flat_code_block_spans
+                            .push((entry_idx, bi, flat_start, end));
+                    }
                 }
             }
             self.flat_cache_entry_spans
