@@ -110,8 +110,8 @@ pub fn init_theme(name: Option<&str>, custom_path: Option<&Path>) {
         None
     };
 
-    // Fall back to default dark
-    let theme = theme.unwrap_or_else(Theme::default_dark);
+    // Fall back to Night Owl (fork default)
+    let theme = theme.unwrap_or_else(builtin::night_owl);
     set_theme(theme);
 }
 
