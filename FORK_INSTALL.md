@@ -92,14 +92,42 @@ If you used a symlink during install the updated binary is available immediately
 
 ## What's Different in This Fork
 
-See [FORK_CHANGES.md](FORK_CHANGES.md) for the full list. Highlights:
+See [FORK_CHANGES.md](FORK_CHANGES.md) for the full list of 35 changes. Highlights:
 
-- 30 built-in themes (including Night Owl and iTerm2-compatible palettes)
-- `@filename` autocomplete in the TUI chat input
-- Ahead/behind git counts in the sidebar
-- `Alt+y` to copy code blocks to clipboard
-- `Alt+Shift+X` to archive a workspace from inside a tab
-- `workspace_setup.sh` auto-execution after workspace creation
-- Squash-merge detection in archive preflight
-- Full plan content in chat (no 15-line cap)
-- Companion tmux configuration in `~/.tmux.conf.conduit`
+**Agents**
+- GitHub Copilot CLI as a 5th agent (access Codex models via a Copilot subscription)
+- Pi as a 6th agent with session resumption and history import from `~/.pi/agent/sessions/`
+- Dirac as a 7th agent with resumable sessions via `--taskId`
+- Provider/agent selectors re-detect installed tools on open — no restart needed
+
+**TUI**
+- `@filename` autocomplete in the chat input
+- `Alt+y` copies the nearest code block to clipboard (cycles through blocks on repeat)
+- `Alt+Shift+X` archives the current workspace from inside a tab
+- `Alt+a` opens a file browser to copy a local file into the workspace
+- `Alt+u` generates an SCP command (copied via OSC 52) for uploading a file to the workspace
+- `Alt+Tab` / `Alt+Shift+Tab` cycle between agent tabs only (sidebar excluded)
+- `Ctrl+Q` opens a quit confirmation dialog instead of requiring two rapid keypresses
+- Ahead/behind git counts (`↑N` / `↓N`) in the sidebar
+- Always-visible sidebar mode (`ui.always_show_sidebar = true` in config)
+- Scroll position preserved while the agent streams — viewport stays pinned where you scrolled
+- Latest agent status message pinned to the top of the viewport during tool output
+- Full plan content rendered in chat (no 15-line cap)
+- `ctx%` shows current context usage per call, not a broken cumulative total
+- `/btw <note>` queues a note without interrupting the agent
+
+**Web UI**
+- Paste images directly into the web UI chat input (`Ctrl+V`)
+- Project list auto-refreshes in the TUI when projects are added via the web UI
+- Drag-and-drop project reordering in the web UI (move-up/down in the TUI)
+- Web chat auto-follows collapsed code blocks during streaming
+
+**Themes & Config**
+- 30 built-in themes including Night Owl and iTerm2-compatible palettes
+- Companion tmux configuration in `~/.tmux.conf` tuned for Night Owl
+
+**Workspace**
+- `workspace_setup.sh` auto-executed after workspace creation
+- Squash-merge detection in archive preflight (no false "branch not merged" warnings)
+- GitHub PR status in archive preflight (`workspaces.use_gh_cli_merge_status = true`)
+- Error dialog when a git URL maps to an already-existing directory
