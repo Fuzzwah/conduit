@@ -21,6 +21,10 @@ pub enum Effect {
         working_dir: PathBuf,
     },
     DumpDebugState,
+    /// Fetch from remote so local refs are up to date before issue/spec checks
+    SyncRemote {
+        repo_id: Uuid,
+    },
     FetchGithubIssues {
         repo_id: Uuid,
     },
