@@ -489,6 +489,10 @@ pub struct ChatView {
     code_block_cycle_idx: usize,
     /// Total code block count seen on the last Alt+y press; resets cycle when it grows
     code_block_last_total: usize,
+    /// Which code block is currently highlighted after a copy: (entry_idx, block_within_entry) in forward order
+    highlighted_code_block: Option<(usize, usize)>,
+    /// Flat-cache line spans for each code block: (entry_idx, block_within, flat_start, flat_end)
+    flat_code_block_spans: Vec<(usize, usize, usize, usize)>,
 }
 
 /// Information about a hovered file path for rendering
@@ -532,6 +536,8 @@ impl ChatView {
             last_visible_height: 0,
             code_block_cycle_idx: 0,
             code_block_last_total: 0,
+            highlighted_code_block: None,
+            flat_code_block_spans: Vec::new(),
         }
     }
 
@@ -584,6 +590,24 @@ impl ChatView {
 
         let idx = self.code_block_cycle_idx % total;
         self.code_block_cycle_idx = (idx + 1) % total;
+
+        // Find (entry_idx, block_within_entry) for idx in the newest-first ordering.
+        // Entries are visited in reverse (newest first), blocks within each entry in reverse.
+        let mut remaining = idx;
+        let mut found: Option<(usize, usize)> = None;
+        'find: for (fwd_entry_idx, entry_opt) in self.line_cache.entries.iter().enumerate().rev() {
+            if let Some(entry) = entry_opt {
+                let n = entry.code_blocks.len();
+                if remaining < n {
+                    found = Some((fwd_entry_idx, n - 1 - remaining));
+                    break 'find;
+                }
+                remaining = remaining.saturating_sub(n);
+            }
+        }
+        self.highlighted_code_block = found;
+        self.flat_cache_dirty = true;
+
         Some((Self::dedent(&all_blocks[idx]), idx + 1, total))
     }
 
@@ -1376,9 +1400,25 @@ impl ChatView {
     ) -> Vec<Line<'static>> {
         let selection = self.selection_ordered();
 
+        let highlighted_flat_range =
+            self.highlighted_code_block
+                .and_then(|(entry_idx, block_within)| {
+                    self.flat_code_block_spans
+                        .iter()
+                        .find(|&&(ei, bi, _, _)| ei == entry_idx && bi == block_within)
+                        .map(|&(_, _, flat_start, flat_end)| (flat_start, flat_end))
+                });
+
         let mut out = Vec::with_capacity(visible_lines.len());
         for (line, line_index) in visible_lines {
             let mut result_line = line.clone();
+
+            // Apply copied code block background highlight
+            if let (Some((hl_start, hl_end)), Some(idx)) = (highlighted_flat_range, line_index) {
+                if idx >= hl_start && idx < hl_end {
+                    result_line = highlight_code_block_line(&result_line);
+                }
+            }
 
             // Apply selection highlight if applicable
             if let (Some((start, end)), Some(idx)) = (selection, line_index) {
@@ -1593,34 +1633,34 @@ impl ChatView {
         width: usize,
         lines: &mut Vec<Line<'static>>,
         joiner_before: &mut Vec<Option<String>>,
-    ) -> Vec<String> {
+    ) -> (Vec<String>, Vec<(usize, usize)>) {
         match msg.role {
             MessageRole::Tool => {
                 self.format_tool_message(msg, width, lines, joiner_before);
-                Vec::new()
+                (Vec::new(), Vec::new())
             }
             MessageRole::User => {
                 self.format_user_message(msg, width, lines, joiner_before);
-                Vec::new()
+                (Vec::new(), Vec::new())
             }
             MessageRole::Assistant => {
                 self.format_assistant_message(msg, width, lines, joiner_before)
             }
             MessageRole::Reasoning => {
                 self.format_reasoning_message(msg, width, lines, joiner_before);
-                Vec::new()
+                (Vec::new(), Vec::new())
             }
             MessageRole::System => {
                 self.format_system_message(msg, width, lines, joiner_before);
-                Vec::new()
+                (Vec::new(), Vec::new())
             }
             MessageRole::Error => {
                 self.format_error_message(msg, width, lines, joiner_before);
-                Vec::new()
+                (Vec::new(), Vec::new())
             }
             MessageRole::Summary => {
                 self.format_summary_message(msg, width, lines, joiner_before);
-                Vec::new()
+                (Vec::new(), Vec::new())
             }
         }
     }
@@ -1704,9 +1744,9 @@ impl ChatView {
         width: usize,
         lines: &mut Vec<Line<'static>>,
         joiner_before: &mut Vec<Option<String>>,
-    ) -> Vec<String> {
+    ) -> (Vec<String>, Vec<(usize, usize)>) {
         if msg.content.is_empty() {
-            return Vec::new();
+            return (Vec::new(), Vec::new());
         }
 
         // Vertical breathing room
@@ -1724,6 +1764,7 @@ impl ChatView {
         let mut renderer = MarkdownRenderer::new();
         let md_text = renderer.render(&msg.content);
         let code_blocks = std::mem::take(&mut renderer.code_blocks);
+        let md_code_block_ranges = std::mem::take(&mut renderer.code_block_line_ranges);
 
         let bullet_prefix = vec![Span::raw("• ")];
         let continuation_prefix = vec![Span::raw("  ")];
@@ -1731,58 +1772,64 @@ impl ChatView {
         let continuation_width = UnicodeWidthStr::width("  ");
 
         let mut first_content_line = true;
+        let mut md_line_output_starts: Vec<usize> = Vec::with_capacity(md_text.lines.len());
+        let mut md_line_output_ends: Vec<usize> = Vec::with_capacity(md_text.lines.len());
+
         for line in md_text.lines {
+            md_line_output_starts.push(lines.len());
+
             if line.spans.is_empty() {
                 lines.push(Line::from(""));
                 joiner_before.push(None);
-                continue;
-            }
-
-            let content_spans: Vec<Span<'static>> = line
-                .spans
-                .into_iter()
-                .map(|s| {
-                    // Apply a slightly dimmer style for assistant text
-                    let mut style = s.style;
-                    if style.fg.is_none() {
-                        style = style.fg(Color::Rgb(220, 220, 220)); // Slightly dimmer white
-                    }
-                    Span::styled(s.content.into_owned(), style)
-                })
-                .collect();
-
-            let line_text: String = content_spans.iter().map(|s| s.content.as_ref()).collect();
-            let trimmed = line_text.trim_start();
-            let is_list_item = trimmed.starts_with("• ")
-                || trimmed.starts_with("- ")
-                || trimmed
-                    .chars()
-                    .next()
-                    .map(|c| c.is_ascii_digit())
-                    .unwrap_or(false)
-                    && trimmed.get(1..2) == Some(".")
-                    && trimmed.get(2..3) == Some(" ");
-
-            let (first_prefix, first_prefix_width) = if first_content_line && !is_list_item {
-                (bullet_prefix.clone(), bullet_width)
             } else {
-                (continuation_prefix.clone(), continuation_width)
-            };
+                let content_spans: Vec<Span<'static>> = line
+                    .spans
+                    .into_iter()
+                    .map(|s| {
+                        // Apply a slightly dimmer style for assistant text
+                        let mut style = s.style;
+                        if style.fg.is_none() {
+                            style = style.fg(Color::Rgb(220, 220, 220)); // Slightly dimmer white
+                        }
+                        Span::styled(s.content.into_owned(), style)
+                    })
+                    .collect();
 
-            self.format_wrapped_lines(
-                lines,
-                joiner_before,
-                content_spans,
-                first_prefix,
-                continuation_prefix.clone(),
-                first_prefix_width,
-                continuation_width,
-                width,
-            );
+                let line_text: String = content_spans.iter().map(|s| s.content.as_ref()).collect();
+                let trimmed = line_text.trim_start();
+                let is_list_item = trimmed.starts_with("• ")
+                    || trimmed.starts_with("- ")
+                    || trimmed
+                        .chars()
+                        .next()
+                        .map(|c| c.is_ascii_digit())
+                        .unwrap_or(false)
+                        && trimmed.get(1..2) == Some(".")
+                        && trimmed.get(2..3) == Some(" ");
 
-            if first_content_line {
-                first_content_line = false;
+                let (first_prefix, first_prefix_width) = if first_content_line && !is_list_item {
+                    (bullet_prefix.clone(), bullet_width)
+                } else {
+                    (continuation_prefix.clone(), continuation_width)
+                };
+
+                self.format_wrapped_lines(
+                    lines,
+                    joiner_before,
+                    content_spans,
+                    first_prefix,
+                    continuation_prefix.clone(),
+                    first_prefix_width,
+                    continuation_width,
+                    width,
+                );
+
+                if first_content_line {
+                    first_content_line = false;
+                }
             }
+
+            md_line_output_ends.push(lines.len());
         }
 
         // Add streaming indicator if still streaming
@@ -1799,7 +1846,24 @@ impl ChatView {
             joiner_before.push(None);
         }
 
-        code_blocks
+        // Map markdown-relative code block ranges to output line indices
+        let code_block_line_ranges: Vec<(usize, usize)> = md_code_block_ranges
+            .iter()
+            .map(|&(md_start, md_end)| {
+                let out_start = md_line_output_starts.get(md_start).copied().unwrap_or(0);
+                let out_end = if md_end > 0 {
+                    md_line_output_ends
+                        .get(md_end - 1)
+                        .copied()
+                        .unwrap_or(lines.len())
+                } else {
+                    out_start
+                };
+                (out_start, out_end)
+            })
+            .collect();
+
+        (code_blocks, code_block_line_ranges)
     }
 
     /// Format reasoning messages with subdued styling
@@ -2845,6 +2909,16 @@ fn line_gutter_cols(line: &Line<'_>) -> u16 {
     } else {
         0
     }
+}
+
+fn highlight_code_block_line(line: &Line<'static>) -> Line<'static> {
+    let bg = accent_success();
+    let spans: Vec<Span<'static>> = line
+        .spans
+        .iter()
+        .map(|span| Span::styled(span.content.clone(), span.style.bg(bg)))
+        .collect();
+    Line::from(spans).style(line.style.bg(bg))
 }
 
 fn highlight_line_by_cols(line: &Line<'static>, start_col: u16, end_col: u16) -> Line<'static> {

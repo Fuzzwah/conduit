@@ -14,6 +14,8 @@ pub struct MarkdownRenderer {
     base_style: Style,
     /// Raw code block contents captured during render (one entry per code block)
     pub code_blocks: Vec<String>,
+    /// Line ranges [start, end) within the rendered Text for each code block (fence to close fence, excluding trailing blank)
+    pub code_block_line_ranges: Vec<(usize, usize)>,
 }
 
 impl MarkdownRenderer {
@@ -21,6 +23,7 @@ impl MarkdownRenderer {
         Self {
             base_style: Style::default().fg(text_primary()),
             code_blocks: Vec::new(),
+            code_block_line_ranges: Vec::new(),
         }
     }
 
@@ -53,6 +56,7 @@ impl MarkdownRenderer {
         let mut in_code_block = false;
         let mut code_block_content = String::new();
         let mut code_block_language: Option<String> = None;
+        let mut code_block_start_line: usize = 0;
 
         for event in events {
             match event {
@@ -74,6 +78,7 @@ impl MarkdownRenderer {
                     Tag::CodeBlock(kind) => {
                         in_code_block = true;
                         code_block_content.clear();
+                        code_block_start_line = lines.len();
                         code_block_language = match kind {
                             CodeBlockKind::Indented => None,
                             CodeBlockKind::Fenced(language) => Some(language.to_string()),
@@ -180,6 +185,9 @@ impl MarkdownRenderer {
                             "```",
                             Style::default().fg(Color::DarkGray),
                         )));
+                        // Record line range (fence open through close fence, excluding trailing blank)
+                        self.code_block_line_ranges
+                            .push((code_block_start_line, lines.len()));
                         lines.push(Line::from(""));
                         code_block_language = None;
                     }
