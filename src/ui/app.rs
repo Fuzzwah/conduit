@@ -5553,6 +5553,14 @@ impl App {
 
         let target_path = self.projects_base_dir_path().join(&repo_name);
 
+        if target_path.exists() {
+            self.state
+                .add_repo_dialog_state
+                .path
+                .set_error(format!("Directory '{}' already exists", repo_name));
+            return;
+        }
+
         self.state.add_repo_dialog_state.hide();
         self.state.input_mode = InputMode::CloningRepository;
         self.state
