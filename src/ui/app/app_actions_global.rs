@@ -302,6 +302,31 @@ impl App {
                     }
                 }
             }
+            Action::CopyCodeBlockPrev => {
+                if let Some(session) = self.state.tab_manager.active_session_mut() {
+                    match session.chat_view.prev_code_block_content() {
+                        Some((content, idx, total)) => {
+                            effects.push(Effect::CopyToClipboard(content));
+                            let msg = if total > 1 {
+                                format!(
+                                    "Copied code block ({} of {}) — press again for next",
+                                    idx, total
+                                )
+                            } else {
+                                "Copied code block".to_string()
+                            };
+                            self.state
+                                .set_timed_footer_message(msg, Duration::from_secs(3));
+                        }
+                        None => {
+                            self.state.set_timed_footer_message(
+                                "No code block found".to_string(),
+                                Duration::from_secs(2),
+                            );
+                        }
+                    }
+                }
+            }
             _ => {}
         }
     }
