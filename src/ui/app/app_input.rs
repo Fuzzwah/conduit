@@ -121,6 +121,11 @@ impl App {
             return self.handle_issue_picker_key(key);
         }
 
+        // Handle spec picker navigation
+        if self.state.input_mode == InputMode::SelectingSpec {
+            return self.handle_spec_picker_key(key);
+        }
+
         // Handle SCP command dialog (Esc only)
         if self.state.input_mode == InputMode::ScpCommand {
             return self.handle_scp_command_key(key);
@@ -1281,15 +1286,58 @@ impl App {
                 let issue = self.state.issue_picker_state.selected_issue().cloned();
                 self.state.issue_picker_state.hide();
                 self.state.input_mode = InputMode::SidebarNavigation;
-                return Ok(vec![Effect::CreateWorkspace { repo_id, issue }]);
+                return Ok(vec![Effect::ShowSpecPicker { repo_id, issue }]);
             }
             KeyCode::Esc => {
-                // Skip issue selection — create with a random name instead
+                // Skip issue selection — proceed to spec picker with no issue
                 self.state.issue_picker_state.hide();
+                self.state.input_mode = InputMode::SidebarNavigation;
+                return Ok(vec![Effect::ShowSpecPicker {
+                    repo_id,
+                    issue: None,
+                }]);
+            }
+            _ => {}
+        }
+        Ok(Vec::new())
+    }
+
+    pub(super) fn handle_spec_picker_key(&mut self, key: KeyEvent) -> anyhow::Result<Vec<Effect>> {
+        // Ignore all input while specs are still loading to avoid races.
+        if self.state.spec_picker_state.loading {
+            return Ok(Vec::new());
+        }
+
+        let repo_id = self.state.spec_picker_state.repo_id;
+        match key.code {
+            KeyCode::Up | KeyCode::Char('k') => {
+                self.state.spec_picker_state.select_prev();
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                self.state.spec_picker_state.select_next();
+            }
+            KeyCode::Char('s') => {
+                self.state.spec_picker_state.cycle_sort();
+            }
+            KeyCode::Enter => {
+                let spec = self.state.spec_picker_state.selected_spec().cloned();
+                let issue = self.state.spec_picker_state.issue.clone();
+                self.state.spec_picker_state.hide();
                 self.state.input_mode = InputMode::SidebarNavigation;
                 return Ok(vec![Effect::CreateWorkspace {
                     repo_id,
-                    issue: None,
+                    issue,
+                    spec,
+                }]);
+            }
+            KeyCode::Esc => {
+                let issue = self.state.spec_picker_state.issue.clone();
+                self.state.spec_picker_state.hide();
+                self.state.input_mode = InputMode::SidebarNavigation;
+                return Ok(vec![Effect::CreateWorkspace {
+                    repo_id,
+                    issue,
+                    spec: None,
                 }]);
             }
             _ => {}
