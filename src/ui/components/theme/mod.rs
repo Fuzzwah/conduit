@@ -207,7 +207,7 @@ fn normalize_theme(mut theme: Theme) -> Theme {
 
     // Layered backgrounds should separate enough to be visible.
     let highlight_min = if is_light { 2.6 } else { 2.0 };
-    let tool_block_min = if is_light { 2.4 } else { 1.6 };
+    let tool_block_min = if is_light { 2.4 } else { 1.2 };
     let markdown_code_min = if is_light { 2.0 } else { 1.7 };
     let markdown_inline_code_min = if is_light { 2.0 } else { 1.9 };
     theme.bg_surface = ensure_contrast_bg(theme.bg_surface, base, 1.2);
