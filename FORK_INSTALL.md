@@ -5,7 +5,8 @@ This is a personal fork of [conduit-cli/conduit](https://github.com/conduit-cli/
 ## Prerequisites
 
 - **Git** — Required for workspace and worktree management
-- **Rust** (stable) — Install via [rustup](https://rustup.rs/): `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
+- **Rust** (latest stable) — Install via [rustup](https://rustup.rs/): `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
+  Check your version with `cargo --version` and keep it current with `rustup update stable`. Cargo 1.82 and older are known to fail resolving the codex dependencies.
 - **Node.js** (v18+) and **npm** — Required to build the web UI frontend
 - **At least one AI agent CLI on your PATH:**
   - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — `npm install -g @anthropic-ai/claude-code`
