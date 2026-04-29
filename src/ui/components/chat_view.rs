@@ -2564,10 +2564,10 @@ impl ChatView {
             .filter(|&(ps, pe)| {
                 pe > ps
                     && ps <= probe_start
-                    // Only pin when there's content after the message (streaming or more
-                    // cache). Without this, a finished agent's final response pins at top
-                    // while earlier user messages appear "below" it in scrollable space.
-                    && (pe < cached_len || streaming_len > 0 || extra_len > 0)
+                    // Only pin when there's tool output or active processing after the
+                    // message. Streaming assistant text alone does not qualify — that case
+                    // is the agent typing its reply, which should scroll normally.
+                    && (pe < cached_len || extra_len > 0)
             });
 
         let (pin_start, pin_end) = pinned_span.unwrap_or((cached_len, cached_len));
