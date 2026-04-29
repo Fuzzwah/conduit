@@ -147,7 +147,7 @@ The standalone `copilot` CLI is now supported as a 5th agent alongside Claude, C
 
 **Invocation:** `copilot -p "PROMPT" -s --allow-all [--model=MODEL]` (single-shot programmatic mode)
 
-**Available models:** `gpt-5.3-codex` (default), `gpt-5.3-codex-spark`, `gpt-5.4`, `claude-sonnet-4-5`, `gpt-4o`, `o3-mini`
+**Available models:** `gpt-5.3-codex` (default), `gpt-5.3-codex-spark`, `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.4-nano`, `gpt-5.2`, `gpt-5.2-codex`, `gpt-5-mini`, `gpt-4.1`, `gpt-4o`, `claude-haiku-4.5`, `claude-sonnet-4`, `claude-sonnet-4.5`, `claude-sonnet-4.6`, `gemini-2.5-pro`, `gemini-3-flash`, `gemini-3.1-pro`, `grok-code-fast-1`, `raptor-mini`, `goldeneye`
 
 **Known limitation:** The `copilot` CLI has no session resumption flag, so each turn within a Conduit session starts a fresh process with no conversation history.
 
