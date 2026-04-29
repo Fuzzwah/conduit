@@ -414,6 +414,21 @@ impl ModelSelectorState {
         0
     }
 
+    fn is_section_first(&self, filter_idx: usize) -> bool {
+        let Some(&item_idx) = self.filtered.get(filter_idx) else {
+            return false;
+        };
+        let ModelSelectorItem::Model(model) = &self.items[item_idx] else {
+            return false;
+        };
+        self.filtered[..filter_idx]
+            .iter()
+            .all(|&prev_idx| match &self.items[prev_idx] {
+                ModelSelectorItem::Model(prev) => prev.agent_type != model.agent_type,
+                _ => true,
+            })
+    }
+
     fn ensure_visible(&mut self) {
         if self.filtered.is_empty() {
             self.scroll_offset = 0;
@@ -421,7 +436,13 @@ impl ModelSelectorState {
         }
         let render_index = self.render_index_for_filtered(self.selected);
         if render_index < self.scroll_offset {
-            self.scroll_offset = render_index;
+            // If this is the first model in its section, also show the section header above it.
+            let scroll_target = if self.is_section_first(self.selected) {
+                render_index.saturating_sub(1)
+            } else {
+                render_index
+            };
+            self.scroll_offset = scroll_target;
         } else if render_index >= self.scroll_offset + self.max_visible {
             self.scroll_offset = render_index.saturating_sub(self.max_visible - 1);
         }
