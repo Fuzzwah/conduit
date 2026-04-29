@@ -2582,22 +2582,24 @@ impl ChatView {
             0
         };
 
-        // Scroll-space dimensions: exclude the pinned message from the cached line count
-        // so scroll offsets and ranges refer only to the scrollable portion.
+        // Scroll-space dimensions: exclude only the lines actually displayed in the pin
+        // header from the cached line count. Lines beyond pin_content_height remain in
+        // the scrollable area so the user can scroll up to read a long pinned message.
         let s_cached_len = cached_len
             - if pin_total_height > 0 {
-                pin_content_lines
+                pin_content_height
             } else {
                 0
             };
         let s_visible = visible_height - pin_total_height;
         let s_total = s_cached_len + streaming_len + extra_len;
 
-        // Map a scrollable flat-cache index to an actual flat_cache index, skipping the
-        // pinned span.  When the pin is inactive the mapping is identity.
+        // Map a scrollable flat-cache index to an actual flat_cache index, skipping only
+        // the lines rendered in the pin header.  When the pin is inactive the mapping is
+        // identity.
         let to_actual = |si: usize| -> usize {
             if pin_total_height > 0 && si >= pin_start {
-                si + pin_content_lines
+                si + pin_content_height
             } else {
                 si
             }
