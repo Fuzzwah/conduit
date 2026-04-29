@@ -2294,6 +2294,7 @@ impl App {
                                 if let Some(session) = self.state.tab_manager.active_session_mut() {
                                     session.input_box.clear();
                                     session.input_box.insert_str(&label);
+                                    session.input_box.insert_char(' ');
                                 }
                             }
                             MenuEntryKind::FilePath(_) => {}
