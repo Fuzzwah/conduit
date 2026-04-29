@@ -305,3 +305,55 @@ Verified against Claude Code v2.1.119 (`strings` on the binary).
 | `/status` | `/status` → shows agent/model/session/ctx%/turns/dir as a chat message | ✅ Implemented (all agents) |
 
 To add a new command: add a variant to `ConduitCommand` in `src/command_resolver.rs`, handle it in `handle_submit_action` in `src/ui/app.rs`, update `slash_command_action` and `execute_resolved_conduit_command`, and add a row to this table.
+
+---
+
+## 29. Dirac CLI as a 7th Agent
+
+Conduit now supports **Dirac** as an additional agent alongside Claude, Codex, Gemini, OpenCode, Copilot, and Pi.
+
+- **Invocation:** `dirac --json --yolo --cwd /repo --model <model>`
+- **Sessions:** Dirac sessions are resumable. Conduit captures the `task_started.taskId` from the first turn and passes `--taskId` on subsequent turns.
+- **Events/tools:** Dirac's structured JSON output is mapped into Conduit's event model: assistant text, reasoning, command output, tool lifecycle, token usage, and failures.
+- **History import:** Not yet supported (intentionally deferred).
+
+Dirac appears in the agent selector, provider selector, and model selector. It must be enabled via the provider selector before it appears in the model list.
+
+---
+
+## 30. Provider/Agent Selectors Re-detect Installed Tools on Open
+
+Opening the provider selector (Settings → providers) or agent selector (+ new tab) now re-runs tool detection. Agents installed after Conduit started (e.g. Dirac, Pi) become available without restarting.
+
+---
+
+## 31. OpenCode Tool Display Improvements
+
+- The tool command display for OpenCode now tries `filePath`, `path`, and `file` as fallbacks when `file_path` is absent, and `cmd` as a fallback for `command`. This makes Read/Write/Edit/Bash tool headers render correctly in OpenCode sessions.
+- Fallback display suppresses empty-looking JSON (`{}`, `null`) rather than showing `$ {}`.
+
+---
+
+## 32. Tab Characters Expanded in Tool Output
+
+Tab characters in tool output were stripped by a control-character guard, causing line numbers from Claude Code's Read tool (`number + TAB + line`) to run directly into code. Tabs are now expanded to 8-column tab stops before rendering, matching standard terminal behaviour.
+
+---
+
+## 33. Pinned Agent Status Message
+
+The latest assistant status message is now pinned to the top of the chat viewport once it is pushed there by accumulating tool output. A `─` separator marks the boundary between the pinned message and the scrollable content below. The pin deactivates automatically when the message is still within the normal scroll view.
+
+---
+
+## 34. Refreshed GitHub Copilot Model IDs
+
+The hardcoded Copilot model list has been updated to match current GitHub Copilot naming. The full model set is:
+
+`gpt-5.3-codex` (default), `gpt-5.3-codex-spark`, `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.4-nano`, `gpt-5.2`, `gpt-5.2-codex`, `gpt-5-mini`, `gpt-4.1`, `gpt-4o`, `claude-haiku-4.5`, `claude-sonnet-4`, `claude-sonnet-4.5`, `claude-sonnet-4.6`, `gemini-2.5-pro`, `gemini-3-flash`, `gemini-3.1-pro`, `grok-code-fast-1`, `raptor-mini`, `goldeneye`
+
+---
+
+## 35. Error Dialog When Git URL Matches Existing Directory
+
+When adding a project via git URL, if the derived target directory already exists in the projects base directory, the add-repo dialog now shows an inline error (`Directory '<name>' already exists`) instead of silently failing.
