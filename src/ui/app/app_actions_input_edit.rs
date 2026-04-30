@@ -44,6 +44,9 @@ impl App {
                 InputMode::SettingsMenu => {
                     self.state.settings_menu_state.delete_char();
                 }
+                InputMode::KeybindingsEditor => {
+                    self.state.keybindings_editor_state.delete_filter_char();
+                }
                 InputMode::SlashMenu => {
                     if self.state.slash_menu_state.list.search.is_empty() {
                         self.state.slash_menu_state.hide();
@@ -112,6 +115,8 @@ impl App {
                     self.state.slash_menu_state.delete_forward();
                 } else if self.state.input_mode == InputMode::SettingsMenu {
                     self.state.settings_menu_state.delete_char();
+                } else if self.state.input_mode == InputMode::KeybindingsEditor {
+                    self.handle_keybinding_reset();
                 } else if self.state.input_mode == InputMode::SettingBaseDir {
                     self.state.base_dir_dialog_state.delete_forward();
                 } else if self.state.input_mode == InputMode::AddingRepository {

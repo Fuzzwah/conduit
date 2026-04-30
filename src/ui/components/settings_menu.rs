@@ -25,6 +25,7 @@ pub enum SettingsMenuEntryId {
     EnabledProviders,
     Theme,
     WorkspaceDefaults,
+    Keybindings,
 }
 
 #[derive(Debug, Clone)]

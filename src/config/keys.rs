@@ -151,6 +151,34 @@ impl KeyContext {
         ]
     }
 
+    /// Return the snake_case TOML subsection name for this context.
+    ///
+    /// Returns `None` for the global context (keys go under `[keys]` directly)
+    /// and for contexts not yet supported in `TomlKeybindings`.
+    /// Otherwise returns the field name, e.g. `"chat"` → `[keys.chat]`.
+    pub fn toml_section_name(self) -> Option<&'static str> {
+        match self {
+            KeyContext::Global => None,
+            KeyContext::Chat => Some("chat"),
+            KeyContext::Scrolling => Some("scrolling"),
+            KeyContext::Sidebar => Some("sidebar"),
+            KeyContext::Dialog => Some("dialog"),
+            KeyContext::ProjectPicker => Some("project_picker"),
+            KeyContext::ModelSelector => Some("model_selector"),
+            KeyContext::AddRepository => Some("add_repository"),
+            KeyContext::BaseDir => Some("base_dir"),
+            KeyContext::RawEvents => Some("raw_events"),
+            KeyContext::QueueEditing => Some("queue"),
+            // Contexts not currently represented in TomlKeybindings — read-only in editor
+            KeyContext::FileViewer
+            | KeyContext::Command
+            | KeyContext::HelpDialog
+            | KeyContext::SessionImport
+            | KeyContext::CommandPalette
+            | KeyContext::ThemePicker => None,
+        }
+    }
+
     /// Convert from InputMode to KeyContext
     pub fn from_input_mode(
         mode: crate::ui::events::InputMode,
@@ -189,6 +217,9 @@ impl KeyContext {
             InputMode::SelectingIssue => return KeyContext::Dialog,
             InputMode::SelectingSpec => return KeyContext::Dialog,
             InputMode::SelectingSpecifySpec => return KeyContext::Dialog,
+            InputMode::KeybindingsEditor | InputMode::KeybindingsEditorCapture => {
+                return KeyContext::CommandPalette;
+            }
             InputMode::MissingTool => return KeyContext::Dialog,
             InputMode::SelectingTheme => return KeyContext::ThemePicker,
             InputMode::QueueEditing => return KeyContext::QueueEditing,

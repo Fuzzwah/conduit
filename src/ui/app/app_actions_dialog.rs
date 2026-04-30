@@ -127,6 +127,12 @@ impl App {
                 InputMode::QueueEditing => {
                     self.close_queue_editor();
                 }
+                InputMode::KeybindingsEditor | InputMode::KeybindingsEditorCapture => {
+                    self.state.keybindings_editor_state.hide();
+                    if !self.return_to_settings_menu_if_needed() {
+                        self.state.input_mode = InputMode::Normal;
+                    }
+                }
                 _ => {}
             },
             Action::AddRepository => match self.state.input_mode {

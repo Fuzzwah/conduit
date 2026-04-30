@@ -355,6 +355,10 @@ pub enum InputMode {
     SelectingSpec,
     /// Picking a spec-kit (specify) spec to link to the new workspace
     SelectingSpecifySpec,
+    /// Keybindings editor dialog is open (list + filter mode)
+    KeybindingsEditor,
+    /// Waiting for a keypress to capture as a new binding
+    KeybindingsEditorCapture,
 }
 
 /// View mode for the main content area

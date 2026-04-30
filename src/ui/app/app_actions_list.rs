@@ -37,6 +37,9 @@ impl App {
                 InputMode::SettingsMenu => {
                     self.state.settings_menu_state.select_next();
                 }
+                InputMode::KeybindingsEditor => {
+                    self.state.keybindings_editor_state.select_next();
+                }
                 InputMode::CommandPalette => {
                     self.state.command_palette_state.select_next();
                 }
@@ -87,6 +90,9 @@ impl App {
                 }
                 InputMode::SettingsMenu => {
                     self.state.settings_menu_state.select_prev();
+                }
+                InputMode::KeybindingsEditor => {
+                    self.state.keybindings_editor_state.select_prev();
                 }
                 InputMode::CommandPalette => {
                     self.state.command_palette_state.select_prev();
