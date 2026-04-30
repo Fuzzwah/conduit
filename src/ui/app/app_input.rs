@@ -1282,9 +1282,8 @@ impl App {
     }
 
     pub(super) fn handle_issue_picker_key(&mut self, key: KeyEvent) -> anyhow::Result<Vec<Effect>> {
-        // Ignore all input while issues are still loading to avoid races with
-        // the in-flight FetchGithubIssues task.
-        if self.state.issue_picker_state.loading {
+        // Ignore all input while syncing remote or fetching issues.
+        if self.state.issue_picker_state.syncing || self.state.issue_picker_state.loading {
             return Ok(Vec::new());
         }
 

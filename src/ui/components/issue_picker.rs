@@ -29,6 +29,8 @@ pub struct IssuePickerState {
     pub selected: usize,
     pub scroll_offset: usize,
     pub loading: bool,
+    /// True while the remote sync is in progress (before issue fetch begins)
+    pub syncing: bool,
     pub spinner_frame: usize,
 }
 
@@ -41,12 +43,27 @@ impl Default for IssuePickerState {
             selected: 0,
             scroll_offset: 0,
             loading: false,
+            syncing: false,
             spinner_frame: 0,
         }
     }
 }
 
 impl IssuePickerState {
+    /// Show the picker in "syncing remote" state before issue fetching begins.
+    pub fn show_syncing(repo_id: Uuid) -> Self {
+        Self {
+            visible: true,
+            repo_id,
+            issues: Vec::new(),
+            selected: 0,
+            scroll_offset: 0,
+            loading: false,
+            syncing: true,
+            spinner_frame: 0,
+        }
+    }
+
     pub fn show_loading(repo_id: Uuid) -> Self {
         Self {
             visible: true,
@@ -55,8 +72,15 @@ impl IssuePickerState {
             selected: 0,
             scroll_offset: 0,
             loading: true,
+            syncing: false,
             spinner_frame: 0,
         }
+    }
+
+    /// Transition from syncing state to actively fetching issues.
+    pub fn start_loading(&mut self) {
+        self.syncing = false;
+        self.loading = true;
     }
 
     pub fn load_issues(&mut self, issues: Vec<GithubIssue>) {
@@ -69,11 +93,12 @@ impl IssuePickerState {
     pub fn hide(&mut self) {
         self.visible = false;
         self.loading = false;
+        self.syncing = false;
         self.issues.clear();
     }
 
     pub fn tick(&mut self) {
-        if self.loading {
+        if self.loading || self.syncing {
             self.spinner_frame = self.spinner_frame.wrapping_add(1);
         }
     }
@@ -116,7 +141,7 @@ impl IssuePicker {
             return;
         }
 
-        let list_height = if state.loading {
+        let list_height = if state.syncing || state.loading {
             3u16
         } else {
             MAX_VISIBLE.min(state.issues.len()).max(1) as u16
@@ -143,9 +168,14 @@ impl IssuePicker {
 
         let list_area = chunks[0];
 
-        if state.loading {
+        if state.syncing || state.loading {
             let spinner = SPINNER_FRAMES[state.spinner_frame % SPINNER_FRAMES.len()];
-            let loading = Paragraph::new(format!("{} Fetching open issues...", spinner))
+            let msg = if state.syncing {
+                format!("{} Syncing with remote...", spinner)
+            } else {
+                format!("{} Fetching open issues...", spinner)
+            };
+            let loading = Paragraph::new(msg)
                 .style(Style::default().fg(accent_primary()))
                 .alignment(Alignment::Center);
             loading.render(list_area, buf);
