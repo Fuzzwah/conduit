@@ -259,10 +259,10 @@ fn is_claude_user_prompt(entry: &Value) -> bool {
                     .get("text")
                     .and_then(|t| t.as_str())
                     .map(|t| !t.trim().is_empty())
-                    .unwrap_or(false)
-                => {
-                    has_text = true;
-                }
+                    .unwrap_or(false) =>
+            {
+                has_text = true;
+            }
             Some("tool_result") => {
                 has_tool_result = true;
             }
