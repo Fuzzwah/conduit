@@ -126,6 +126,11 @@ impl App {
             return self.handle_spec_picker_key(key);
         }
 
+        // Handle specify (spec-kit) picker navigation
+        if self.state.input_mode == InputMode::SelectingSpecifySpec {
+            return self.handle_specify_picker_key(key);
+        }
+
         // Handle SCP command dialog (Esc only)
         if self.state.input_mode == InputMode::ScpCommand {
             return self.handle_scp_command_key(key);
@@ -1328,6 +1333,7 @@ impl App {
                     repo_id,
                     issue,
                     spec,
+                    specify_spec: None,
                 }]);
             }
             KeyCode::Esc => {
@@ -1338,6 +1344,54 @@ impl App {
                     repo_id,
                     issue,
                     spec: None,
+                    specify_spec: None,
+                }]);
+            }
+            _ => {}
+        }
+        Ok(Vec::new())
+    }
+
+    pub(super) fn handle_specify_picker_key(
+        &mut self,
+        key: KeyEvent,
+    ) -> anyhow::Result<Vec<Effect>> {
+        if self.state.specify_picker_state.loading {
+            return Ok(Vec::new());
+        }
+
+        let repo_id = self.state.specify_picker_state.repo_id;
+        match key.code {
+            KeyCode::Up | KeyCode::Char('k') => {
+                self.state.specify_picker_state.select_prev();
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                self.state.specify_picker_state.select_next();
+            }
+            KeyCode::Char('s') => {
+                self.state.specify_picker_state.cycle_sort();
+            }
+            KeyCode::Enter => {
+                let specify_spec = self.state.specify_picker_state.selected_spec().cloned();
+                let issue = self.state.specify_picker_state.issue.clone();
+                self.state.specify_picker_state.hide();
+                self.state.input_mode = InputMode::SidebarNavigation;
+                return Ok(vec![Effect::CreateWorkspace {
+                    repo_id,
+                    issue,
+                    spec: None,
+                    specify_spec,
+                }]);
+            }
+            KeyCode::Esc => {
+                let issue = self.state.specify_picker_state.issue.clone();
+                self.state.specify_picker_state.hide();
+                self.state.input_mode = InputMode::SidebarNavigation;
+                return Ok(vec![Effect::CreateWorkspace {
+                    repo_id,
+                    issue,
+                    spec: None,
+                    specify_spec: None,
                 }]);
             }
             _ => {}

@@ -38,6 +38,7 @@ mod sidebar;
 mod slash_menu;
 pub(crate) mod source_highlighter;
 mod spec_picker;
+mod specify_picker;
 mod spinner;
 mod status_bar;
 mod tab_bar;
@@ -99,6 +100,7 @@ pub use settings_menu::{SettingsMenu, SettingsMenuEntry, SettingsMenuEntryId, Se
 pub use sidebar::{Sidebar, SidebarState, SIDEBAR_HEADER_ROWS};
 pub use slash_menu::{SlashMenu, SlashMenuEntry, SlashMenuState};
 pub use spec_picker::{SpecPicker, SpecPickerState, SpecSortOrder};
+pub use specify_picker::{SpecifyPicker, SpecifyPickerState, SpecifySortOrder};
 pub use spinner::Spinner;
 pub use status_bar::StatusBar;
 pub use tab_bar::{TabBar, TabBarHitTarget};

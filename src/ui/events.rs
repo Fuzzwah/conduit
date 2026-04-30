@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use crate::agent::{AgentEvent, AgentInput, AgentType};
-use crate::git::{GithubIssue, OpenSpec, PrPreflightResult};
+use crate::git::{GithubIssue, OpenSpec, PrPreflightResult, SpecifySpec};
 use crate::ui::git_tracker::GitTrackerUpdate;
 use tokio::sync::mpsc;
 use uuid::Uuid;
@@ -98,8 +98,12 @@ pub enum AppEvent {
         issues: Vec<GithubIssue>,
     },
 
-    /// OpenSpec changes fetched for workspace creation spec picker
-    OpenSpecsFetched { repo_id: Uuid, specs: Vec<OpenSpec> },
+    /// All specs fetched for workspace creation (openspec + specify, combined pass)
+    AllSpecsFetched {
+        repo_id: Uuid,
+        open_specs: Vec<OpenSpec>,
+        specify_specs: Vec<SpecifySpec>,
+    },
 
     /// Workspace creation completed
     WorkspaceCreated {
@@ -349,6 +353,8 @@ pub enum InputMode {
     SelectingIssue,
     /// Picking an OpenSpec change to link to the new workspace
     SelectingSpec,
+    /// Picking a spec-kit (specify) spec to link to the new workspace
+    SelectingSpecifySpec,
 }
 
 /// View mode for the main content area
