@@ -1342,8 +1342,8 @@ impl OpencodeRunner {
                                         MessageDisplay::tool_display_name_owned(&tool_name);
                                     if let Some(state_info) = part.state {
                                         match state_info.status.as_deref() {
-                                            Some("pending") | Some("running") => {
-                                                if state.started_tools.insert(tool_id.clone()) {
+                                            Some("pending") | Some("running")
+                                                if state.started_tools.insert(tool_id.clone()) => {
                                                     let arguments = state_info
                                                         .input
                                                         .clone()
@@ -1362,7 +1362,6 @@ impl OpencodeRunner {
                                                         return;
                                                     }
                                                 }
-                                            }
                                             Some("completed") => {
                                                 let result = state_info.output.map(|output| {
                                                     if let Some(text) = output.as_str() {

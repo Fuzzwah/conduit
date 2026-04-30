@@ -1175,11 +1175,10 @@ impl App {
     pub(super) fn handle_scp_command_key(&mut self, key: KeyEvent) -> anyhow::Result<Vec<Effect>> {
         use crate::ui::components::ScpCommandPhase;
         match key.code {
-            KeyCode::Enter => {
-                if self.state.scp_command_dialog_state.phase == ScpCommandPhase::ShowCommand {
+            KeyCode::Enter
+                if self.state.scp_command_dialog_state.phase == ScpCommandPhase::ShowCommand => {
                     self.state.scp_command_dialog_state.confirm_upload();
                 }
-            }
             KeyCode::Esc => {
                 self.state.scp_command_dialog_state.hide();
                 self.state.input_mode = InputMode::Normal;

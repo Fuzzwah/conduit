@@ -225,8 +225,8 @@ impl App {
                     }
                 }
             }
-            Action::RenameProject => {
-                if self.state.input_mode == InputMode::SidebarNavigation {
+            Action::RenameProject
+                if self.state.input_mode == InputMode::SidebarNavigation => {
                     let selected = self.state.sidebar_state.tree_state.selected;
                     if let Some(node) = self.state.sidebar_data.get_at(selected) {
                         use crate::ui::components::NodeType;
@@ -243,9 +243,8 @@ impl App {
                         }
                     }
                 }
-            }
-            Action::ArchiveOrRemove => {
-                if self.state.input_mode == InputMode::SidebarNavigation {
+            Action::ArchiveOrRemove
+                if self.state.input_mode == InputMode::SidebarNavigation => {
                     let selected = self.state.sidebar_state.tree_state.selected;
                     if let Some(node) = self.state.sidebar_data.get_at(selected) {
                         use crate::ui::components::NodeType;
@@ -260,7 +259,6 @@ impl App {
                         }
                     }
                 }
-            }
             Action::ArchiveCurrentWorkspace => {
                 if matches!(
                     self.state.input_mode,

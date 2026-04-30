@@ -60,6 +60,6 @@ pub fn fetch_open_specs(repo_path: &Path) -> Vec<OpenSpec> {
         })
         .collect();
 
-    specs.sort_by(|a, b| b.remaining_tasks.cmp(&a.remaining_tasks));
+    specs.sort_by_key(|s| std::cmp::Reverse(s.remaining_tasks));
     specs
 }

@@ -10,19 +10,17 @@ impl App {
         _effects: &mut Vec<Effect>,
     ) -> anyhow::Result<()> {
         match action {
-            Action::ToggleDetails => {
-                if self.state.input_mode == InputMode::ShowingError {
+            Action::ToggleDetails
+                if self.state.input_mode == InputMode::ShowingError => {
                     self.state.error_dialog_state.toggle_details();
                 }
-            }
-            Action::SelectAgent => {
-                if self.state.input_mode == InputMode::SelectingAgent {
+            Action::SelectAgent
+                if self.state.input_mode == InputMode::SelectingAgent => {
                     let agent_type = self.state.agent_selector_state.selected_agent();
                     self.state.agent_selector_state.hide();
                     self.state.input_mode = InputMode::Normal;
                     self.create_tab_with_agent(agent_type);
                 }
-            }
             Action::ShowHelp => {
                 self.state.close_overlays();
                 let keybindings = self.config().keybindings.clone();

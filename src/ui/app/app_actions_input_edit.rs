@@ -5,17 +5,16 @@ use crate::ui::events::InputMode;
 impl App {
     pub(super) fn handle_input_edit_action(&mut self, action: Action) {
         match action {
-            Action::InsertNewline => {
+            Action::InsertNewline
                 // Don't insert newlines in help dialog, command mode, or sidebar navigation
                 if self.state.input_mode != InputMode::ShowingHelp
                     && self.state.input_mode != InputMode::Command
                     && self.state.input_mode != InputMode::SidebarNavigation
-                {
+                => {
                     if let Some(session) = self.state.tab_manager.active_session_mut() {
                         session.input_box.insert_newline();
                     }
                 }
-            }
             Action::Backspace => match self.state.input_mode {
                 InputMode::Command => {
                     if self.state.command_buffer.is_empty() {

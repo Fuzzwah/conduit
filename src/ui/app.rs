@@ -7422,8 +7422,8 @@ impl App {
                     }
                 }
             }
-            AppEvent::RepositoryCloned { result } => {
-                if self.state.input_mode == InputMode::CloningRepository {
+            AppEvent::RepositoryCloned { result }
+                if self.state.input_mode == InputMode::CloningRepository => {
                     match result {
                         Ok(path) => {
                             if let Some(repo_id) = self.add_project_to_sidebar(path) {
@@ -7458,7 +7458,6 @@ impl App {
                         }
                     }
                 }
-            }
             AppEvent::AgentStarted {
                 session_id,
                 pid,
@@ -7522,8 +7521,8 @@ impl App {
                 pid,
                 context,
                 success,
-            } => {
-                if !success {
+            }
+                if !success => {
                     tracing::warn!(
                         pid,
                         context = %context,
@@ -7539,7 +7538,6 @@ impl App {
                         );
                     }
                 }
-            }
             AppEvent::AgentStreamEnded { session_id } => {
                 let Some(tab_index) = self.state.tab_manager.session_index_by_id(session_id) else {
                     tracing::debug!(

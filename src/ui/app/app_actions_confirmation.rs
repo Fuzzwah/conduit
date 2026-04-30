@@ -11,8 +11,8 @@ impl App {
         effects: &mut Vec<Effect>,
     ) -> anyhow::Result<()> {
         match action {
-            Action::ConfirmYes => {
-                if self.state.input_mode == InputMode::Confirming {
+            Action::ConfirmYes
+                if self.state.input_mode == InputMode::Confirming => {
                     if self.is_blocking_confirmation_loading_dialog() {
                         return Ok(());
                     }
@@ -101,9 +101,8 @@ impl App {
                         }
                     }
                 }
-            }
-            Action::ConfirmNo => {
-                if self.state.input_mode == InputMode::Confirming {
+            Action::ConfirmNo
+                if self.state.input_mode == InputMode::Confirming => {
                     if self.is_blocking_confirmation_loading_dialog() {
                         return Ok(());
                     }
@@ -148,15 +147,13 @@ impl App {
                         self.state.input_mode = self.dismiss_confirmation_dialog();
                     }
                 }
-            }
-            Action::ConfirmToggle => {
-                if self.state.input_mode == InputMode::Confirming {
+            Action::ConfirmToggle
+                if self.state.input_mode == InputMode::Confirming => {
                     if self.is_blocking_confirmation_loading_dialog() {
                         return Ok(());
                     }
                     self.state.confirmation_dialog_state.toggle_selection();
                 }
-            }
             _ => {}
         }
 

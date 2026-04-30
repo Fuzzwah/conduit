@@ -212,8 +212,8 @@ impl App {
                     }
                 }
             }
-            InputMode::AddingRepository => {
-                if self.state.add_repo_dialog_state.is_valid() {
+            InputMode::AddingRepository
+                if self.state.add_repo_dialog_state.is_valid() => {
                     if self.state.add_repo_dialog_state.is_url() {
                         // Kick off background clone; mode will be set to CloningRepository
                         self.clone_repository();
@@ -234,9 +234,8 @@ impl App {
                         }
                     }
                 }
-            }
-            InputMode::SettingBaseDir => {
-                if self.state.base_dir_dialog_state.is_valid() {
+            InputMode::SettingBaseDir
+                if self.state.base_dir_dialog_state.is_valid() => {
                     if let Some(dao) = self.app_state_dao() {
                         if let Err(e) = dao.set(
                             "projects_base_dir",
@@ -271,7 +270,6 @@ impl App {
                         }
                     }
                 }
-            }
             InputMode::SettingsMenu => {
                 self.open_selected_setting();
             }
@@ -324,12 +322,12 @@ impl App {
                 }
                 return Ok(());
             }
-            InputMode::WorkspaceDefaults => {
+            InputMode::WorkspaceDefaults
                 if self
                     .state
                     .workspace_defaults_dialog_state
                     .activate_selected()
-                {
+                => {
                     let draft = self.state.workspace_defaults_dialog_state.draft;
                     if let Err(err) = crate::core::services::ConfigService::set_workspace_defaults(
                         &mut self.core,
@@ -350,7 +348,6 @@ impl App {
                         self.state.input_mode = InputMode::Normal;
                     }
                 }
-            }
             InputMode::Confirming => {
                 if self.is_blocking_confirmation_loading_dialog() {
                     return Ok(());

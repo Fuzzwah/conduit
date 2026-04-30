@@ -193,11 +193,7 @@ fn detect_git_url_repo_name(input: &str) -> Option<String> {
         // Strip scheme
         let after_scheme = if let Some(s) = input.strip_prefix("https://") {
             s
-        } else if let Some(s) = input.strip_prefix("http://") {
-            s
-        } else {
-            return None;
-        };
+        } else { input.strip_prefix("http://")? };
         // Find the path after the host
         if let Some(slash_pos) = after_scheme.find('/') {
             let path_part = &after_scheme[slash_pos + 1..];
