@@ -44,6 +44,7 @@ pub fn builtin_themes() -> Vec<(&'static str, Theme)> {
         ("vscode-dark-modern", vscode_dark_modern()),
         ("shades-of-purple", shades_of_purple()),
         ("night-owl", night_owl()),
+        ("night-fox", night_fox()),
         ("synthwave", synthwave()),
     ]
 }
@@ -2585,6 +2586,84 @@ pub fn night_owl() -> Theme {
         tool_output: Color::Rgb(150, 165, 185),
         diff_add: green,
         diff_remove: red,
+    }
+}
+
+/// Night Fox theme — Night Owl palette shifted to dark reds and orange highlights.
+pub fn night_fox() -> Theme {
+    // Backgrounds: deep burgundy-tinged darks instead of deep navy
+    let background = Color::Rgb(28, 10, 10);
+    let bg_highlight = Color::Rgb(42, 15, 15);
+    let bg_elevated = Color::Rgb(58, 22, 20);
+    let bg_selection = Color::Rgb(80, 32, 28);
+    let foreground = Color::Rgb(235, 218, 210);
+    let comment = Color::Rgb(120, 90, 85);
+
+    // Accent palette: orange/amber primary, warm gold secondary, red for errors
+    let orange = Color::Rgb(255, 160, 60);
+    let amber = Color::Rgb(255, 210, 110);
+    let warm_gold = Color::Rgb(230, 170, 80);
+    let crimson = Color::Rgb(240, 80, 70);
+    let coral = Color::Rgb(255, 115, 90);
+    let rust = Color::Rgb(200, 90, 60);
+
+    Theme {
+        name: "Night Fox".to_string(),
+        is_light: false,
+
+        bg_terminal: Color::Rgb(18, 5, 5),
+        bg_base: background,
+        bg_surface: bg_highlight,
+        bg_elevated,
+        bg_highlight: bg_selection,
+        markdown_code_bg: Color::Rgb(18, 5, 5),
+        markdown_inline_code_bg: bg_highlight,
+
+        text_bright: foreground,
+        text_primary: Color::Rgb(220, 200, 190),
+        text_secondary: Color::Rgb(175, 148, 138),
+        text_muted: comment,
+        text_faint: Color::Rgb(80, 45, 42),
+
+        accent_primary: orange,
+        accent_secondary: coral,
+        accent_success: amber,
+        accent_warning: warm_gold,
+        accent_error: crimson,
+
+        agent_claude: coral,
+        agent_codex: rust,
+        agent_opencode: orange,
+
+        pr_open_bg: amber,
+        pr_merged_bg: coral,
+        pr_closed_bg: crimson,
+        pr_draft_bg: comment,
+        pr_unknown_bg: bg_elevated,
+
+        spinner_active: orange,
+        spinner_trail_1: Color::Rgb(230, 138, 50),
+        spinner_trail_2: Color::Rgb(205, 118, 42),
+        spinner_trail_3: Color::Rgb(178, 98, 35),
+        spinner_trail_4: Color::Rgb(150, 78, 28),
+        spinner_trail_5: Color::Rgb(120, 60, 22),
+        spinner_inactive: comment,
+
+        border_default: bg_elevated,
+        border_focused: orange,
+        border_dimmed: bg_selection,
+
+        shine_edge: comment,
+        shine_mid: Color::Rgb(175, 148, 138),
+        shine_center: foreground,
+        shine_peak: Color::Rgb(255, 255, 255),
+
+        tool_block_bg: Color::Rgb(18, 5, 5),
+        tool_comment: comment,
+        tool_command: foreground,
+        tool_output: Color::Rgb(175, 148, 138),
+        diff_add: amber,
+        diff_remove: crimson,
     }
 }
 
