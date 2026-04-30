@@ -4977,11 +4977,7 @@ impl App {
 
         self.mark_repo_action_busy(repo_id);
         self.state.issue_picker_state =
-            crate::ui::components::IssuePickerState::show_loading(repo_id);
-        self.state.spec_picker_state =
-            crate::ui::components::SpecPickerState::show_loading(repo_id, None);
-        self.state.specify_picker_state =
-            crate::ui::components::SpecifyPickerState::show_loading(repo_id, None);
+            crate::ui::components::IssuePickerState::show_syncing(repo_id);
         self.state.input_mode = InputMode::SelectingIssue;
         vec![Effect::SyncRemote { repo_id }]
     }
@@ -7002,6 +6998,11 @@ impl App {
                 self.state.workspace_progress_dialog_state.push(message);
             }
             AppEvent::RemoteSynced { repo_id } => {
+                self.state.issue_picker_state.start_loading();
+                self.state.spec_picker_state =
+                    crate::ui::components::SpecPickerState::show_loading(repo_id, None);
+                self.state.specify_picker_state =
+                    crate::ui::components::SpecifyPickerState::show_loading(repo_id, None);
                 effects.push(Effect::FetchGithubIssues { repo_id });
                 effects.push(Effect::FetchAllSpecs { repo_id });
             }
