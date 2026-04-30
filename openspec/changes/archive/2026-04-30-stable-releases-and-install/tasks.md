@@ -23,7 +23,7 @@
 ## 4. CI Workflow: Make ci.yml Reusable
 
 - [x] 4.1 In `.github/workflows/ci.yml`: add `on: workflow_call:` alongside the existing `push` and `pull_request` triggers
-- [ ] 4.2 Open a test PR or push to a non-main branch to confirm ci.yml still runs normally as a PR check
+- [x] 4.2 Open a test PR or push to a non-main branch to confirm ci.yml still runs normally as a PR check
 
 ## 5. Release Workflow: Rewrite release.yml
 
@@ -66,6 +66,6 @@
 ## 9. Verification
 
 - [x] 9.1 Run `cargo fmt --check && cargo clippy -- -D warnings && cargo test` and confirm all pass
-- [ ] 9.2 Push tag `v0.5.0-rc.1` to a test branch; watch the full `verify → build → smoke-test → release → announce` pipeline; inspect draft release for 4 archives + 4 `.sha256` files; confirm Discord URL is correct; delete rc release
-- [ ] 9.3 On a fresh `ubuntu:22.04` container outside CI: run `curl -fsSL .../install.sh | CONDUIT_VERSION=v0.5.0-rc.1 sh && conduit --version`; repeat in `alpine:3.19`
-- [ ] 9.4 Tag `v0.5.0` on master after PR merge; confirm full pipeline succeeds and Discord post lands
+- [x] 9.2 Push tag `v0.5.0-rc.1` to a test branch; watch the full `verify → build → smoke-test → release → announce` pipeline; inspect draft release for 4 archives + 4 `.sha256` files; confirm Discord URL is correct; delete rc release
+- [x] 9.3 On a fresh `ubuntu:22.04` container outside CI: run `curl -fsSL .../install.sh | CONDUIT_VERSION=v0.5.0-rc.1 sh && conduit --version`; repeat in `alpine:3.19`
+- [x] 9.4 Tag `v0.5.0` on master after PR merge; confirm full pipeline succeeds and Discord post lands
