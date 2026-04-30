@@ -66,7 +66,8 @@ impl TabManager {
             return Err(std::io::Error::other("Maximum tabs reached"));
         }
 
-        let viewer = FileViewerSession::new(path)?;
+        let origin = self.active_tab;
+        let viewer = FileViewerSession::new(path, origin)?;
         self.tabs.push(Tab::File(viewer));
         let new_index = self.tabs.len() - 1;
         self.active_tab = new_index;
@@ -188,6 +189,14 @@ impl TabManager {
     pub fn active_file_viewer_mut(&mut self) -> Option<&mut FileViewerSession> {
         match self.tabs.get_mut(self.active_tab) {
             Some(Tab::File(viewer)) => Some(viewer),
+            _ => None,
+        }
+    }
+
+    /// Get the origin tab index from the active file viewer, if any
+    pub fn active_file_viewer_origin(&self) -> Option<usize> {
+        match self.tabs.get(self.active_tab) {
+            Some(Tab::File(viewer)) => Some(viewer.origin_tab_index),
             _ => None,
         }
     }

@@ -34,6 +34,8 @@ pub struct FileViewerSession {
     pub id: Uuid,
     /// Path to the file being viewed
     pub file_path: PathBuf,
+    /// Tab index that was active when this file viewer was opened
+    pub origin_tab_index: usize,
     /// Raw file content
     content: String,
     /// Raw lines of the file
@@ -62,7 +64,7 @@ pub struct FileViewerSession {
 
 impl FileViewerSession {
     /// Create a new file viewer session by reading a file
-    pub fn new(file_path: PathBuf) -> std::io::Result<Self> {
+    pub fn new(file_path: PathBuf, origin_tab_index: usize) -> std::io::Result<Self> {
         let content = std::fs::read_to_string(&file_path)?;
         let file_kind = Self::detect_file_kind(&file_path);
         let is_markdown = matches!(file_kind, FileKind::Markdown);
@@ -73,6 +75,7 @@ impl FileViewerSession {
         let mut session = Self {
             id: Uuid::new_v4(),
             file_path,
+            origin_tab_index,
             content,
             lines,
             total_lines,
@@ -355,7 +358,7 @@ mod tests {
         writeln!(file, "Line 2").unwrap();
         writeln!(file, "Line 3").unwrap();
 
-        let session = FileViewerSession::new(file.path().to_path_buf()).unwrap();
+        let session = FileViewerSession::new(file.path().to_path_buf(), 0).unwrap();
         assert_eq!(session.total_lines, 3);
         assert_eq!(session.scroll_offset, 0);
         assert!(session.show_line_numbers);
@@ -370,7 +373,7 @@ mod tests {
             writeln!(file, "Line {}", i).unwrap();
         }
 
-        let mut session = FileViewerSession::new(file.path().to_path_buf()).unwrap();
+        let mut session = FileViewerSession::new(file.path().to_path_buf(), 0).unwrap();
         let visible_height = 20;
 
         // Scroll down (using clamped version for exact behavior)
@@ -395,7 +398,7 @@ mod tests {
         let mut file = NamedTempFile::with_suffix(".md").unwrap();
         writeln!(file, "# Markdown").unwrap();
 
-        let session = FileViewerSession::new(file.path().to_path_buf()).unwrap();
+        let session = FileViewerSession::new(file.path().to_path_buf(), 0).unwrap();
         assert!(session.is_markdown);
         assert_eq!(session.file_kind(), FileKind::Markdown);
         assert_eq!(session.active_view_mode(), FileViewMode::Rendered);
@@ -406,7 +409,7 @@ mod tests {
         let mut file = NamedTempFile::with_suffix(".json").unwrap();
         writeln!(file, "{{\"key\": true}}").unwrap();
 
-        let session = FileViewerSession::new(file.path().to_path_buf()).unwrap();
+        let session = FileViewerSession::new(file.path().to_path_buf(), 0).unwrap();
         assert_eq!(session.file_kind(), FileKind::Json);
         assert_eq!(session.active_view_mode(), FileViewMode::Raw);
     }
@@ -416,7 +419,7 @@ mod tests {
         let mut file = NamedTempFile::with_suffix(".rs").unwrap();
         writeln!(file, "fn main() {{}}").unwrap();
 
-        let session = FileViewerSession::new(file.path().to_path_buf()).unwrap();
+        let session = FileViewerSession::new(file.path().to_path_buf(), 0).unwrap();
         assert_eq!(session.file_kind(), FileKind::Rust);
         assert_eq!(session.active_view_mode(), FileViewMode::Raw);
     }
@@ -431,7 +434,7 @@ mod tests {
         )
         .unwrap();
 
-        let mut session = FileViewerSession::new(file.path().to_path_buf()).unwrap();
+        let mut session = FileViewerSession::new(file.path().to_path_buf(), 0).unwrap();
         session.ensure_render_cache(16);
 
         assert!(session.effective_total_lines() > session.total_lines);
@@ -448,7 +451,7 @@ mod tests {
         )
         .unwrap();
 
-        let mut session = FileViewerSession::new(file.path().to_path_buf()).unwrap();
+        let mut session = FileViewerSession::new(file.path().to_path_buf(), 0).unwrap();
         session.ensure_render_cache(18);
 
         let total = session.effective_total_lines();
@@ -464,7 +467,7 @@ mod tests {
         let mut file = NamedTempFile::with_suffix(".txt").unwrap();
         writeln!(file, "content").unwrap();
 
-        let session = FileViewerSession::new(file.path().to_path_buf()).unwrap();
+        let session = FileViewerSession::new(file.path().to_path_buf(), 0).unwrap();
         let name = session.tab_name();
         assert!(name.ends_with(".txt"));
     }

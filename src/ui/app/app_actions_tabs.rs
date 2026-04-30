@@ -33,6 +33,8 @@ impl App {
         match action {
             Action::CloseTab => {
                 let active = self.state.tab_manager.active_index();
+                // Remember origin tab before closing (file tabs store where they were opened from)
+                let origin = self.state.tab_manager.active_file_viewer_origin();
                 self.stop_agent_for_tab(active);
                 self.close_tab_at_index(active);
                 if self.state.tab_manager.is_empty() {
@@ -40,6 +42,12 @@ impl App {
                     self.state.sidebar_state.visible = true;
                     self.state.input_mode = InputMode::SidebarNavigation;
                 } else {
+                    // For file tabs, return to the tab that was active when the file was opened
+                    if let Some(origin_index) = origin {
+                        let clamped =
+                            origin_index.min(self.state.tab_manager.len().saturating_sub(1));
+                        self.state.tab_manager.switch_to(clamped);
+                    }
                     self.sync_input_mode_for_active_tab();
                     self.sync_sidebar_to_active_tab();
                     self.sync_footer_spinner();
