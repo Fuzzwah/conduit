@@ -50,6 +50,9 @@ impl fmt::Display for KeyCombo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut parts = Vec::new();
 
+        if self.modifiers.contains(KeyModifiers::SUPER) {
+            parts.push("D");
+        }
         if self.modifiers.contains(KeyModifiers::CONTROL) {
             parts.push("C");
         }
@@ -331,6 +334,7 @@ pub fn parse_key_notation(s: &str) -> Result<KeyCombo, KeyParseError> {
 
     for (i, part) in parts.iter().enumerate() {
         match *part {
+            "D" | "Cmd" | "Super" => modifiers |= KeyModifiers::SUPER,
             "C" => modifiers |= KeyModifiers::CONTROL,
             "M" => modifiers |= KeyModifiers::ALT,
             "S" => {
@@ -376,6 +380,7 @@ fn parse_special_key(s: &str) -> Result<KeyCombo, KeyParseError> {
         // Has modifiers
         for part in &parts[..parts.len() - 1] {
             match *part {
+                "D" | "Cmd" | "Super" => modifiers |= KeyModifiers::SUPER,
                 "C" => modifiers |= KeyModifiers::CONTROL,
                 "M" => modifiers |= KeyModifiers::ALT,
                 "S" => modifiers |= KeyModifiers::SHIFT,
