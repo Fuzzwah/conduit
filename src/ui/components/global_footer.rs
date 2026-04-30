@@ -6,6 +6,8 @@ use ratatui::{
 };
 
 use super::KnightRiderSpinner;
+use crate::config::{default_keybindings, KeybindingConfig};
+use crate::ui::action::Action;
 use crate::ui::components::{render_key_hints_responsive, text_muted, KeyHintBarStyle};
 use crate::ui::events::{InputMode, ViewMode};
 
@@ -47,10 +49,24 @@ impl FooterContext {
     }
 }
 
+/// Reverse-lookup: find the key string bound to `action` in the global bindings of `config`.
+fn lookup_global_key(config: &KeybindingConfig, action: &Action) -> Option<String> {
+    config
+        .global
+        .iter()
+        .find(|(_, a)| *a == action)
+        .map(|(k, _)| k.to_string())
+}
+
+/// Return the key string for `action`, falling back to the compiled-in default if not found.
+fn key_for(config: &KeybindingConfig, action: &Action, fallback: &'static str) -> String {
+    lookup_global_key(config, action).unwrap_or_else(|| fallback.to_string())
+}
+
 /// Global footer showing keyboard shortcuts in minimal style
 /// Layout: [Spinner][Message]                    [Key Hints (right-aligned)]
 pub struct GlobalFooter<'a> {
-    hints: Vec<(&'static str, &'static str)>,
+    hints: Vec<(String, &'static str)>,
     spinner: Option<&'a KnightRiderSpinner>,
     message: Option<&'a str>,
 }
@@ -64,12 +80,18 @@ impl<'a> GlobalFooter<'a> {
         }
     }
 
-    /// Create footer for a specific context
+    /// Create footer for a specific context using default keybindings.
     pub fn for_context(context: FooterContext) -> Self {
+        let defaults = default_keybindings();
+        Self::for_context_with_config(context, &defaults)
+    }
+
+    /// Create footer for a specific context using the live keybinding config.
+    pub fn for_context_with_config(context: FooterContext, config: &KeybindingConfig) -> Self {
         Self {
             hints: match context {
-                FooterContext::Empty => Self::empty_hints(),
-                FooterContext::Chat => Self::chat_hints(),
+                FooterContext::Empty => Self::empty_hints_with_config(config),
+                FooterContext::Chat => Self::chat_hints_with_config(config),
                 FooterContext::Sidebar => Self::sidebar_hints(),
                 FooterContext::RawEvents => Self::raw_events_hints(),
                 FooterContext::FileViewer => Self::file_viewer_hints(),
@@ -84,10 +106,21 @@ impl<'a> GlobalFooter<'a> {
         Self::for_context(FooterContext::FileViewer)
     }
 
-    /// Create footer from app state
+    /// Create footer from app state using default keybindings.
     pub fn from_state(view_mode: ViewMode, input_mode: InputMode, has_tabs: bool) -> Self {
         let context = FooterContext::from_state(view_mode, input_mode, has_tabs);
         Self::for_context(context)
+    }
+
+    /// Create footer from app state using the live keybinding config.
+    pub fn from_state_with_config(
+        view_mode: ViewMode,
+        input_mode: InputMode,
+        has_tabs: bool,
+        config: &KeybindingConfig,
+    ) -> Self {
+        let context = FooterContext::from_state(view_mode, input_mode, has_tabs);
+        Self::for_context_with_config(context, config)
     }
 
     /// Set spinner for left side of footer
@@ -102,62 +135,84 @@ impl<'a> GlobalFooter<'a> {
         self
     }
 
-    /// Get hints for empty state (no tabs open)
-    pub fn empty_hints() -> Vec<(&'static str, &'static str)> {
+    /// Hints for empty state using default keybindings.
+    pub fn empty_hints() -> Vec<(String, &'static str)> {
+        Self::empty_hints_with_config(&default_keybindings())
+    }
+
+    /// Return the hints this footer would display (for click-handling).
+    pub fn hints(&self) -> &[(String, &'static str)] {
+        &self.hints
+    }
+
+    fn empty_hints_with_config(config: &KeybindingConfig) -> Vec<(String, &'static str)> {
         vec![
-            ("C-n", "new project"),
-            ("C-t", "sidebar"),
-            ("M-i", "import session"),
-            ("C-q", "quit"),
+            (key_for(config, &Action::NewProject, "C-n"), "new project"),
+            (key_for(config, &Action::ToggleSidebar, "C-t"), "sidebar"),
+            (
+                key_for(config, &Action::ImportSession, "M-i"),
+                "import session",
+            ),
+            (key_for(config, &Action::Quit, "C-q"), "quit"),
         ]
     }
 
-    /// Get hints for chat mode
-    pub fn chat_hints() -> Vec<(&'static str, &'static str)> {
+    /// Hints for chat mode using default keybindings.
+    pub fn chat_hints() -> Vec<(String, &'static str)> {
+        Self::chat_hints_with_config(&default_keybindings())
+    }
+
+    fn chat_hints_with_config(config: &KeybindingConfig) -> Vec<(String, &'static str)> {
+        let next = key_for(config, &Action::NextTab, "M-tab");
+        let prev = key_for(config, &Action::PrevTab, "M-S-tab");
+        let tab_hint = format!("{next}/{prev}");
         vec![
-            ("M-tab/M-S-tab", "next/prev tab"),
-            ("C-o", "model"),
-            ("C-t", "sidebar"),
-            ("C-n", "new project"),
-            ("M-S-w", "close"),
-            ("M-S-x", "archive"),
-            ("C-c", "stop"),
-            ("C-q", "quit"),
+            (tab_hint, "next/prev tab"),
+            (key_for(config, &Action::ShowModelSelector, "C-o"), "model"),
+            (key_for(config, &Action::ToggleSidebar, "C-t"), "sidebar"),
+            (key_for(config, &Action::NewProject, "C-n"), "new project"),
+            (key_for(config, &Action::CloseTab, "M-S-w"), "close"),
+            (
+                key_for(config, &Action::ArchiveCurrentWorkspace, "M-S-x"),
+                "archive",
+            ),
+            (key_for(config, &Action::InterruptAgent, "C-c"), "stop"),
+            (key_for(config, &Action::Quit, "C-q"), "quit"),
         ]
     }
 
-    /// Get hints for sidebar navigation mode
-    pub fn sidebar_hints() -> Vec<(&'static str, &'static str)> {
+    /// Get hints for sidebar navigation mode (not configurable via global bindings)
+    pub fn sidebar_hints() -> Vec<(String, &'static str)> {
         vec![
-            ("↑↓", "navigate"),
-            ("enter", "select"),
-            ("h/l", "collapse/expand"),
-            ("M-S-x", "archive"),
-            ("C-n", "new project"),
-            ("esc", "exit"),
+            ("↑↓".to_string(), "navigate"),
+            ("enter".to_string(), "select"),
+            ("h/l".to_string(), "collapse/expand"),
+            ("M-S-x".to_string(), "archive"),
+            ("C-n".to_string(), "new project"),
+            ("esc".to_string(), "exit"),
         ]
     }
 
     /// Get hints for raw events view mode
-    pub fn raw_events_hints() -> Vec<(&'static str, &'static str)> {
+    pub fn raw_events_hints() -> Vec<(String, &'static str)> {
         vec![
-            ("j/k", "nav"),
-            ("e", "detail"),
-            ("C-j/k", "panel"),
-            ("c", "copy"),
-            ("C-g", "chat"),
+            ("j/k".to_string(), "nav"),
+            ("e".to_string(), "detail"),
+            ("C-j/k".to_string(), "panel"),
+            ("c".to_string(), "copy"),
+            ("C-g".to_string(), "chat"),
         ]
     }
 
     /// Get hints for file viewer mode
-    pub fn file_viewer_hints() -> Vec<(&'static str, &'static str)> {
+    pub fn file_viewer_hints() -> Vec<(String, &'static str)> {
         vec![
-            ("j/k", "scroll"),
-            ("g/G", "top/bottom"),
-            ("C-d/u", "page"),
-            ("M-tab/M-S-tab", "next/prev tab"),
-            ("q", "close"),
-            ("esc", "close"),
+            ("j/k".to_string(), "scroll"),
+            ("g/G".to_string(), "top/bottom"),
+            ("C-d/u".to_string(), "page"),
+            ("M-tab/M-S-tab".to_string(), "next/prev tab"),
+            ("q".to_string(), "close"),
+            ("esc".to_string(), "close"),
         ]
     }
 
@@ -194,11 +249,15 @@ impl<'a> GlobalFooter<'a> {
         let reserved_left = if left_width > 0 { left_width + 2 } else { 0 }; // +2 for gap
         let max_hints_width = area.width.saturating_sub(reserved_left);
 
+        // Coerce to &[(&str, &str)] for the render function
+        let hint_refs: Vec<(&str, &str)> =
+            self.hints.iter().map(|(k, v)| (k.as_str(), *v)).collect();
+
         // Render key hints responsively (right-aligned, removes from left when too wide)
         render_key_hints_responsive(
             area,
             buf,
-            &self.hints,
+            &hint_refs,
             KeyHintBarStyle::minimal_footer(),
             Some(max_hints_width),
         );

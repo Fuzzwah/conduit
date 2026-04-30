@@ -6911,16 +6911,20 @@ impl App {
     fn handle_footer_click(&mut self, x: u16, _y: u16, footer_area: Rect) -> Option<Action> {
         // Use the same hints as GlobalFooter to stay in sync
         // Sidebar focus takes precedence over file viewer / view_mode
-        let hints: Vec<(&str, &str)> = if self.state.input_mode == InputMode::SidebarNavigation {
-            GlobalFooter::sidebar_hints()
+        // Build the footer the same way the renderer does so click positions stay in sync
+        use crate::ui::components::FooterContext;
+        let context = if self.state.input_mode == InputMode::SidebarNavigation {
+            FooterContext::Sidebar
         } else if self.state.tab_manager.active_is_file() {
-            GlobalFooter::file_viewer_hints()
+            FooterContext::FileViewer
         } else {
             match self.state.view_mode {
-                ViewMode::Chat => GlobalFooter::chat_hints(),
-                ViewMode::RawEvents => GlobalFooter::raw_events_hints(),
+                ViewMode::Chat => FooterContext::Chat,
+                ViewMode::RawEvents => FooterContext::RawEvents,
             }
         };
+        let footer =
+            GlobalFooter::for_context_with_config(context, &self.config().keybindings.clone());
 
         // Calculate click position relative to footer
         let relative_x = x.saturating_sub(footer_area.x) as usize;
@@ -6930,7 +6934,7 @@ impl App {
         // Leading space = 1, key has " key " (len+2), action has " action" (len+1), spacing = 3
         let mut current_x: usize = 1; // Leading space
 
-        for (key, action_name) in hints {
+        for (key, action_name) in footer.hints() {
             // Format: " key " (key.len + 2) + " action" (action_name.len + 1) + spacing (3)
             let key_width = key.len() + 2;
             let action_width = action_name.len() + 1;
@@ -11317,9 +11321,12 @@ impl App {
                             } else {
                                 FooterContext::Empty
                             };
-                        let footer = GlobalFooter::for_context(footer_context)
-                            .with_spinner(self.state.footer_spinner.as_ref())
-                            .with_message(self.state.footer_message.as_deref());
+                        let footer = GlobalFooter::for_context_with_config(
+                            footer_context,
+                            &self.config().keybindings.clone(),
+                        )
+                        .with_spinner(self.state.footer_spinner.as_ref())
+                        .with_message(self.state.footer_message.as_deref());
                         footer.render(footer_area, f.buffer_mut());
 
                         return;
@@ -11596,10 +11603,11 @@ impl App {
                     }
 
                     // Draw footer (full width) - context-aware based on input mode
-                    let footer = GlobalFooter::from_state(
+                    let footer = GlobalFooter::from_state_with_config(
                         self.state.view_mode,
                         self.state.input_mode,
                         !self.state.tab_manager.is_empty(),
+                        &self.config().keybindings.clone(),
                     )
                     .with_spinner(self.state.footer_spinner.as_ref())
                     .with_message(self.state.footer_message.as_deref());
@@ -11652,10 +11660,11 @@ impl App {
                     }
 
                     // Draw footer (full width) - context-aware based on input mode
-                    let footer = GlobalFooter::from_state(
+                    let footer = GlobalFooter::from_state_with_config(
                         self.state.view_mode,
                         self.state.input_mode,
                         !self.state.tab_manager.is_empty(),
+                        &self.config().keybindings.clone(),
                     )
                     .with_spinner(self.state.footer_spinner.as_ref())
                     .with_message(self.state.footer_message.as_deref());
@@ -12007,9 +12016,12 @@ impl App {
         } else {
             FooterContext::FileViewer
         };
-        let footer = GlobalFooter::for_context(footer_context)
-            .with_spinner(self.state.footer_spinner.as_ref())
-            .with_message(self.state.footer_message.as_deref());
+        let footer = GlobalFooter::for_context_with_config(
+            footer_context,
+            &self.config().keybindings.clone(),
+        )
+        .with_spinner(self.state.footer_spinner.as_ref())
+        .with_message(self.state.footer_message.as_deref());
         footer.render(footer_area, f.buffer_mut());
     }
 
