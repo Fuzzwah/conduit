@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use crate::agent::{AgentStartConfig, AgentType};
-use crate::git::{GithubIssue, OpenSpec};
+use crate::git::{GithubIssue, OpenSpec, SpecifySpec};
 use crate::session::ExternalSession;
 use uuid::Uuid;
 
@@ -28,10 +28,14 @@ pub enum Effect {
     FetchGithubIssues {
         repo_id: Uuid,
     },
-    FetchOpenSpecs {
+    FetchAllSpecs {
         repo_id: Uuid,
     },
     ShowSpecPicker {
+        repo_id: Uuid,
+        issue: Option<GithubIssue>,
+    },
+    ShowSpecifyPicker {
         repo_id: Uuid,
         issue: Option<GithubIssue>,
     },
@@ -39,6 +43,7 @@ pub enum Effect {
         repo_id: Uuid,
         issue: Option<GithubIssue>,
         spec: Option<OpenSpec>,
+        specify_spec: Option<SpecifySpec>,
     },
     ForkWorkspace {
         parent_workspace_id: Uuid,
