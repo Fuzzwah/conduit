@@ -58,6 +58,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y musl-tools libxcb-shape0-dev libxcb-xfixes0-dev
 
+      - name: Pre-build web assets (cross only)
+        if: matrix.cross == true
+        run: cd web && npm ci && npm run build
+
       - name: Install cross (arm64 Linux only)
         if: matrix.cross == true
         run: cargo install cross --locked
