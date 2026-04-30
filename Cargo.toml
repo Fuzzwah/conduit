@@ -1,11 +1,12 @@
 [package]
 name = "conduit-cli"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
+rust-version = "1.87"
 description = "Multi-agent TUI for Claude Code and Codex CLI"
 authors = ["Felipe Coury"]
 license = "MIT"
-repository = "https://github.com/conduit-cli/conduit"
+repository = "https://github.com/Fuzzwah/conduit"
 readme = "README.md"
 keywords = ["tui", "cli", "claude", "ai", "terminal"]
 categories = ["command-line-utilities", "development-tools"]
@@ -113,3 +114,6 @@ http-body-util = "0.1"
 
 # Lazy static for shared fixtures
 once_cell = "1.21"
+
+[build-dependencies]
+which = "7.0"

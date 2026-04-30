@@ -9,19 +9,33 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+
+  # ── Stage 1: Full CI gate ───────────────────────────────────────────────────
+  verify:
+    name: Verify (CI gate)
+    uses: ./.github/workflows/ci.yml
+
+  # ── Stage 2: Build 4 targets ────────────────────────────────────────────────
   build:
     name: Build ${{ matrix.target }}
+    needs: verify
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         include:
           - target: x86_64-unknown-linux-musl
-            os: warp-ubuntu-latest-x64-8x
-            archive: tar.gz
+            os: ubuntu-latest
+            cross: false
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
+            cross: true
           - target: aarch64-apple-darwin
-            os: warp-macos-26-arm64-12x
-            archive: tar.gz
+            os: macos-latest
+            cross: false
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            cross: false
 
     steps:
       - uses: actions/checkout@v4
@@ -38,61 +52,157 @@ jobs:
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
 
-      - name: Install dependencies (Linux)
-        if: matrix.os == 'warp-ubuntu-latest-x64-8x'
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y musl-tools libxcb-shape0-dev libxcb-xfixes0-dev
 
-      - name: Build
+      - name: Install cross (arm64 Linux only)
+        if: matrix.cross == true
+        run: cargo install cross --locked
+
+      - name: Build (native)
+        if: matrix.cross == false
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Package (Unix)
-        if: runner.os != 'Windows'
+      - name: Build (cross)
+        if: matrix.cross == true
+        run: cross build --release --target ${{ matrix.target }}
+
+      - name: Package
         run: |
           cd target/${{ matrix.target }}/release
           tar czvf ../../../conduit-${{ matrix.target }}.tar.gz conduit
           cd -
 
-      - name: Package (Windows)
-        if: runner.os == 'Windows'
+      - name: Generate sha256
         run: |
-          cd target/${{ matrix.target }}/release
-          7z a ../../../conduit-${{ matrix.target }}.zip conduit.exe
-          cd -
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum conduit-${{ matrix.target }}.tar.gz > conduit-${{ matrix.target }}.tar.gz.sha256
+          else
+            shasum -a 256 conduit-${{ matrix.target }}.tar.gz > conduit-${{ matrix.target }}.tar.gz.sha256
+          fi
 
-      - name: Upload artifact
+      - name: Upload archive
         uses: actions/upload-artifact@v4
         with:
           name: conduit-${{ matrix.target }}
-          path: conduit-${{ matrix.target }}.${{ matrix.archive }}
+          path: conduit-${{ matrix.target }}.tar.gz
 
+      - name: Upload sha256
+        uses: actions/upload-artifact@v4
+        with:
+          name: conduit-${{ matrix.target }}.sha256
+          path: conduit-${{ matrix.target }}.tar.gz.sha256
+
+  # ── Stage 3: Smoke tests ────────────────────────────────────────────────────
+  smoke-test:
+    name: Smoke test
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download x86_64 Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: conduit-x86_64-unknown-linux-musl
+          path: artifacts/x86_64-linux
+
+      - name: Smoke test — ubuntu:22.04 (x86_64)
+        run: |
+          docker run --rm \
+            -v "$(pwd)/artifacts/x86_64-linux:/work" \
+            ubuntu:22.04 \
+            sh -c 'cd /work && tar xzf conduit-x86_64-unknown-linux-musl.tar.gz && ./conduit --version'
+
+      - name: Smoke test — alpine:3.19 (x86_64 musl)
+        run: |
+          docker run --rm \
+            -v "$(pwd)/artifacts/x86_64-linux:/work" \
+            alpine:3.19 \
+            sh -c 'cd /work && tar xzf conduit-x86_64-unknown-linux-musl.tar.gz && ./conduit --version'
+
+      - name: Set up QEMU (for arm64 emulation)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Download aarch64 Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: conduit-aarch64-unknown-linux-musl
+          path: artifacts/aarch64-linux
+
+      - name: Smoke test — ubuntu:22.04 (arm64 via QEMU)
+        run: |
+          docker run --rm --platform linux/arm64 \
+            -v "$(pwd)/artifacts/aarch64-linux:/work" \
+            ubuntu:22.04 \
+            sh -c 'cd /work && tar xzf conduit-aarch64-unknown-linux-musl.tar.gz && ./conduit --version'
+
+      - name: Smoke test — install.sh (CONDUIT_INSTALL_FILE mode)
+        run: |
+          ARCHIVE="$(pwd)/artifacts/x86_64-linux/conduit-x86_64-unknown-linux-musl.tar.gz"
+          docker run --rm \
+            -v "${ARCHIVE}:/tmp/conduit.tar.gz" \
+            -v "$(pwd)/website/public/install.sh:/tmp/install.sh" \
+            ubuntu:22.04 \
+            sh -c '
+              apt-get update -qq && apt-get install -y -qq curl tar >/dev/null 2>&1
+              CONDUIT_INSTALL_FILE=/tmp/conduit.tar.gz \
+              CONDUIT_INSTALL_DIR=/tmp/conduit-bin \
+                sh /tmp/install.sh
+              /tmp/conduit-bin/conduit --version
+            '
+
+  # ── Stage 4: Publish GitHub release ────────────────────────────────────────
   release:
     name: Create Release
-    needs: build
-    runs-on: warp-ubuntu-latest-x64-8x
+    needs: smoke-test
+    runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+
+      - name: Flatten artifacts
+        run: |
+          mkdir -p release-files
+          find artifacts -type f | xargs -I{} cp {} release-files/
 
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           draft: false
           generate_release_notes: true
-          files: |
-            artifacts/**/*
+          files: release-files/*
 
-      - name: Announce on Discord
-        if: success()
+  # ── Stage 5: Announce ───────────────────────────────────────────────────────
+  announce:
+    name: Announce on Discord
+    needs: release
+    runs-on: ubuntu-latest
+    if: success()
+
+    steps:
+      - name: Post Discord notification
         run: |
           curl -H "Content-Type: application/json" \
-            -d '{"embeds":[{"title":"🚀 Conduit ${{ github.ref_name }} Released","description":"A new version of Conduit is available!","url":"https://github.com/conduit-cli/conduit/releases/tag/${{ github.ref_name }}","color":65416}]}' \
-            ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+            -d '{
+              "embeds": [{
+                "title": "🚀 Conduit ${{ github.ref_name }} Released",
+                "description": "A new version of Conduit is available!",
+                "url": "https://github.com/Fuzzwah/conduit/releases/tag/${{ github.ref_name }}",
+                "color": 65416
+              }]
+            }' \
+            "${{ secrets.DISCORD_RELEASE_WEBHOOK }}"
