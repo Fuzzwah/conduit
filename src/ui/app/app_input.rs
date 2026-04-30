@@ -1176,10 +1176,9 @@ impl App {
         use crate::ui::components::ScpCommandPhase;
         match key.code {
             KeyCode::Enter
-                if self.state.scp_command_dialog_state.phase == ScpCommandPhase::ShowCommand =>
-            {
-                self.state.scp_command_dialog_state.confirm_upload();
-            }
+                if self.state.scp_command_dialog_state.phase == ScpCommandPhase::ShowCommand => {
+                    self.state.scp_command_dialog_state.confirm_upload();
+                }
             KeyCode::Esc => {
                 self.state.scp_command_dialog_state.hide();
                 self.state.input_mode = InputMode::Normal;

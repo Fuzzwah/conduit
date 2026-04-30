@@ -212,62 +212,64 @@ impl App {
                     }
                 }
             }
-            InputMode::AddingRepository if self.state.add_repo_dialog_state.is_valid() => {
-                if self.state.add_repo_dialog_state.is_url() {
-                    // Kick off background clone; mode will be set to CloningRepository
-                    self.clone_repository();
-                } else {
-                    let repo_id = self.add_repository();
-                    self.state.add_repo_dialog_state.hide();
-                    if let Some(id) = repo_id {
-                        self.state.sidebar_data.expand_repo(id);
-                        if let Some(repo_index) = self.state.sidebar_data.find_repo_index(id) {
-                            self.state.sidebar_state.tree_state.selected = repo_index + 1;
-                        }
-                        self.state.sidebar_state.show();
-                        self.state.sidebar_state.set_focused(true);
-                        self.state.show_first_time_splash = false;
-                        self.state.input_mode = InputMode::SidebarNavigation;
+            InputMode::AddingRepository
+                if self.state.add_repo_dialog_state.is_valid() => {
+                    if self.state.add_repo_dialog_state.is_url() {
+                        // Kick off background clone; mode will be set to CloningRepository
+                        self.clone_repository();
                     } else {
-                        self.state.input_mode = InputMode::Normal;
-                    }
-                }
-            }
-            InputMode::SettingBaseDir if self.state.base_dir_dialog_state.is_valid() => {
-                if let Some(dao) = self.app_state_dao() {
-                    if let Err(e) = dao.set(
-                        "projects_base_dir",
-                        self.state.base_dir_dialog_state.input(),
-                    ) {
-                        self.state.base_dir_dialog_state.hide();
-                        self.show_error(
-                            "Failed to Save",
-                            &format!("Could not save projects directory: {}", e),
-                        );
-                        return Ok(());
-                    }
-                }
-                self.state.base_dir_dialog_state.hide();
-                match self.state.base_dir_dialog_context {
-                    crate::ui::app_state::BaseDirDialogContext::ProjectDiscovery => {
-                        let base_path = self.state.base_dir_dialog_state.expanded_path();
-                        self.state.base_dir_dialog_context =
-                            crate::ui::app_state::BaseDirDialogContext::ProjectDiscovery;
-                        self.start_project_discovery(base_path);
-                    }
-                    crate::ui::app_state::BaseDirDialogContext::Settings => {
-                        self.state.base_dir_dialog_context =
-                            crate::ui::app_state::BaseDirDialogContext::ProjectDiscovery;
-                        self.state.set_timed_footer_message(
-                            "Projects directory updated".to_string(),
-                            std::time::Duration::from_secs(3),
-                        );
-                        if !self.return_to_settings_menu_if_needed() {
+                        let repo_id = self.add_repository();
+                        self.state.add_repo_dialog_state.hide();
+                        if let Some(id) = repo_id {
+                            self.state.sidebar_data.expand_repo(id);
+                            if let Some(repo_index) = self.state.sidebar_data.find_repo_index(id) {
+                                self.state.sidebar_state.tree_state.selected = repo_index + 1;
+                            }
+                            self.state.sidebar_state.show();
+                            self.state.sidebar_state.set_focused(true);
+                            self.state.show_first_time_splash = false;
+                            self.state.input_mode = InputMode::SidebarNavigation;
+                        } else {
                             self.state.input_mode = InputMode::Normal;
                         }
                     }
                 }
-            }
+            InputMode::SettingBaseDir
+                if self.state.base_dir_dialog_state.is_valid() => {
+                    if let Some(dao) = self.app_state_dao() {
+                        if let Err(e) = dao.set(
+                            "projects_base_dir",
+                            self.state.base_dir_dialog_state.input(),
+                        ) {
+                            self.state.base_dir_dialog_state.hide();
+                            self.show_error(
+                                "Failed to Save",
+                                &format!("Could not save projects directory: {}", e),
+                            );
+                            return Ok(());
+                        }
+                    }
+                    self.state.base_dir_dialog_state.hide();
+                    match self.state.base_dir_dialog_context {
+                        crate::ui::app_state::BaseDirDialogContext::ProjectDiscovery => {
+                            let base_path = self.state.base_dir_dialog_state.expanded_path();
+                            self.state.base_dir_dialog_context =
+                                crate::ui::app_state::BaseDirDialogContext::ProjectDiscovery;
+                            self.start_project_discovery(base_path);
+                        }
+                        crate::ui::app_state::BaseDirDialogContext::Settings => {
+                            self.state.base_dir_dialog_context =
+                                crate::ui::app_state::BaseDirDialogContext::ProjectDiscovery;
+                            self.state.set_timed_footer_message(
+                                "Projects directory updated".to_string(),
+                                std::time::Duration::from_secs(3),
+                            );
+                            if !self.return_to_settings_menu_if_needed() {
+                                self.state.input_mode = InputMode::Normal;
+                            }
+                        }
+                    }
+                }
             InputMode::SettingsMenu => {
                 self.open_selected_setting();
             }
@@ -324,28 +326,28 @@ impl App {
                 if self
                     .state
                     .workspace_defaults_dialog_state
-                    .activate_selected() =>
-            {
-                let draft = self.state.workspace_defaults_dialog_state.draft;
-                if let Err(err) = crate::core::services::ConfigService::set_workspace_defaults(
-                    &mut self.core,
-                    draft.mode,
-                    draft.archive_delete_branch,
-                    draft.archive_remote_prompt,
-                ) {
-                    self.show_error("Failed to Save", &err.to_string());
-                    return Ok(());
-                }
+                    .activate_selected()
+                => {
+                    let draft = self.state.workspace_defaults_dialog_state.draft;
+                    if let Err(err) = crate::core::services::ConfigService::set_workspace_defaults(
+                        &mut self.core,
+                        draft.mode,
+                        draft.archive_delete_branch,
+                        draft.archive_remote_prompt,
+                    ) {
+                        self.show_error("Failed to Save", &err.to_string());
+                        return Ok(());
+                    }
 
-                self.state.workspace_defaults_dialog_state.hide();
-                self.state.set_timed_footer_message(
-                    "Workspace defaults updated".to_string(),
-                    std::time::Duration::from_secs(3),
-                );
-                if !self.return_to_settings_menu_if_needed() {
-                    self.state.input_mode = InputMode::Normal;
+                    self.state.workspace_defaults_dialog_state.hide();
+                    self.state.set_timed_footer_message(
+                        "Workspace defaults updated".to_string(),
+                        std::time::Duration::from_secs(3),
+                    );
+                    if !self.return_to_settings_menu_if_needed() {
+                        self.state.input_mode = InputMode::Normal;
+                    }
                 }
-            }
             InputMode::Confirming => {
                 if self.is_blocking_confirmation_loading_dialog() {
                     return Ok(());
