@@ -34,6 +34,8 @@ pub struct KeybindingItem {
     pub action: Action,
     /// Human-readable description (from `Action::description()`)
     pub action_label: String,
+    /// Currently active key (user override if set, otherwise same as default_key)
+    pub current_key: String,
     /// Default key notation string (e.g. "C-q")
     pub default_key: String,
     /// Whether the user has a custom TOML binding for this action+context
@@ -377,6 +379,13 @@ pub fn build_keybinding_items(live_config: &KeybindingConfig) -> Vec<KeybindingI
         }
 
         let is_user_override = user_has_override(None, action, action_name, live_config, &defaults);
+        let default_key = combo.to_string();
+        let current_key = if is_user_override {
+            live_override_key(None, action, live_config, &defaults)
+                .unwrap_or_else(|| default_key.clone())
+        } else {
+            default_key.clone()
+        };
 
         items.push(KeybindingItem {
             context: None,
@@ -384,7 +393,8 @@ pub fn build_keybinding_items(live_config: &KeybindingConfig) -> Vec<KeybindingI
             action_name,
             action: action.clone(),
             action_label: action.description().to_string(),
-            default_key: combo.to_string(),
+            current_key,
+            default_key,
             is_user_override,
         });
     }
@@ -418,6 +428,13 @@ pub fn build_keybinding_items(live_config: &KeybindingConfig) -> Vec<KeybindingI
 
             let is_user_override =
                 user_has_override(Some(ctx), action, action_name, live_config, &defaults);
+            let default_key = combo.to_string();
+            let current_key = if is_user_override {
+                live_override_key(Some(ctx), action, live_config, &defaults)
+                    .unwrap_or_else(|| default_key.clone())
+            } else {
+                default_key.clone()
+            };
 
             ctx_items.push(KeybindingItem {
                 context: Some(ctx),
@@ -425,7 +442,8 @@ pub fn build_keybinding_items(live_config: &KeybindingConfig) -> Vec<KeybindingI
                 action_name,
                 action: action.clone(),
                 action_label: action.description().to_string(),
-                default_key: combo.to_string(),
+                current_key,
+                default_key,
                 is_user_override,
             });
         }
@@ -485,6 +503,47 @@ fn user_has_override(
     };
 
     live_combos.iter().any(|k| !default_combos.contains(k))
+}
+
+/// Returns the user's override key string for an action in a context, if any.
+fn live_override_key(
+    context: Option<KeyContext>,
+    action: &Action,
+    live: &KeybindingConfig,
+    defaults: &KeybindingConfig,
+) -> Option<String> {
+    let default_combos: std::collections::HashSet<&KeyCombo> = match context {
+        None => defaults
+            .global
+            .iter()
+            .filter(|(_, a)| *a == action)
+            .map(|(k, _)| k)
+            .collect(),
+        Some(ctx) => defaults
+            .context
+            .get(&ctx)
+            .map(|m| {
+                m.iter()
+                    .filter(|(_, a)| *a == action)
+                    .map(|(k, _)| k)
+                    .collect()
+            })
+            .unwrap_or_default(),
+    };
+
+    let live_iter: Box<dyn Iterator<Item = (&KeyCombo, &Action)>> = match context {
+        None => Box::new(live.global.iter()),
+        Some(ctx) => live
+            .context
+            .get(&ctx)
+            .map(|m| -> Box<dyn Iterator<Item = _>> { Box::new(m.iter()) })
+            .unwrap_or_else(|| Box::new(std::iter::empty())),
+    };
+
+    live_iter
+        .filter(|(_, a)| *a == action)
+        .find(|(k, _)| !default_combos.contains(k))
+        .map(|(k, _)| k.to_string())
 }
 
 /// Human-readable display name for a context.
@@ -754,16 +813,22 @@ impl KeybindingsEditor {
                         bg
                     };
 
-                    let key_str = &item.default_key;
-                    let key_width = key_str.len().min(18);
-                    let key_display = truncate_to_width(key_str, key_width);
+                    // Build key column: current key, and if overridden, show default dimmed
+                    let current = truncate_to_width(&item.current_key, 18);
+                    let default_hint = if item.is_user_override {
+                        let hint = format!(" ({})", item.default_key);
+                        truncate_to_width(&hint, 14)
+                    } else {
+                        String::new()
+                    };
+                    let key_col_len = current.len() + default_hint.len();
 
-                    let used = 3 + 1 + key_display.len() + 2; // prefix + marker + key + gap
+                    let used = 3 + 1 + key_col_len + 2; // prefix + marker + key + gap
                     let label_width = content_width.saturating_sub(used);
                     let label = truncate_to_width(&item.action_label, label_width);
                     let label_len = label.len();
                     let gap = content_width
-                        .saturating_sub(3 + 1 + label_len + key_display.len())
+                        .saturating_sub(3 + 1 + label_len + key_col_len)
                         .max(1);
 
                     let action_fg = if is_selected {
@@ -778,20 +843,32 @@ impl KeybindingsEditor {
                     } else {
                         text_secondary()
                     };
+                    let default_hint_fg = if is_selected {
+                        selected_muted
+                    } else {
+                        text_muted()
+                    };
 
-                    let line = Line::from(vec![
+                    let mut spans = vec![
                         Span::styled(prefix_str, Style::default().fg(prefix_fg).bg(bg)),
                         Span::styled(override_marker, Style::default().fg(override_fg).bg(bg)),
                         Span::styled(label, Style::default().fg(action_fg).bg(bg)),
                         Span::styled(" ".repeat(gap), Style::default().bg(bg)),
                         Span::styled(
-                            key_display,
+                            current,
                             Style::default()
                                 .fg(key_fg)
                                 .bg(bg)
                                 .add_modifier(Modifier::BOLD),
                         ),
-                    ]);
+                    ];
+                    if !default_hint.is_empty() {
+                        spans.push(Span::styled(
+                            default_hint,
+                            Style::default().fg(default_hint_fg).bg(bg),
+                        ));
+                    }
+                    let line = Line::from(spans);
 
                     Paragraph::new(line).render(
                         Rect {
