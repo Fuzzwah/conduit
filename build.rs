@@ -22,12 +22,23 @@ fn main() {
         return;
     }
 
-    // Fail fast with an actionable message if node or npm are missing.
+    let dist_dir = web_dir.join("dist");
+
+    // If node/npm are unavailable but dist/ already exists (e.g. cross-compilation
+    // where assets were pre-built on the host), skip the build step entirely.
     if which::which("node").is_err() {
+        if dist_dir.exists() {
+            println!("cargo::warning=node not found but web/dist exists; skipping frontend build.");
+            return;
+        }
         println!("cargo::error=node not found. Install Node.js v18+ (https://nodejs.org/) or run scripts/preflight.sh for setup help.");
         return;
     }
     if which::which("npm").is_err() {
+        if dist_dir.exists() {
+            println!("cargo::warning=npm not found but web/dist exists; skipping frontend build.");
+            return;
+        }
         println!("cargo::error=npm not found. Install Node.js v18+ (https://nodejs.org/) or run scripts/preflight.sh for setup help.");
         return;
     }
@@ -75,7 +86,6 @@ fn main() {
     }
 
     // Verify dist directory was created
-    let dist_dir = web_dir.join("dist");
     if !dist_dir.exists() {
         println!("cargo::error=Frontend build did not produce dist/ directory.");
         return;
