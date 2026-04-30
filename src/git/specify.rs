@@ -55,6 +55,6 @@ pub fn fetch_specify_specs(repo_path: &Path) -> Vec<SpecifySpec> {
         })
         .collect();
 
-    specs.sort_by(|a, b| b.remaining_tasks.cmp(&a.remaining_tasks));
+    specs.sort_by_key(|s| std::cmp::Reverse(s.remaining_tasks));
     specs
 }
