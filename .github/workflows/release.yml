@@ -122,14 +122,14 @@ jobs:
           docker run --rm \
             -v "$(pwd)/artifacts/x86_64-linux:/work" \
             ubuntu:22.04 \
-            sh -c 'cd /work && tar xzf conduit-x86_64-unknown-linux-musl.tar.gz && ./conduit --version'
+            sh -c 'cd /work && tar xzf conduit-x86_64-unknown-linux-musl.tar.gz && ./conduit --help'
 
       - name: Smoke test — alpine:3.19 (x86_64 musl)
         run: |
           docker run --rm \
             -v "$(pwd)/artifacts/x86_64-linux:/work" \
             alpine:3.19 \
-            sh -c 'cd /work && tar xzf conduit-x86_64-unknown-linux-musl.tar.gz && ./conduit --version'
+            sh -c 'cd /work && tar xzf conduit-x86_64-unknown-linux-musl.tar.gz && ./conduit --help'
 
       - name: Set up QEMU (for arm64 emulation)
         uses: docker/setup-qemu-action@v3
@@ -145,7 +145,7 @@ jobs:
           docker run --rm --platform linux/arm64 \
             -v "$(pwd)/artifacts/aarch64-linux:/work" \
             ubuntu:22.04 \
-            sh -c 'cd /work && tar xzf conduit-aarch64-unknown-linux-musl.tar.gz && ./conduit --version'
+            sh -c 'cd /work && tar xzf conduit-aarch64-unknown-linux-musl.tar.gz && ./conduit --help'
 
       - name: Smoke test — install.sh (CONDUIT_INSTALL_FILE mode)
         run: |
@@ -159,7 +159,7 @@ jobs:
               CONDUIT_INSTALL_FILE=/tmp/conduit.tar.gz \
               CONDUIT_INSTALL_DIR=/tmp/conduit-bin \
                 sh /tmp/install.sh
-              /tmp/conduit-bin/conduit --version
+              /tmp/conduit-bin/conduit --help
             '
 
   # ── Stage 4: Publish GitHub release ────────────────────────────────────────

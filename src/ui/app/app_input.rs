@@ -446,6 +446,15 @@ impl App {
                     .execute_action(Action::OpenCommandPalette, terminal, guard)
                     .await;
             }
+
+            // Allow ? to open help from the splash screen
+            if key.code == KeyCode::Char('?') && key.modifiers.is_empty() {
+                self.state.close_overlays();
+                let keybindings = self.config().keybindings.clone();
+                self.state.help_dialog_state.show(&keybindings);
+                self.state.input_mode = InputMode::ShowingHelp;
+                return Ok(vec![]);
+            }
         }
 
         // Image paste: Ctrl+V (Linux/Windows) or Alt+V (macOS terminals report Cmd as Alt)

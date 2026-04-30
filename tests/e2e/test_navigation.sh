@@ -67,27 +67,26 @@ test_ctrl_q_quits() {
     fi
 }
 
-# Test: Help dialog (if implemented) - F1 or ?
+# Test: Help dialog opens with ?
 test_help_key() {
     local sock="$1"
     local data_dir="$2"
 
-    # Try pressing ? for help
+    # Press ? to open help (works from splash screen and inside a workspace)
     press "$sock" "?"
     wait_idle "$sock" 300 3000 > /dev/null
 
     local screen=$(get_screen "$sock")
 
-    # Check if help appeared (might show keybindings)
-    if echo "$screen" | grep -qi "help\|keybind\|shortcut"; then
+    # Dialog title is "Help - Keybindings"
+    if echo "$screen" | grep -q "Help - Keybindings"; then
         log_pass "Help screen appeared"
         # Close it
         press "$sock" "Escape"
         return 0
     else
-        # Help might not be implemented, that's OK
-        log_info "Help screen not found (may not be implemented)"
-        return 0
+        log_fail "Help screen not found after pressing ?"
+        return 1
     fi
 }
 
