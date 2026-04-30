@@ -253,6 +253,7 @@ impl KeybindingsEditorState {
             let matches = query.is_empty()
                 || item.action_label.to_lowercase().contains(&query)
                 || item.action_name.contains(&query)
+                || item.current_key.to_lowercase().contains(&query)
                 || item.default_key.to_lowercase().contains(&query)
                 || item.context_label.to_lowercase().contains(&query);
 
