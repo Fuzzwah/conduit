@@ -1343,25 +1343,24 @@ impl OpencodeRunner {
                                     if let Some(state_info) = part.state {
                                         match state_info.status.as_deref() {
                                             Some("pending") | Some("running")
-                                                if state.started_tools.insert(tool_id.clone()) => {
-                                                    let arguments = state_info
-                                                        .input
-                                                        .clone()
-                                                        .unwrap_or(Value::Null);
-                                                    if !send_event_or_log(
-                                                        &event_tx,
-                                                        AgentEvent::ToolStarted(ToolStartedEvent {
-                                                            tool_name,
-                                                            tool_id,
-                                                            arguments,
-                                                        }),
-                                                        "opencode_tool_started",
-                                                    )
-                                                    .await
-                                                    {
-                                                        return;
-                                                    }
+                                                if state.started_tools.insert(tool_id.clone()) =>
+                                            {
+                                                let arguments =
+                                                    state_info.input.clone().unwrap_or(Value::Null);
+                                                if !send_event_or_log(
+                                                    &event_tx,
+                                                    AgentEvent::ToolStarted(ToolStartedEvent {
+                                                        tool_name,
+                                                        tool_id,
+                                                        arguments,
+                                                    }),
+                                                    "opencode_tool_started",
+                                                )
+                                                .await
+                                                {
+                                                    return;
                                                 }
+                                            }
                                             Some("completed") => {
                                                 let result = state_info.output.map(|output| {
                                                     if let Some(text) = output.as_str() {
