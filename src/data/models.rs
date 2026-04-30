@@ -60,6 +60,8 @@ pub struct Repository {
     pub created_at: DateTime<Utc>,
     /// Last time the repository was modified
     pub updated_at: DateTime<Utc>,
+    /// Optional theme name override for all workspaces in this repository
+    pub theme_name: Option<String>,
 }
 
 impl Repository {
@@ -76,6 +78,7 @@ impl Repository {
             archive_remote_prompt: None,
             created_at: now,
             updated_at: now,
+            theme_name: None,
         }
     }
 
@@ -92,6 +95,7 @@ impl Repository {
             archive_remote_prompt: None,
             created_at: now,
             updated_at: now,
+            theme_name: None,
         }
     }
 

@@ -36,6 +36,10 @@ pub struct AgentSession {
     pub reasoning_effort: Option<ReasoningEffort>,
     /// Associated workspace ID (for project context)
     pub workspace_id: Option<Uuid>,
+    /// Repository ID (for project theme saves)
+    pub repository_id: Option<Uuid>,
+    /// Per-project theme name — overrides global theme while this tab is active
+    pub project_theme: Option<String>,
     /// Working directory for the agent (workspace path)
     pub working_dir: Option<PathBuf>,
     /// Project/repository name (for display in tab)
@@ -131,6 +135,8 @@ impl AgentSession {
             model_invalid: false,
             reasoning_effort: None,
             workspace_id: None,
+            repository_id: None,
+            project_theme: None,
             working_dir: None,
             project_name: None,
             workspace_name: None,

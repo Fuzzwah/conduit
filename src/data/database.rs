@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS repositories (
     archive_delete_branch INTEGER,
     archive_remote_prompt INTEGER,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    theme_name TEXT
 );
 
 CREATE TABLE IF NOT EXISTS workspaces (
@@ -531,6 +532,19 @@ CREATE TABLE IF NOT EXISTS fork_seeds_new (
              ON session_tabs(workspace_id, is_open, created_at DESC)",
             [],
         )?;
+
+        // Migration 16: Add theme_name column to repositories table.
+        let has_theme_name: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('repositories') WHERE name='theme_name'",
+                [],
+                |row| row.get::<_, i64>(0).map(|c| c > 0),
+            )
+            .unwrap_or(false);
+
+        if !has_theme_name {
+            conn.execute("ALTER TABLE repositories ADD COLUMN theme_name TEXT", [])?;
+        }
 
         // Migration 15: Add position column to repositories for manual ordering.
         let has_position: bool = conn

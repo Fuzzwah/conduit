@@ -24,6 +24,23 @@ use crate::ui::components::theme::{
     ThemeSource,
 };
 
+/// Whether a theme selection applies globally or only to the current project.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ThemeScope {
+    #[default]
+    Global,
+    Project,
+}
+
+impl ThemeScope {
+    fn label(self) -> &'static str {
+        match self {
+            ThemeScope::Global => "Global",
+            ThemeScope::Project => "Project",
+        }
+    }
+}
+
 /// Represents an item in the theme picker (either a section header or a theme)
 #[derive(Debug, Clone)]
 pub enum ThemePickerItem {
@@ -74,6 +91,12 @@ pub struct ThemePickerState {
     pending_preview: Option<PendingPreview>,
     /// Last preview error (for footer message)
     last_error: Option<String>,
+    /// Whether the active session has a repository context (enables Project scope)
+    pub has_project_context: bool,
+    /// Current project theme name (if any) — used for indicator and clear action
+    project_theme_name: Option<String>,
+    /// Current save scope (Global or Project)
+    scope: ThemeScope,
 }
 
 impl Default for ThemePickerState {
@@ -100,12 +123,28 @@ impl ThemePickerState {
             confirmed_theme_key: None,
             pending_preview: None,
             last_error: None,
+            has_project_context: false,
+            project_theme_name: None,
+            scope: ThemeScope::Global,
         }
     }
 
     /// Show the theme picker dialog
     pub fn show(&mut self, theme_path: Option<&std::path::Path>) {
+        self.show_with_project_context(theme_path, None, false);
+    }
+
+    /// Show the theme picker with project context for the scope toggle.
+    pub fn show_with_project_context(
+        &mut self,
+        theme_path: Option<&std::path::Path>,
+        project_theme: Option<&str>,
+        has_project_context: bool,
+    ) {
         self.visible = true;
+        self.has_project_context = has_project_context;
+        self.project_theme_name = project_theme.map(str::to_owned);
+        self.scope = ThemeScope::Global;
         self.original_theme_name = Some(current_theme_name());
         self.original_theme_path = theme_path.map(|path| path.to_path_buf());
         self.pending_preview = None;
@@ -515,6 +554,34 @@ impl ThemePickerState {
         self.last_error.take()
     }
 
+    /// Toggle between Global and Project scope (no-op when no project context).
+    pub fn toggle_scope(&mut self) {
+        if !self.has_project_context {
+            return;
+        }
+        self.scope = match self.scope {
+            ThemeScope::Global => ThemeScope::Project,
+            ThemeScope::Project => ThemeScope::Global,
+        };
+    }
+
+    /// Current save scope.
+    pub fn scope(&self) -> ThemeScope {
+        self.scope
+    }
+
+    /// Whether a project theme is active and can be cleared.
+    pub fn can_clear_project_theme(&self) -> bool {
+        self.has_project_context
+            && self.scope == ThemeScope::Project
+            && self.project_theme_name.is_some()
+    }
+
+    /// Return the current project theme name (for display / clear logic).
+    pub fn project_theme_name(&self) -> Option<&str> {
+        self.project_theme_name.as_deref()
+    }
+
     /// Ensure the selected item is visible
     fn ensure_visible(&mut self) {
         if self.max_visible == 0 || self.filtered.is_empty() {
@@ -717,12 +784,30 @@ impl Widget for ThemePicker<'_> {
         let dialog_width = DIALOG_WIDTH;
         let dialog_height = DIALOG_HEIGHT;
 
-        // Render dialog frame (instructions render on bottom border)
-        let frame = DialogFrame::new("Theme", dialog_width, dialog_height).instructions(vec![
+        // Build dialog title and instructions based on scope context
+        let title = if self.state.has_project_context {
+            match self.state.scope {
+                ThemeScope::Global => "Theme \u{2013} Global",
+                ThemeScope::Project => "Theme \u{2013} Project",
+            }
+        } else {
+            "Theme"
+        };
+
+        let mut instructions = vec![
             ("Enter", "Select"),
             ("Esc", "Cancel"),
             ("\u{2191}\u{2193}", "Navigate"),
-        ]);
+        ];
+        if self.state.has_project_context {
+            instructions.push(("Tab", "Toggle scope"));
+        }
+        if self.state.can_clear_project_theme() {
+            instructions.push(("Ctrl+D", "Clear project"));
+        }
+
+        // Render dialog frame (instructions render on bottom border)
+        let frame = DialogFrame::new(title, dialog_width, dialog_height).instructions(instructions);
         let inner = frame.render(area, buf);
 
         if inner.height < 5 {
@@ -821,12 +906,26 @@ impl ThemePicker<'_> {
         let prompt = "> ";
         let input = &self.state.search;
 
+        // Show a scope badge suffix when project context exists
+        let scope_badge = if self.state.has_project_context {
+            let label = self.state.scope.label();
+            // Show "(project)" hint when project theme is active but scope is still Global
+            if self.state.scope == ThemeScope::Global && self.state.project_theme_name.is_some() {
+                format!("  [{label}] (project active)")
+            } else {
+                format!("  [{label}]")
+            }
+        } else {
+            String::new()
+        };
+
         let (line, show_placeholder) = if input.is_empty() {
             let placeholder = " Type to filter themes...";
             (
                 Line::from(vec![
                     Span::styled(prompt, Style::default().fg(accent_primary())),
                     Span::styled(placeholder, Style::default().fg(text_muted())),
+                    Span::styled(scope_badge, Style::default().fg(text_muted())),
                 ]),
                 true,
             )
@@ -835,6 +934,7 @@ impl ThemePicker<'_> {
                 Line::from(vec![
                     Span::styled(prompt, Style::default().fg(accent_primary())),
                     Span::styled(input.as_str(), Style::default().fg(text_primary())),
+                    Span::styled(scope_badge, Style::default().fg(text_muted())),
                 ]),
                 false,
             )
