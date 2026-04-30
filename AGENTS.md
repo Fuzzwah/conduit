@@ -2,6 +2,14 @@
 
 This is a personal fork of [conduit-cli/conduit](https://github.com/conduit-cli/conduit). Fork-specific changes are documented in `FORK_CHANGES.md`.
 
+## Feature Development Workflow
+
+New features use the OpenSpec workflow:
+
+1. **Explore** — the user describes the feature or bug in plan mode; the agent builds a plan and asks clarifying questions as needed
+2. **Propose** — once the plan is settled, use `/opsx:propose` to generate the spec and tasks
+3. **Apply** — use `/opsx:apply` to implement the tasks
+
 ## Tech Stack
 
 - **TUI:** Rust (2021) + Ratatui + Crossterm
