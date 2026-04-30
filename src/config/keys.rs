@@ -278,15 +278,18 @@ impl KeybindingConfig {
 
     /// Merge user configuration on top of defaults
     pub fn merge(&mut self, other: KeybindingConfig) {
-        // Merge global bindings
+        // Merge global bindings — remove any existing binding for the same action
+        // so that a user remap replaces the default rather than adding alongside it.
         for (key, action) in other.global {
+            self.global.retain(|_, a| a != &action);
             self.global.insert(key, action);
         }
 
-        // Merge context-specific bindings
+        // Merge context-specific bindings — same replace semantics per context.
         for (ctx, bindings) in other.context {
             let entry = self.context.entry(ctx).or_default();
             for (key, action) in bindings {
+                entry.retain(|_, a| a != &action);
                 entry.insert(key, action);
             }
         }
