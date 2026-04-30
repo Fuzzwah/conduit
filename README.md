@@ -44,20 +44,19 @@ On first launch, Conduit checks for `git` and at least one agent binary, then pr
 ### Quick Install
 
 ```bash
-curl -fsSL https://getconduit.sh/install | sh
+curl -fsSL https://raw.githubusercontent.com/Fuzzwah/conduit/master/website/public/install.sh | sh
 ```
 
-### Homebrew
-
-```bash
-brew install conduit-cli/tap/conduit
-```
+Supports Linux (x86\_64 + arm64) and macOS (Apple Silicon + Intel). Pin a version with `CONDUIT_VERSION=vX.Y.Z`.
 
 ### Build From Source
 
+See [FORK_INSTALL.md](FORK_INSTALL.md) for full instructions. Quick start:
+
 ```bash
-git clone https://github.com/conduit-cli/conduit.git
+git clone https://github.com/Fuzzwah/conduit.git
 cd conduit
+bash scripts/preflight.sh  # verify build deps
 cargo build --release
 ```
 

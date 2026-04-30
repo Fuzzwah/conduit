@@ -198,10 +198,8 @@ impl MarkdownRenderer {
                             lines.push(Line::from(""));
                         }
                     }
-                    TagEnd::Item => {
-                        if !current_spans.is_empty() {
-                            lines.push(Line::from(std::mem::take(&mut current_spans)));
-                        }
+                    TagEnd::Item if !current_spans.is_empty() => {
+                        lines.push(Line::from(std::mem::take(&mut current_spans)));
                     }
                     TagEnd::Emphasis | TagEnd::Strong | TagEnd::Strikethrough | TagEnd::Link => {
                         style_stack.pop();
@@ -213,15 +211,11 @@ impl MarkdownRenderer {
                         table_rows.clear();
                         lines.push(Line::from(""));
                     }
-                    TagEnd::TableHead => {
-                        if !current_row.is_empty() {
-                            table_rows.push(std::mem::take(&mut current_row));
-                        }
+                    TagEnd::TableHead if !current_row.is_empty() => {
+                        table_rows.push(std::mem::take(&mut current_row));
                     }
-                    TagEnd::TableRow => {
-                        if !current_row.is_empty() {
-                            table_rows.push(std::mem::take(&mut current_row));
-                        }
+                    TagEnd::TableRow if !current_row.is_empty() => {
+                        table_rows.push(std::mem::take(&mut current_row));
                     }
                     TagEnd::TableCell => {
                         current_row.push(std::mem::take(&mut current_cell));
@@ -254,10 +248,8 @@ impl MarkdownRenderer {
                         current_spans.push(Span::raw(" "));
                     }
                 }
-                Event::HardBreak => {
-                    if !in_table {
-                        lines.push(Line::from(std::mem::take(&mut current_spans)));
-                    }
+                Event::HardBreak if !in_table => {
+                    lines.push(Line::from(std::mem::take(&mut current_spans)));
                 }
                 Event::Rule => {
                     lines.push(Line::from(Span::styled(

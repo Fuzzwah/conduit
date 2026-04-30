@@ -7503,40 +7503,40 @@ impl App {
                     }
                 }
             }
-            AppEvent::RepositoryCloned { result } => {
-                if self.state.input_mode == InputMode::CloningRepository {
-                    match result {
-                        Ok(path) => {
-                            if let Some(repo_id) = self.add_project_to_sidebar(path) {
-                                self.state.sidebar_data.expand_repo(repo_id);
-                                if let Some(repo_index) =
-                                    self.state.sidebar_data.find_repo_index(repo_id)
-                                {
-                                    self.state.sidebar_state.tree_state.selected = repo_index + 1;
-                                }
-                                self.state.sidebar_state.show();
-                                self.state.sidebar_state.set_focused(true);
-                                self.state.show_first_time_splash = false;
-                                self.state.input_mode = InputMode::SidebarNavigation;
-                                self.state.set_timed_footer_message(
-                                    "Repository cloned successfully".to_string(),
-                                    Duration::from_secs(4),
-                                );
-                            } else {
-                                self.state.input_mode = InputMode::Normal;
-                                self.state.set_timed_footer_message(
-                                    "Clone succeeded but failed to add project".to_string(),
-                                    Duration::from_secs(5),
-                                );
+            AppEvent::RepositoryCloned { result }
+                if self.state.input_mode == InputMode::CloningRepository =>
+            {
+                match result {
+                    Ok(path) => {
+                        if let Some(repo_id) = self.add_project_to_sidebar(path) {
+                            self.state.sidebar_data.expand_repo(repo_id);
+                            if let Some(repo_index) =
+                                self.state.sidebar_data.find_repo_index(repo_id)
+                            {
+                                self.state.sidebar_state.tree_state.selected = repo_index + 1;
                             }
-                        }
-                        Err(err) => {
+                            self.state.sidebar_state.show();
+                            self.state.sidebar_state.set_focused(true);
+                            self.state.show_first_time_splash = false;
+                            self.state.input_mode = InputMode::SidebarNavigation;
+                            self.state.set_timed_footer_message(
+                                "Repository cloned successfully".to_string(),
+                                Duration::from_secs(4),
+                            );
+                        } else {
                             self.state.input_mode = InputMode::Normal;
                             self.state.set_timed_footer_message(
-                                format!("Clone failed: {err}"),
-                                Duration::from_secs(6),
+                                "Clone succeeded but failed to add project".to_string(),
+                                Duration::from_secs(5),
                             );
                         }
+                    }
+                    Err(err) => {
+                        self.state.input_mode = InputMode::Normal;
+                        self.state.set_timed_footer_message(
+                            format!("Clone failed: {err}"),
+                            Duration::from_secs(6),
+                        );
                     }
                 }
             }
@@ -7603,22 +7603,20 @@ impl App {
                 pid,
                 context,
                 success,
-            } => {
-                if !success {
-                    tracing::warn!(
-                        pid,
-                        context = %context,
-                        "Agent termination did not complete"
+            } if !success => {
+                tracing::warn!(
+                    pid,
+                    context = %context,
+                    "Agent termination did not complete"
+                );
+                if session_id
+                    .and_then(|id| self.state.tab_manager.session_index_by_id(id))
+                    .is_some()
+                {
+                    self.state.set_timed_footer_message(
+                        "Failed to terminate agent; process may still be running".to_string(),
+                        Duration::from_secs(5),
                     );
-                    if session_id
-                        .and_then(|id| self.state.tab_manager.session_index_by_id(id))
-                        .is_some()
-                    {
-                        self.state.set_timed_footer_message(
-                            "Failed to terminate agent; process may still be running".to_string(),
-                            Duration::from_secs(5),
-                        );
-                    }
                 }
             }
             AppEvent::AgentStreamEnded { session_id } => {

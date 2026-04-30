@@ -155,11 +155,10 @@ impl SpecPickerState {
         match self.sort_order {
             SpecSortOrder::ByRemainingDesc => {
                 self.specs
-                    .sort_by(|a, b| b.remaining_tasks.cmp(&a.remaining_tasks));
+                    .sort_by_key(|s| std::cmp::Reverse(s.remaining_tasks));
             }
             SpecSortOrder::ByRemainingAsc => {
-                self.specs
-                    .sort_by(|a, b| a.remaining_tasks.cmp(&b.remaining_tasks));
+                self.specs.sort_by_key(|a| a.remaining_tasks);
             }
             SpecSortOrder::ByNameAsc => {
                 self.specs.sort_by(|a, b| a.change_id.cmp(&b.change_id));

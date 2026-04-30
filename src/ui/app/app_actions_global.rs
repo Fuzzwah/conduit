@@ -184,21 +184,15 @@ impl App {
                 // Trigger session discovery
                 effects.push(Effect::DiscoverSessions);
             }
-            Action::ImportSession => {
-                if self.state.input_mode == InputMode::ImportingSession {
-                    if let Some(session) =
-                        self.state.session_import_state.selected_session().cloned()
-                    {
-                        self.state.session_import_state.hide();
-                        self.state.input_mode = InputMode::Normal;
-                        effects.push(Effect::ImportSession(session));
-                    }
+            Action::ImportSession if self.state.input_mode == InputMode::ImportingSession => {
+                if let Some(session) = self.state.session_import_state.selected_session().cloned() {
+                    self.state.session_import_state.hide();
+                    self.state.input_mode = InputMode::Normal;
+                    effects.push(Effect::ImportSession(session));
                 }
             }
-            Action::CycleImportFilter => {
-                if self.state.input_mode == InputMode::ImportingSession {
-                    self.state.session_import_state.cycle_filter();
-                }
+            Action::CycleImportFilter if self.state.input_mode == InputMode::ImportingSession => {
+                self.state.session_import_state.cycle_filter();
             }
             Action::ToggleMetrics => {
                 self.state.show_metrics = !self.state.show_metrics;

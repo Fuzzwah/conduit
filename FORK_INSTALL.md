@@ -1,20 +1,35 @@
 # Installing the Fuzzwah/conduit Fork
 
-This is a personal fork of [conduit-cli/conduit](https://github.com/conduit-cli/conduit) with additional features. See [FORK_CHANGES.md](FORK_CHANGES.md) for the full list of changes. There are no pre-built binaries — you need to build from source.
+This is a personal fork of [conduit-cli/conduit](https://github.com/conduit-cli/conduit) with additional features. See [FORK_CHANGES.md](FORK_CHANGES.md) for the full list of changes.
 
-## Prerequisites
+## Stable Release (recommended)
 
-- **Git** — Required for workspace and worktree management
-- **Rust** (latest stable) — Install via [rustup](https://rustup.rs/): `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
-  Check your version with `cargo --version` and keep it current with `rustup update stable`. Cargo 1.82 and older are known to fail resolving the codex dependencies.
-- **Node.js** (v18+) and **npm** — Required to build the web UI frontend
-- **At least one AI agent CLI on your PATH:**
-  - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — `npm install -g @anthropic-ai/claude-code`
-  - [Codex CLI](https://github.com/openai/codex) — `npm install -g @openai/codex`
-  - [Gemini CLI](https://github.com/google-gemini/gemini-cli) — `npm install -g @google/gemini-cli`
-  - [OpenCode](https://opencode.ai/) — see their install docs
+Install the latest release with a single command. Supports Linux (x86\_64 + arm64) and macOS (Apple Silicon + Intel).
 
-## Build from Source
+```bash
+curl -fsSL https://raw.githubusercontent.com/Fuzzwah/conduit/master/website/public/install.sh | sh
+```
+
+To pin a specific version:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Fuzzwah/conduit/master/website/public/install.sh | CONDUIT_VERSION=v0.5.0 sh
+```
+
+> **macOS note:** The binary is unsigned. If macOS Gatekeeper blocks it, run once:
+> ```bash
+> xattr -d com.apple.quarantine ~/.local/bin/conduit
+> ```
+
+## From Source (latest dev)
+
+Build from `master` to get unreleased features. Before you start, verify all build dependencies are present:
+
+```bash
+bash scripts/preflight.sh
+```
+
+Then clone and build:
 
 ```bash
 git clone https://github.com/Fuzzwah/conduit.git
@@ -22,9 +37,22 @@ cd conduit
 cargo build --release
 ```
 
+The repo includes a `rust-toolchain.toml` that pins the stable channel — `rustup` will fetch the right toolchain automatically. Minimum supported Rust version is enforced via `rust-version` in `Cargo.toml`; if your toolchain is too old, Cargo will tell you immediately.
+
 The first build compiles the Rust code and automatically builds the web UI frontend (`npm install && npm run build` runs in `web/` as part of the build script). Expect it to take a few minutes.
 
 The binary will be at `./target/release/conduit`.
+
+### Prerequisites
+
+- **Git** — Required for workspace and worktree management
+- **Rust** (latest stable) — Install via [rustup](https://rustup.rs/): `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
+- **Node.js** (v18+) and **npm** — Required to build the web UI frontend
+- **At least one AI agent CLI on your PATH:**
+  - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — `npm install -g @anthropic-ai/claude-code`
+  - [Codex CLI](https://github.com/openai/codex) — `npm install -g @openai/codex`
+  - [Gemini CLI](https://github.com/google-gemini/gemini-cli) — `npm install -g @google/gemini-cli`
+  - [OpenCode](https://opencode.ai/) — see their install docs
 
 ## Install the Binary
 

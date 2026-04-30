@@ -218,7 +218,7 @@ impl ChatView {
 
                 for (bi, (start_opt, end)) in block_flat_starts
                     .into_iter()
-                    .zip(block_flat_ends.into_iter())
+                    .zip(block_flat_ends)
                     .enumerate()
                 {
                     if let Some(flat_start) = start_opt {

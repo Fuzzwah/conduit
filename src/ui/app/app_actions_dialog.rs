@@ -225,39 +225,35 @@ impl App {
                     }
                 }
             }
-            Action::RenameProject => {
-                if self.state.input_mode == InputMode::SidebarNavigation {
-                    let selected = self.state.sidebar_state.tree_state.selected;
-                    if let Some(node) = self.state.sidebar_data.get_at(selected) {
-                        use crate::ui::components::NodeType;
-                        if node.node_type == NodeType::Repository {
-                            let repo_id = node.id;
-                            if let Some(dao) = self.repo_dao() {
-                                if let Ok(Some(repo)) = dao.get_by_id(repo_id) {
-                                    self.state
-                                        .rename_project_dialog_state
-                                        .show(repo_id, &repo.name);
-                                    self.state.input_mode = InputMode::RenamingProject;
-                                }
+            Action::RenameProject if self.state.input_mode == InputMode::SidebarNavigation => {
+                let selected = self.state.sidebar_state.tree_state.selected;
+                if let Some(node) = self.state.sidebar_data.get_at(selected) {
+                    use crate::ui::components::NodeType;
+                    if node.node_type == NodeType::Repository {
+                        let repo_id = node.id;
+                        if let Some(dao) = self.repo_dao() {
+                            if let Ok(Some(repo)) = dao.get_by_id(repo_id) {
+                                self.state
+                                    .rename_project_dialog_state
+                                    .show(repo_id, &repo.name);
+                                self.state.input_mode = InputMode::RenamingProject;
                             }
                         }
                     }
                 }
             }
-            Action::ArchiveOrRemove => {
-                if self.state.input_mode == InputMode::SidebarNavigation {
-                    let selected = self.state.sidebar_state.tree_state.selected;
-                    if let Some(node) = self.state.sidebar_data.get_at(selected) {
-                        use crate::ui::components::NodeType;
-                        match node.node_type {
-                            NodeType::Workspace => {
-                                self.initiate_archive_workspace(node.id);
-                            }
-                            NodeType::Repository => {
-                                self.initiate_remove_project(node.id);
-                            }
-                            _ => {}
+            Action::ArchiveOrRemove if self.state.input_mode == InputMode::SidebarNavigation => {
+                let selected = self.state.sidebar_state.tree_state.selected;
+                if let Some(node) = self.state.sidebar_data.get_at(selected) {
+                    use crate::ui::components::NodeType;
+                    match node.node_type {
+                        NodeType::Workspace => {
+                            self.initiate_archive_workspace(node.id);
                         }
+                        NodeType::Repository => {
+                            self.initiate_remove_project(node.id);
+                        }
+                        _ => {}
                     }
                 }
             }

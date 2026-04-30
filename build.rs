@@ -22,38 +22,63 @@ fn main() {
         return;
     }
 
+    // Fail fast with an actionable message if node or npm are missing.
+    if which::which("node").is_err() {
+        println!("cargo::error=node not found. Install Node.js v18+ (https://nodejs.org/) or run scripts/preflight.sh for setup help.");
+        return;
+    }
+    if which::which("npm").is_err() {
+        println!("cargo::error=npm not found. Install Node.js v18+ (https://nodejs.org/) or run scripts/preflight.sh for setup help.");
+        return;
+    }
+
     // Check if node_modules exists, if not run npm install
     let node_modules = web_dir.join("node_modules");
     if !node_modules.exists() {
         println!("cargo::warning=Installing frontend dependencies...");
-        let status = Command::new("npm")
+        let status = match Command::new("npm")
             .arg("install")
             .current_dir(web_dir)
             .status()
-            .expect("Failed to run npm install");
+        {
+            Ok(s) => s,
+            Err(e) => {
+                println!("cargo::error=Failed to run npm install: {e}. Is npm on PATH?");
+                return;
+            }
+        };
 
         if !status.success() {
-            panic!("npm install failed");
+            println!("cargo::error=npm install failed with exit code {status}. Run scripts/preflight.sh to diagnose dependency issues.");
+            return;
         }
     }
 
     // Build the frontend
     println!("cargo::warning=Building frontend...");
-    let status = Command::new("npm")
+    let status = match Command::new("npm")
         .arg("run")
         .arg("build")
         .current_dir(web_dir)
         .status()
-        .expect("Failed to run npm build");
+    {
+        Ok(s) => s,
+        Err(e) => {
+            println!("cargo::error=Failed to run npm build: {e}. Is npm on PATH?");
+            return;
+        }
+    };
 
     if !status.success() {
-        panic!("Frontend build failed");
+        println!("cargo::error=Frontend build failed with exit code {status}.");
+        return;
     }
 
     // Verify dist directory was created
     let dist_dir = web_dir.join("dist");
     if !dist_dir.exists() {
-        panic!("Frontend build did not produce dist/ directory");
+        println!("cargo::error=Frontend build did not produce dist/ directory.");
+        return;
     }
 
     println!("cargo::warning=Frontend build complete!");

@@ -84,9 +84,9 @@ impl App {
                     self.state.input_mode = InputMode::Normal;
                 }
             }
-            Action::ExpandOrSelect => {
+            Action::ExpandOrSelect
                 // Same as Confirm for sidebar
-                if self.state.input_mode == InputMode::SidebarNavigation {
+                if self.state.input_mode == InputMode::SidebarNavigation => {
                     let selected = self.state.sidebar_state.tree_state.selected;
                     if let Some(node) = self.state.sidebar_data.get_at(selected) {
                         match node.node_type {
@@ -106,9 +106,8 @@ impl App {
                         }
                     }
                 }
-            }
-            Action::Collapse => {
-                if self.state.input_mode == InputMode::SidebarNavigation {
+            Action::Collapse
+                if self.state.input_mode == InputMode::SidebarNavigation => {
                     let selected = self.state.sidebar_state.tree_state.selected;
                     if let Some(node) = self.state.sidebar_data.get_at(selected) {
                         if !node.is_leaf() && node.expanded {
@@ -116,9 +115,8 @@ impl App {
                         }
                     }
                 }
-            }
-            Action::ProjectMoveUp | Action::ProjectMoveDown => {
-                if self.state.input_mode == InputMode::SidebarNavigation {
+            Action::ProjectMoveUp | Action::ProjectMoveDown
+                if self.state.input_mode == InputMode::SidebarNavigation => {
                     let selected = self.state.sidebar_state.tree_state.selected;
                     if let Some(node) = self.state.sidebar_data.get_at(selected) {
                         if node.node_type == NodeType::Repository {
@@ -148,7 +146,6 @@ impl App {
                         }
                     }
                 }
-            }
             _ => {}
         }
     }
