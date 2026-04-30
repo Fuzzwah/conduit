@@ -3030,9 +3030,27 @@ impl App {
                                 || send_progress("Running workspace setup..."),
                             );
 
+                            let initial_message = match (&spec, &specify_spec) {
+                                (Some(s), _) => Some(format!(
+                                    "I just created this workspace for openspec change `{}`. \
+                                     Please read the spec files in `openspec/changes/{}/` \
+                                     (proposal.md, design.md, and tasks.md) and give me a \
+                                     summary of what still needs to be done.",
+                                    s.change_id, s.change_id
+                                )),
+                                (None, Some(ss)) => Some(format!(
+                                    "I just created this workspace for spec `{}`. \
+                                     Please read `.specify/specs/{}/tasks.md` and give me a \
+                                     summary of what still needs to be done.",
+                                    ss.spec_id, ss.spec_id
+                                )),
+                                _ => None,
+                            };
+
                             Ok(WorkspaceCreated {
                                 repo_id,
                                 workspace_id,
+                                initial_message,
                             })
                         })();
 
@@ -5337,15 +5355,23 @@ impl App {
     pub(crate) fn close_workspace_progress_dialog(&mut self) -> Vec<Effect> {
         self.state.workspace_progress_dialog_state.hide();
         self.state.input_mode = InputMode::Normal;
+        let mut effects = Vec::new();
 
         if let Some(workspace_id) = self.state.pending_created_workspace_id.take() {
             // Open workspace, close sidebar (unless always_show_sidebar), focus prompt
             let close_sidebar = !self.config().ui.always_show_sidebar;
             self.open_workspace_with_options(workspace_id, close_sidebar);
             self.state.sidebar_state.set_focused(false);
+
+            if let Some(msg) = self.state.pending_created_workspace_initial_message.take() {
+                match self.submit_prompt(msg, vec![], vec![]) {
+                    Ok(mut e) => effects.append(&mut e),
+                    Err(err) => tracing::warn!("Failed to auto-send spec context message: {err}"),
+                }
+            }
         }
 
-        Vec::new()
+        effects
     }
 
     /// Show an error dialog with a simple message
@@ -7080,6 +7106,8 @@ impl App {
                             self.state.sidebar_state.tree_state.selected = index;
                         }
                         self.state.pending_created_workspace_id = Some(created.workspace_id);
+                        self.state.pending_created_workspace_initial_message =
+                            created.initial_message.clone();
                         if self
                             .state
                             .workspace_progress_dialog_state

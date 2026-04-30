@@ -225,6 +225,7 @@ pub struct ShellCommandResult {
 pub struct WorkspaceCreated {
     pub repo_id: Uuid,
     pub workspace_id: Uuid,
+    pub initial_message: Option<String>,
 }
 
 #[derive(Debug, Clone)]

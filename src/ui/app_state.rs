@@ -190,6 +190,8 @@ pub struct AppState {
     pub workspace_progress_dialog_state: WorkspaceProgressDialogState,
     /// Workspace to open when the user closes the creation progress dialog.
     pub pending_created_workspace_id: Option<Uuid>,
+    /// Initial message to auto-send when a spec-linked workspace opens for the first time.
+    pub pending_created_workspace_initial_message: Option<String>,
     pub issue_picker_state: IssuePickerState,
     pub spec_picker_state: SpecPickerState,
     pub specify_picker_state: SpecifyPickerState,
@@ -394,6 +396,7 @@ impl AppState {
             scp_command_dialog_state: ScpCommandDialogState::default(),
             workspace_progress_dialog_state: WorkspaceProgressDialogState::new(),
             pending_created_workspace_id: None,
+            pending_created_workspace_initial_message: None,
             issue_picker_state: IssuePickerState::default(),
             spec_picker_state: SpecPickerState::default(),
             specify_picker_state: SpecifyPickerState::default(),
