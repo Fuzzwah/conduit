@@ -188,6 +188,7 @@ impl KeyContext {
             }
             InputMode::SelectingIssue => return KeyContext::Dialog,
             InputMode::SelectingSpec => return KeyContext::Dialog,
+            InputMode::SelectingSpecifySpec => return KeyContext::Dialog,
             InputMode::MissingTool => return KeyContext::Dialog,
             InputMode::SelectingTheme => return KeyContext::ThemePicker,
             InputMode::QueueEditing => return KeyContext::QueueEditing,

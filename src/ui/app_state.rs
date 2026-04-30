@@ -12,8 +12,8 @@ use crate::ui::components::{
     IssuePickerState, KnightRiderSpinner, LogoShineAnimation, MissingToolDialogState,
     ModelSelectorState, ProjectPickerState, ProviderSelectorState, ReasoningSelectorState,
     RenameProjectDialogState, ScpCommandDialogState, SessionImportPickerState, SettingsMenuState,
-    SidebarData, SidebarState, SlashMenuState, SpecPickerState, ThemePickerState,
-    WorkspaceDefaultsDialogState, WorkspaceProgressDialogState,
+    SidebarData, SidebarState, SlashMenuState, SpecPickerState, SpecifyPickerState,
+    ThemePickerState, WorkspaceDefaultsDialogState, WorkspaceProgressDialogState,
 };
 use crate::ui::events::{InputMode, ViewMode};
 use crate::ui::tab_manager::TabManager;
@@ -192,6 +192,7 @@ pub struct AppState {
     pub pending_created_workspace_id: Option<Uuid>,
     pub issue_picker_state: IssuePickerState,
     pub spec_picker_state: SpecPickerState,
+    pub specify_picker_state: SpecifyPickerState,
     pub command_buffer: String,
     pub sidebar_area: Option<Rect>,
     pub tab_bar_area: Option<Rect>,
@@ -395,6 +396,7 @@ impl AppState {
             pending_created_workspace_id: None,
             issue_picker_state: IssuePickerState::default(),
             spec_picker_state: SpecPickerState::default(),
+            specify_picker_state: SpecifyPickerState::default(),
             command_buffer: String::new(),
             sidebar_area: None,
             tab_bar_area: None,

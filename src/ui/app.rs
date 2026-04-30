@@ -1615,6 +1615,7 @@ impl App {
         // Tick issue picker spinner (for loading state)
         self.state.issue_picker_state.tick();
         self.state.spec_picker_state.tick();
+        self.state.specify_picker_state.tick();
 
         if let Some(session) = self.state.tab_manager.active_session_mut() {
             session.tick();
@@ -2814,54 +2815,93 @@ impl App {
                         );
                     });
                 }
-                Effect::FetchOpenSpecs { repo_id } => {
+                Effect::FetchAllSpecs { repo_id } => {
                     let repo_dao = self.repo_dao_clone();
                     let event_tx = self.event_tx.clone();
 
                     tokio::task::spawn_blocking(move || {
-                        let specs = repo_dao
+                        let (open_specs, specify_specs) = repo_dao
                             .and_then(|dao| dao.get_by_id(repo_id).ok().flatten())
                             .and_then(|repo| repo.base_path)
-                            .map(|path| crate::git::fetch_open_specs(&path))
+                            .map(|path| {
+                                let open = crate::git::fetch_open_specs(&path);
+                                let specify = crate::git::fetch_specify_specs(&path);
+                                (open, specify)
+                            })
                             .unwrap_or_default();
 
                         send_app_event(
                             &event_tx,
-                            AppEvent::OpenSpecsFetched { repo_id, specs },
-                            "open_specs_fetched",
+                            AppEvent::AllSpecsFetched {
+                                repo_id,
+                                open_specs,
+                                specify_specs,
+                            },
+                            "all_specs_fetched",
                         );
                     });
                 }
                 Effect::ShowSpecPicker { repo_id, issue } => {
-                    if self.state.spec_picker_state.loading {
-                        // Specs still loading; show spinner and defer show/skip decision
+                    // If specify (spec-kit) is still loading or has specs, defer to it
+                    if self.state.specify_picker_state.loading
+                        || !self.state.specify_picker_state.specs.is_empty()
+                    {
+                        self.state.specify_picker_state.issue = issue;
+                        self.state.specify_picker_state.pending_show = true;
+                        self.state.input_mode = InputMode::SelectingSpecifySpec;
+                    } else if self.state.spec_picker_state.loading {
+                        // Openspec still loading; show spinner and defer show/skip decision
                         self.state.spec_picker_state.show(issue);
                         self.state.spec_picker_state.pending_show = true;
                         self.state.input_mode = InputMode::SelectingSpec;
                     } else if self.state.spec_picker_state.specs.is_empty() {
-                        // No specs found; skip picker entirely
+                        // No specs found in either system; skip picker entirely
                         self.state.spec_picker_state.issue = issue;
                         self.state.spec_picker_state.pending_show = true;
-                        // Re-trigger decision via event (specs already loaded as empty)
                         let event_tx = self.event_tx.clone();
                         send_app_event(
                             &event_tx,
-                            AppEvent::OpenSpecsFetched {
+                            AppEvent::AllSpecsFetched {
                                 repo_id,
-                                specs: Vec::new(),
+                                open_specs: Vec::new(),
+                                specify_specs: Vec::new(),
                             },
                             "spec_picker_no_specs",
                         );
                     } else {
-                        // Specs already loaded and non-empty; show picker directly
+                        // Openspec already loaded and non-empty; show picker directly
                         self.state.spec_picker_state.show(issue);
                         self.state.input_mode = InputMode::SelectingSpec;
+                    }
+                }
+                Effect::ShowSpecifyPicker { repo_id, issue } => {
+                    if self.state.specify_picker_state.loading {
+                        self.state.specify_picker_state.show(issue);
+                        self.state.specify_picker_state.pending_show = true;
+                        self.state.input_mode = InputMode::SelectingSpecifySpec;
+                    } else if self.state.specify_picker_state.specs.is_empty() {
+                        self.state.specify_picker_state.issue = issue;
+                        self.state.specify_picker_state.pending_show = true;
+                        let event_tx = self.event_tx.clone();
+                        send_app_event(
+                            &event_tx,
+                            AppEvent::AllSpecsFetched {
+                                repo_id,
+                                open_specs: Vec::new(),
+                                specify_specs: Vec::new(),
+                            },
+                            "specify_picker_no_specs",
+                        );
+                    } else {
+                        self.state.specify_picker_state.show(issue);
+                        self.state.input_mode = InputMode::SelectingSpecifySpec;
                     }
                 }
                 Effect::CreateWorkspace {
                     repo_id,
                     issue,
                     spec,
+                    specify_spec,
                 } => {
                     let repo_dao = self.repo_dao_clone();
                     let workspace_dao = self.workspace_dao_clone();
@@ -2907,8 +2947,9 @@ impl App {
                                 .unwrap_or_default();
 
                             let username = crate::util::get_git_username();
-                            let (workspace_name, branch_name) = match (&issue, &spec) {
-                                (Some(gh), _) => {
+                            let (workspace_name, branch_name) = match (&issue, &spec, &specify_spec)
+                            {
+                                (Some(gh), _, _) => {
                                     let name = format!("gh#{}", gh.number);
                                     let branch = crate::util::generate_branch_name(
                                         &username,
@@ -2916,12 +2957,17 @@ impl App {
                                     );
                                     (name, branch)
                                 }
-                                (None, Some(s)) => {
+                                (None, Some(s), _) => {
                                     let branch =
                                         crate::util::generate_branch_name(&username, &s.change_id);
                                     (s.change_id.clone(), branch)
                                 }
-                                (None, None) => {
+                                (None, None, Some(ss)) => {
+                                    let branch =
+                                        crate::util::generate_branch_name(&username, &ss.spec_id);
+                                    (ss.spec_id.clone(), branch)
+                                }
+                                (None, None, None) => {
                                     let name =
                                         crate::util::generate_workspace_name(&existing_names);
                                     let branch =
@@ -4934,6 +4980,8 @@ impl App {
             crate::ui::components::IssuePickerState::show_loading(repo_id);
         self.state.spec_picker_state =
             crate::ui::components::SpecPickerState::show_loading(repo_id, None);
+        self.state.specify_picker_state =
+            crate::ui::components::SpecifyPickerState::show_loading(repo_id, None);
         self.state.input_mode = InputMode::SelectingIssue;
         vec![Effect::SyncRemote { repo_id }]
     }
@@ -6955,7 +7003,7 @@ impl App {
             }
             AppEvent::RemoteSynced { repo_id } => {
                 effects.push(Effect::FetchGithubIssues { repo_id });
-                effects.push(Effect::FetchOpenSpecs { repo_id });
+                effects.push(Effect::FetchAllSpecs { repo_id });
             }
             AppEvent::GithubIssuesFetched { repo_id, issues } => {
                 if issues.is_empty() {
@@ -6970,20 +7018,53 @@ impl App {
                     self.state.issue_picker_state.load_issues(issues);
                 }
             }
-            AppEvent::OpenSpecsFetched { repo_id, specs } => {
-                let pending_show = self.state.spec_picker_state.pending_show;
-                self.state.spec_picker_state.load_specs(specs);
-                if pending_show {
-                    self.state.spec_picker_state.pending_show = false;
-                    let issue = self.state.spec_picker_state.issue.clone();
-                    if self.state.spec_picker_state.specs.is_empty() {
-                        // No incomplete specs; skip picker and go straight to workspace creation
+            AppEvent::AllSpecsFetched {
+                repo_id,
+                open_specs,
+                specify_specs,
+            } => {
+                self.state.spec_picker_state.load_specs(open_specs);
+                self.state.specify_picker_state.load_specs(specify_specs);
+
+                let spec_pending = self.state.spec_picker_state.pending_show;
+                let specify_pending = self.state.specify_picker_state.pending_show;
+
+                if specify_pending {
+                    self.state.specify_picker_state.pending_show = false;
+                    let issue = self.state.specify_picker_state.issue.clone();
+                    if !self.state.specify_picker_state.specs.is_empty() {
+                        // Spec-kit has specs: show specify picker
+                        self.state.specify_picker_state.show(issue);
+                        self.state.input_mode = InputMode::SelectingSpecifySpec;
+                    } else if !self.state.spec_picker_state.specs.is_empty() {
+                        // Fall back to openspec picker
+                        self.state.specify_picker_state.hide();
+                        self.state.spec_picker_state.show(issue);
+                        self.state.input_mode = InputMode::SelectingSpec;
+                    } else {
+                        // Neither has specs; skip both pickers
+                        self.state.specify_picker_state.hide();
                         self.state.spec_picker_state.hide();
                         self.state.input_mode = InputMode::SidebarNavigation;
                         effects.push(Effect::CreateWorkspace {
                             repo_id,
                             issue,
                             spec: None,
+                            specify_spec: None,
+                        });
+                    }
+                } else if spec_pending {
+                    self.state.spec_picker_state.pending_show = false;
+                    let issue = self.state.spec_picker_state.issue.clone();
+                    if self.state.spec_picker_state.specs.is_empty() {
+                        // No incomplete openspecs; skip picker
+                        self.state.spec_picker_state.hide();
+                        self.state.input_mode = InputMode::SidebarNavigation;
+                        effects.push(Effect::CreateWorkspace {
+                            repo_id,
+                            issue,
+                            spec: None,
+                            specify_spec: None,
                         });
                     }
                     // else: picker is already visible with loaded specs; stay in SelectingSpec
@@ -11673,6 +11754,11 @@ impl App {
         if self.state.spec_picker_state.visible {
             use crate::ui::components::SpecPicker;
             SpecPicker::new().render(size, f.buffer_mut(), &self.state.spec_picker_state);
+        }
+
+        if self.state.specify_picker_state.visible {
+            use crate::ui::components::SpecifyPicker;
+            SpecifyPicker::new().render(size, f.buffer_mut(), &self.state.specify_picker_state);
         }
 
         // Draw cloning repository spinner overlay
