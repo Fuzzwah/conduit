@@ -289,9 +289,10 @@ impl InlinePromptState {
                             self.current_question_idx = questions.len();
                         }
                         self.current_option = 0;
+                        return PromptAction::Consumed;
                     }
                 }
-                PromptAction::Consumed
+                PromptAction::NotHandled
             }
             KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => {
                 if let InlinePromptType::AskUserQuestion { questions } = &self.prompt_type {
@@ -307,9 +308,10 @@ impl InlinePromptState {
                             self.current_question_idx = 0;
                         }
                         self.current_option = 0;
+                        return PromptAction::Consumed;
                     }
                 }
-                PromptAction::Consumed
+                PromptAction::NotHandled
             }
 
             // Quick select by number
