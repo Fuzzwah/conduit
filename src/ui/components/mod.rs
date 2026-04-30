@@ -16,6 +16,7 @@ mod inline_prompt;
 mod input_box;
 mod issue_picker;
 mod key_hints;
+mod keybindings_editor;
 mod knight_rider_spinner;
 mod logo_shine;
 mod markdown;
@@ -74,6 +75,9 @@ pub use inline_prompt::{
 pub use input_box::InputBox;
 pub use issue_picker::{IssuePicker, IssuePickerState};
 pub use key_hints::{render_key_hints, render_key_hints_responsive, KeyHintBarStyle};
+pub use keybindings_editor::{
+    build_keybinding_items, KeybindingItem, KeybindingsEditor, KeybindingsEditorState,
+};
 pub use knight_rider_spinner::KnightRiderSpinner;
 pub use logo_shine::{draw_startup_splash_animated, LogoShineAnimation};
 pub use markdown::MarkdownRenderer;

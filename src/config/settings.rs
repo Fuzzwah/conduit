@@ -534,7 +534,158 @@ pub fn parse_action(name: &str) -> Option<Action> {
         // Command palette
         "open_command_palette" => Some(Action::OpenCommandPalette),
 
+        // Actions added for keybindings editor coverage
+        "new_workspace_under_cursor" => Some(Action::NewWorkspaceUnderCursor),
+        "archive_current_workspace" => Some(Action::ArchiveCurrentWorkspace),
+        "toggle_agent_mode" => Some(Action::ToggleAgentMode),
+        "copy_workspace_path" => Some(Action::CopyWorkspacePath),
+        "copy_code_block" => Some(Action::CopyCodeBlock),
+        "copy_code_block_prev" => Some(Action::CopyCodeBlockPrev),
+        "rename_project" => Some(Action::RenameProject),
+        "add_file_to_project" => Some(Action::AddFileToProject),
+        "upload_file_to_project" => Some(Action::UploadFileToProject),
+        "refresh_sidebar" => Some(Action::RefreshSidebar),
+        "event_detail_toggle" => Some(Action::EventDetailToggle),
+        "event_detail_scroll_up" => Some(Action::EventDetailScrollUp),
+        "event_detail_scroll_down" => Some(Action::EventDetailScrollDown),
+        "event_detail_page_up" => Some(Action::EventDetailPageUp),
+        "event_detail_page_down" => Some(Action::EventDetailPageDown),
+        "event_detail_scroll_to_top" => Some(Action::EventDetailScrollToTop),
+        "event_detail_scroll_to_bottom" => Some(Action::EventDetailScrollToBottom),
+        "event_detail_copy" => Some(Action::EventDetailCopy),
+
         _ => None,
+    }
+}
+
+/// Map an Action to its canonical TOML action name string.
+///
+/// This is the inverse of `parse_action()`. Returns `None` for parametric
+/// actions that have no static TOML representation (`ScrollUp`, `ScrollDown`,
+/// `SwitchToTab`, `OpenFile`).
+pub fn action_to_name(action: &Action) -> Option<&'static str> {
+    match action {
+        // Global
+        Action::Quit => Some("quit"),
+        Action::ToggleSidebar => Some("toggle_sidebar"),
+        Action::HideSidebar => Some("hide_sidebar"),
+        Action::NewProject => Some("new_project"),
+        Action::NewWorkspaceUnderCursor => Some("new_workspace_under_cursor"),
+        Action::OpenPr => Some("open_pr"),
+        Action::ForkSession => Some("fork_session"),
+        Action::HandoffSession => Some("handoff_session"),
+        Action::InterruptAgent => Some("interrupt_agent"),
+        Action::ToggleViewMode => Some("toggle_view_mode"),
+        Action::ShowModelSelector => Some("show_model_selector"),
+        Action::ShowReasoningSelector => Some("show_reasoning_selector"),
+        Action::ShowThemePicker => Some("show_theme_picker"),
+        Action::ShowProvidersSelector => Some("show_providers_selector"),
+        Action::ToggleMetrics => Some("toggle_metrics"),
+        Action::DumpDebugState => Some("dump_debug_state"),
+        Action::Suspend => Some("suspend"),
+        Action::CopyWorkspacePath => Some("copy_workspace_path"),
+        Action::CopySelection => Some("copy_selection"),
+        Action::CopyCodeBlock => Some("copy_code_block"),
+        Action::CopyCodeBlockPrev => Some("copy_code_block_prev"),
+        // Tab management
+        Action::CloseTab => Some("close_tab"),
+        Action::NextTab => Some("next_tab"),
+        Action::PrevTab => Some("prev_tab"),
+        Action::SwitchToTab(_) => None, // parametric
+        // File viewer
+        Action::OpenFile(_) => None, // parametric
+        // Scrolling (note: parse_action maps "scroll_up" -> ScrollUp(1))
+        Action::ScrollUp(_) => Some("scroll_up"),
+        Action::ScrollDown(_) => Some("scroll_down"),
+        Action::ScrollPageUp => Some("scroll_page_up"),
+        Action::ScrollPageDown => Some("scroll_page_down"),
+        Action::ScrollToTop => Some("scroll_to_top"),
+        Action::ScrollToBottom => Some("scroll_to_bottom"),
+        Action::ScrollPrevUserMessage => Some("prev_user_message"),
+        Action::ScrollNextUserMessage => Some("next_user_message"),
+        // Input editing
+        Action::InsertNewline => Some("insert_newline"),
+        Action::Backspace => Some("backspace"),
+        Action::Delete => Some("delete"),
+        Action::DeleteWordBack => Some("delete_word_back"),
+        Action::DeleteWordForward => Some("delete_word_forward"),
+        Action::DeleteToStart => Some("delete_to_start"),
+        Action::DeleteToEnd => Some("delete_to_end"),
+        Action::MoveCursorLeft => Some("move_cursor_left"),
+        Action::MoveCursorRight => Some("move_cursor_right"),
+        Action::MoveCursorStart => Some("move_cursor_start"),
+        Action::MoveCursorEnd => Some("move_cursor_end"),
+        Action::MoveWordLeft => Some("move_word_left"),
+        Action::MoveWordRight => Some("move_word_right"),
+        Action::MoveCursorUp => Some("move_cursor_up"),
+        Action::MoveCursorDown => Some("move_cursor_down"),
+        Action::HistoryPrev => Some("history_prev"),
+        Action::HistoryNext => Some("history_next"),
+        Action::Submit => Some("submit"),
+        Action::SubmitSteer => Some("submit_steer"),
+        Action::OpenQueueEditor => Some("open_queue_editor"),
+        Action::CloseQueueEditor => Some("close_queue_editor"),
+        Action::QueueMoveUp => Some("queue_move_up"),
+        Action::QueueMoveDown => Some("queue_move_down"),
+        Action::QueueEdit => Some("queue_edit"),
+        Action::QueueDelete => Some("queue_delete"),
+        Action::EditPromptExternal => Some("edit_prompt_external"),
+        // Navigation
+        Action::SelectNext => Some("select_next"),
+        Action::SelectPrev => Some("select_prev"),
+        Action::SelectPageDown => Some("select_page_down"),
+        Action::SelectPageUp => Some("select_page_up"),
+        Action::Confirm => Some("confirm"),
+        Action::Cancel => Some("cancel"),
+        Action::SetDefaultModel => Some("set_default_model"),
+        Action::ExpandOrSelect => Some("expand_or_select"),
+        Action::Collapse => Some("collapse"),
+        Action::AddRepository => Some("add_repository"),
+        Action::OpenSettings => Some("open_settings"),
+        Action::ArchiveOrRemove => Some("archive_or_remove"),
+        Action::ArchiveCurrentWorkspace => Some("archive_current_workspace"),
+        Action::ProjectMoveUp => Some("project_move_up"),
+        Action::ProjectMoveDown => Some("project_move_down"),
+        Action::RenameProject => Some("rename_project"),
+        Action::AddFileToProject => Some("add_file_to_project"),
+        Action::UploadFileToProject => Some("upload_file_to_project"),
+        // Sidebar
+        Action::EnterSidebarMode => Some("enter_sidebar_mode"),
+        Action::ExitSidebarMode => Some("exit_sidebar_mode"),
+        // Raw events
+        Action::RawEventsSelectNext => Some("raw_events_select_next"),
+        Action::RawEventsSelectPrev => Some("raw_events_select_prev"),
+        Action::RawEventsToggleExpand => Some("raw_events_toggle_expand"),
+        Action::RawEventsCollapse => Some("raw_events_collapse"),
+        // Event detail
+        Action::EventDetailToggle => Some("event_detail_toggle"),
+        Action::EventDetailScrollUp => Some("event_detail_scroll_up"),
+        Action::EventDetailScrollDown => Some("event_detail_scroll_down"),
+        Action::EventDetailPageUp => Some("event_detail_page_up"),
+        Action::EventDetailPageDown => Some("event_detail_page_down"),
+        Action::EventDetailScrollToTop => Some("event_detail_scroll_to_top"),
+        Action::EventDetailScrollToBottom => Some("event_detail_scroll_to_bottom"),
+        Action::EventDetailCopy => Some("event_detail_copy"),
+        // Confirmation
+        Action::ConfirmYes => Some("confirm_yes"),
+        Action::ConfirmNo => Some("confirm_no"),
+        Action::ConfirmToggle => Some("confirm_toggle"),
+        Action::ToggleDetails => Some("toggle_details"),
+        // Agent
+        Action::SelectAgent => Some("select_agent"),
+        Action::ToggleAgentMode => Some("toggle_agent_mode"),
+        // Session import
+        Action::OpenSessionImport => Some("open_session_import"),
+        Action::ImportSession => Some("import_session"),
+        Action::CycleImportFilter => Some("cycle_import_filter"),
+        // Command mode
+        Action::ShowHelp => Some("show_help"),
+        Action::ExecuteCommand => Some("execute_command"),
+        Action::CompleteCommand => Some("complete_command"),
+        // Command palette
+        Action::OpenCommandPalette => Some("open_command_palette"),
+        // Sidebar
+        Action::RefreshSidebar => Some("refresh_sidebar"),
     }
 }
 
@@ -1124,6 +1275,99 @@ pub fn save_workspaces_config(
     if let Some(parent) = config_file.parent() {
         if !parent.exists() {
             fs::create_dir_all(parent)?;
+        }
+    }
+
+    fs::write(&config_file, doc.to_string())?;
+
+    Ok(())
+}
+
+/// Save a single keybinding override to the config file.
+///
+/// For global keybindings (`context = None`), sets `action_name = key_str`
+/// under `[keys]`. For context-specific bindings, sets it under `[keys.<section>]`.
+/// Follows the same `toml_edit` pattern as `save_theme_config()`.
+pub fn save_keybinding(
+    context: Option<KeyContext>,
+    action_name: &str,
+    key_str: &str,
+) -> std::io::Result<()> {
+    let config_file = config_path();
+
+    let contents = if config_file.exists() {
+        fs::read_to_string(&config_file)?
+    } else {
+        String::new()
+    };
+
+    let mut doc: DocumentMut = contents
+        .parse()
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
+    if !doc.contains_key("keys") {
+        doc["keys"] = Item::Table(Table::new());
+    }
+
+    match context.and_then(|c| c.toml_section_name()) {
+        None => {
+            // Global binding: [keys] action_name = key_str
+            doc["keys"][action_name] = toml_edit::value(key_str);
+        }
+        Some(section) => {
+            // Context binding: [keys.section] action_name = key_str
+            if let Item::Table(keys_table) = &mut doc["keys"] {
+                if !keys_table.contains_key(section) {
+                    keys_table.insert(section, Item::Table(Table::new()));
+                }
+            }
+            doc["keys"][section][action_name] = toml_edit::value(key_str);
+        }
+    }
+
+    if let Some(parent) = config_file.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent)?;
+        }
+    }
+
+    fs::write(&config_file, doc.to_string())?;
+
+    Ok(())
+}
+
+/// Remove a single keybinding override from the config file.
+///
+/// This removes the user's custom binding so the default takes effect.
+/// No-op if the binding is not present in the config file.
+pub fn remove_keybinding(context: Option<KeyContext>, action_name: &str) -> std::io::Result<()> {
+    let config_file = config_path();
+
+    if !config_file.exists() {
+        return Ok(());
+    }
+
+    let contents = fs::read_to_string(&config_file)?;
+    let mut doc: DocumentMut = contents
+        .parse()
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
+    match context.and_then(|c| c.toml_section_name()) {
+        None => {
+            // Global binding under [keys]
+            if let Some(Item::Table(keys_table)) = doc.get_mut("keys") {
+                keys_table.remove(action_name);
+            }
+        }
+        Some(section) => {
+            // Context binding under [keys.section]
+            if doc.contains_key("keys") {
+                if let Item::Table(keys_table) = &mut doc["keys"] {
+                    if let Some(Item::Table(section_table)) = keys_table.get_mut(section) {
+                        section_table.remove(action_name);
+                    }
+                }
+            }
         }
     }
 

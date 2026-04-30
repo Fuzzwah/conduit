@@ -59,14 +59,15 @@ use crate::ui::app_state::{
 };
 use crate::ui::capabilities::AgentCapabilities;
 use crate::ui::components::{
-    dialog_content_area, AddRepoDialog, AgentSelector, BaseDirDialog, ChatMessage, CommandPalette,
-    ConfirmationContext, ConfirmationDialog, ConfirmationType, DefaultModelSelection, ErrorDialog,
-    EventDirection, GlobalFooter, HelpDialog, InlinePromptState, InlinePromptType, MessageRole,
-    MissingToolDialog, ModelSelector, ProcessingState, ProjectEntry, ProjectPicker, PromptAnswer,
-    ProviderSelector, RawEventsClick, ReasoningSelector, RenameProjectDialog, SessionHeader,
-    SessionImportPicker, SettingsMenu, SettingsMenuEntry, SettingsMenuEntryId, Sidebar,
-    SidebarData, SlashMenu, TabBar, TabBarHitTarget, ThemePicker, WorkspaceDefaultsDialog,
-    WorkspaceDefaultsDraft, SIDEBAR_HEADER_ROWS,
+    build_keybinding_items, dialog_content_area, AddRepoDialog, AgentSelector, BaseDirDialog,
+    ChatMessage, CommandPalette, ConfirmationContext, ConfirmationDialog, ConfirmationType,
+    DefaultModelSelection, ErrorDialog, EventDirection, GlobalFooter, HelpDialog,
+    InlinePromptState, InlinePromptType, KeybindingsEditor, MessageRole, MissingToolDialog,
+    ModelSelector, ProcessingState, ProjectEntry, ProjectPicker, PromptAnswer, ProviderSelector,
+    RawEventsClick, ReasoningSelector, RenameProjectDialog, SessionHeader, SessionImportPicker,
+    SettingsMenu, SettingsMenuEntry, SettingsMenuEntryId, Sidebar, SidebarData, SlashMenu, TabBar,
+    TabBarHitTarget, ThemePicker, WorkspaceDefaultsDialog, WorkspaceDefaultsDraft,
+    SIDEBAR_HEADER_ROWS,
 };
 use crate::ui::effect::Effect;
 use crate::ui::events::{
@@ -2329,6 +2330,11 @@ impl App {
                             session.input_box.insert_str(&path);
                             session.input_box.insert_char(' ');
                         }
+                    }
+                } else if self.state.input_mode == InputMode::KeybindingsEditor {
+                    self.state.keybindings_editor_state.enter_capture_mode();
+                    if self.state.keybindings_editor_state.capture_mode {
+                        self.state.input_mode = InputMode::KeybindingsEditorCapture;
                     }
                 } else if self.state.input_mode == InputMode::CommandPalette {
                     if let Some(entry) = self.state.command_palette_state.selected_entry() {
@@ -4722,6 +4728,12 @@ impl App {
                 description: "Defaults applied when a repo has no override".to_string(),
                 value: workspace_defaults,
             },
+            SettingsMenuEntry {
+                id: SettingsMenuEntryId::Keybindings,
+                title: "Keybindings".to_string(),
+                description: "Customize keyboard shortcuts".to_string(),
+                value: String::new(),
+            },
         ]
     }
 
@@ -4823,6 +4835,12 @@ impl App {
                         archive_remote_prompt: self.config().workspaces.archive_remote_prompt,
                     });
                 self.state.input_mode = InputMode::WorkspaceDefaults;
+            }
+            SettingsMenuEntryId::Keybindings => {
+                self.open_settings_child();
+                let items = build_keybinding_items(&self.config().keybindings);
+                self.state.keybindings_editor_state.show(items);
+                self.state.input_mode = InputMode::KeybindingsEditor;
             }
         }
     }
@@ -11702,6 +11720,14 @@ impl App {
             || self.state.settings_menu_state.is_visible()
         {
             SettingsMenu::new().render(size, f.buffer_mut(), &self.state.settings_menu_state);
+        }
+
+        if self.state.keybindings_editor_state.is_visible() {
+            KeybindingsEditor::new().render(
+                size,
+                f.buffer_mut(),
+                &self.state.keybindings_editor_state,
+            );
         }
 
         // Draw command palette (on top of everything)

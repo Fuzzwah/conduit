@@ -9,11 +9,12 @@ use crate::agent::{AgentMode, AgentType, ReasoningEffort};
 use crate::ui::components::{
     AddRepoDialogState, AgentSelectorState, BaseDirDialogState, CommandPaletteState,
     ConfirmationDialogState, ErrorDialogState, FilePickerDialogState, HelpDialogState,
-    IssuePickerState, KnightRiderSpinner, LogoShineAnimation, MissingToolDialogState,
-    ModelSelectorState, ProjectPickerState, ProviderSelectorState, ReasoningSelectorState,
-    RenameProjectDialogState, ScpCommandDialogState, SessionImportPickerState, SettingsMenuState,
-    SidebarData, SidebarState, SlashMenuState, SpecPickerState, SpecifyPickerState,
-    ThemePickerState, WorkspaceDefaultsDialogState, WorkspaceProgressDialogState,
+    IssuePickerState, KeybindingsEditorState, KnightRiderSpinner, LogoShineAnimation,
+    MissingToolDialogState, ModelSelectorState, ProjectPickerState, ProviderSelectorState,
+    ReasoningSelectorState, RenameProjectDialogState, ScpCommandDialogState,
+    SessionImportPickerState, SettingsMenuState, SidebarData, SidebarState, SlashMenuState,
+    SpecPickerState, SpecifyPickerState, ThemePickerState, WorkspaceDefaultsDialogState,
+    WorkspaceProgressDialogState,
 };
 use crate::ui::events::{InputMode, ViewMode};
 use crate::ui::tab_manager::TabManager;
@@ -180,6 +181,7 @@ pub struct AppState {
     pub help_dialog_state: HelpDialogState,
     pub missing_tool_dialog_state: MissingToolDialogState,
     pub settings_menu_state: SettingsMenuState,
+    pub keybindings_editor_state: KeybindingsEditorState,
     pub command_palette_state: CommandPaletteState,
     pub slash_menu_state: SlashMenuState,
     pub file_mention_state: SlashMenuState,
@@ -385,6 +387,7 @@ impl AppState {
             help_dialog_state: HelpDialogState::new(),
             missing_tool_dialog_state: MissingToolDialogState::default(),
             settings_menu_state: SettingsMenuState::new(),
+            keybindings_editor_state: KeybindingsEditorState::default(),
             command_palette_state: CommandPaletteState::new(),
             slash_menu_state: SlashMenuState::new(),
             file_mention_state: SlashMenuState::new(),

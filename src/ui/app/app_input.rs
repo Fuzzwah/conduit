@@ -6,10 +6,10 @@ use ratatui::Terminal;
 use std::io;
 
 use crate::agent::{AgentMode, AgentType, MessageDisplay};
-use crate::config::{KeyCombo, KeyContext};
+use crate::config::{remove_keybinding, save_keybinding, Config, KeyCombo, KeyContext};
 use crate::ui::action::Action;
 use crate::ui::app::App;
-use crate::ui::components::SIDEBAR_HEADER_ROWS;
+use crate::ui::components::{build_keybinding_items, SIDEBAR_HEADER_ROWS};
 use crate::ui::effect::Effect;
 use crate::ui::events::{InputMode, ViewMode};
 use crate::ui::terminal_guard::TerminalGuard;
@@ -104,6 +104,11 @@ impl App {
             self.state.input_mode = InputMode::SettingBaseDir;
         } else if self.state.add_repo_dialog_state.path.is_visible() {
             self.state.input_mode = InputMode::AddingRepository;
+        } else if self.state.keybindings_editor_state.is_visible() {
+            // Preserve KeybindingsEditorCapture if already set; otherwise use KeybindingsEditor.
+            if self.state.input_mode != InputMode::KeybindingsEditorCapture {
+                self.state.input_mode = InputMode::KeybindingsEditor;
+            }
         }
         self.sync_input_mode_for_active_tab();
 
@@ -142,6 +147,11 @@ impl App {
             InputMode::FilePickerSource | InputMode::FilePickerDest
         ) {
             return self.handle_file_picker_key(key);
+        }
+
+        // Capture mode: bypass all action dispatch and feed the raw key directly.
+        if self.state.input_mode == InputMode::KeybindingsEditorCapture {
+            return self.handle_keybinding_capture(key).await;
         }
 
         // Handle Ctrl+C with double-press detection (global)
@@ -680,6 +690,9 @@ impl App {
             InputMode::SettingsMenu => {
                 self.state.settings_menu_state.insert_char(c);
             }
+            InputMode::KeybindingsEditor => {
+                self.state.keybindings_editor_state.insert_filter_char(c);
+            }
             InputMode::SlashMenu => {
                 self.state.slash_menu_state.insert_char(c);
             }
@@ -780,6 +793,12 @@ impl App {
                 let sanitized = pasted.replace('\n', " ");
                 for ch in sanitized.chars() {
                     self.state.settings_menu_state.insert_char(ch);
+                }
+            }
+            InputMode::KeybindingsEditor => {
+                let sanitized = pasted.replace('\n', " ");
+                for ch in sanitized.chars() {
+                    self.state.keybindings_editor_state.insert_filter_char(ch);
                 }
             }
             InputMode::SlashMenu => {
@@ -1405,5 +1424,107 @@ impl App {
             _ => {}
         }
         Ok(Vec::new())
+    }
+
+    pub(super) async fn handle_keybinding_capture(
+        &mut self,
+        key: KeyEvent,
+    ) -> anyhow::Result<Vec<Effect>> {
+        // Esc or modifier-only key cancels capture
+        let is_modifier_only = matches!(
+            key.code,
+            KeyCode::Modifier(_) | KeyCode::CapsLock | KeyCode::ScrollLock | KeyCode::NumLock
+        ) || key.code == KeyCode::Null;
+        if key.code == KeyCode::Esc || is_modifier_only {
+            self.state.keybindings_editor_state.cancel_capture();
+            self.state.input_mode = InputMode::KeybindingsEditor;
+            return Ok(vec![]);
+        }
+
+        let Some(item_idx) = self.state.keybindings_editor_state.capture_item_idx else {
+            self.state.keybindings_editor_state.cancel_capture();
+            self.state.input_mode = InputMode::KeybindingsEditor;
+            return Ok(vec![]);
+        };
+
+        let item = self.state.keybindings_editor_state.items[item_idx].clone();
+        let combo = KeyCombo::from_key_event(&key);
+
+        // Conflict check: look for another action bound to this combo
+        let conflict = if let Some(ctx) = item.context {
+            self.config()
+                .keybindings
+                .context
+                .get(&ctx)
+                .and_then(|m| m.get(&combo))
+                .cloned()
+        } else {
+            self.config().keybindings.global.get(&combo).cloned()
+        };
+
+        if let Some(conflicting_action) = conflict {
+            if conflicting_action != item.action {
+                let name =
+                    crate::config::action_to_name(&conflicting_action).unwrap_or("another action");
+                self.state
+                    .keybindings_editor_state
+                    .set_status(format!("Key already bound to '{name}'"));
+                self.state.keybindings_editor_state.cancel_capture();
+                self.state.input_mode = InputMode::KeybindingsEditor;
+                return Ok(vec![]);
+            }
+        }
+
+        let key_str = combo.to_string();
+        if let Err(e) = save_keybinding(item.context, item.action_name, &key_str) {
+            self.state
+                .keybindings_editor_state
+                .set_status(format!("Error saving: {e}"));
+            self.state.keybindings_editor_state.cancel_capture();
+            self.state.input_mode = InputMode::KeybindingsEditor;
+            return Ok(vec![]);
+        }
+
+        // Reload keybindings from disk so in-memory state reflects the change
+        self.config_mut().keybindings = Config::load().keybindings;
+
+        let new_items = build_keybinding_items(&self.config().keybindings);
+        self.state
+            .keybindings_editor_state
+            .set_status(format!("Saved: {key_str}"));
+        self.state.keybindings_editor_state.refresh_items(new_items);
+        self.state.keybindings_editor_state.cancel_capture();
+        self.state.input_mode = InputMode::KeybindingsEditor;
+        Ok(vec![])
+    }
+
+    pub(super) fn handle_keybinding_reset(&mut self) {
+        let Some(item_idx) = self.state.keybindings_editor_state.selected_item_idx() else {
+            return;
+        };
+        let item = self.state.keybindings_editor_state.items[item_idx].clone();
+
+        if !item.is_user_override {
+            self.state
+                .keybindings_editor_state
+                .set_status("Already using default binding".to_string());
+            return;
+        }
+
+        if let Err(e) = remove_keybinding(item.context, item.action_name) {
+            self.state
+                .keybindings_editor_state
+                .set_status(format!("Error resetting: {e}"));
+            return;
+        }
+
+        // Reload keybindings from disk
+        self.config_mut().keybindings = Config::load().keybindings;
+
+        let new_items = build_keybinding_items(&self.config().keybindings);
+        self.state
+            .keybindings_editor_state
+            .set_status(format!("Reset to default: {}", item.default_key));
+        self.state.keybindings_editor_state.refresh_items(new_items);
     }
 }
