@@ -55,6 +55,7 @@ impl App {
                         self.state.input_mode = InputMode::Normal;
                         self.sync_input_mode_for_active_tab();
                         self.sync_sidebar_to_active_tab();
+                        self.sync_theme_to_active_tab();
                     }
                 } else {
                     // Cycle through workspaces, wrapping around (sidebar not in cycle)
@@ -62,6 +63,7 @@ impl App {
                     self.sync_input_mode_for_active_tab();
                     self.sync_sidebar_to_active_tab();
                     self.sync_footer_spinner();
+                    self.sync_theme_to_active_tab();
                 }
             }
             Action::PrevTab => {
@@ -75,6 +77,7 @@ impl App {
                         self.sync_input_mode_for_active_tab();
                         self.sync_sidebar_to_active_tab();
                         self.sync_footer_spinner();
+                        self.sync_theme_to_active_tab();
                     }
                 } else {
                     // Cycle through workspaces in reverse, wrapping around (sidebar not in cycle)
@@ -82,6 +85,7 @@ impl App {
                     self.sync_input_mode_for_active_tab();
                     self.sync_sidebar_to_active_tab();
                     self.sync_footer_spinner();
+                    self.sync_theme_to_active_tab();
                 }
             }
             Action::SwitchToTab(n) if n > 0 => {
@@ -89,6 +93,7 @@ impl App {
                 self.sync_input_mode_for_active_tab();
                 self.sync_sidebar_to_active_tab();
                 self.sync_footer_spinner();
+                self.sync_theme_to_active_tab();
             }
             _ => {}
         }

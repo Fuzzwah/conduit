@@ -426,6 +426,7 @@ impl App {
 
         progress("Restoring sessions");
         app.restore_session_state();
+        app.sync_theme_to_active_tab();
 
         // Honour always_show_sidebar: force visible regardless of saved state
         if app.config().ui.always_show_sidebar {
@@ -515,7 +516,22 @@ impl App {
             "theme" => {
                 self.state.close_overlays();
                 let theme_path = self.config().theme_path.clone();
-                self.state.theme_picker_state.show(theme_path.as_deref());
+                let project_theme = self
+                    .state
+                    .tab_manager
+                    .active_session()
+                    .and_then(|s| s.project_theme.clone());
+                let has_project_context = self
+                    .state
+                    .tab_manager
+                    .active_session()
+                    .and_then(|s| s.workspace_id)
+                    .is_some();
+                self.state.theme_picker_state.show_with_project_context(
+                    theme_path.as_deref(),
+                    project_theme.as_deref(),
+                    has_project_context,
+                );
                 self.state.input_mode = InputMode::SelectingTheme;
             }
             "providers" => {
@@ -684,10 +700,12 @@ impl App {
                         session.working_dir = Some(workspace.path);
                         session.workspace_name = Some(workspace.name.clone());
 
-                        // Look up repository for project name
+                        // Look up repository for project name and project theme
                         if let Some(repo_dao) = self.repo_dao() {
                             if let Ok(Some(repo)) = repo_dao.get_by_id(workspace.repository_id) {
+                                session.repository_id = Some(repo.id);
                                 session.project_name = Some(repo.name);
+                                session.project_theme = repo.theme_name;
                             }
                         }
                     }
@@ -3906,6 +3924,7 @@ impl App {
     }
 
     fn confirm_theme_picker(&mut self) -> anyhow::Result<Vec<Effect>> {
+        let scope = self.state.theme_picker_state.scope();
         let previous_theme_name = self.config().theme_name.clone();
         let previous_theme_path = self.config().theme_path.clone();
 
@@ -3924,27 +3943,63 @@ impl App {
                 _ => (Some(theme.name.clone()), None),
             };
             let display_name = theme.display_name.clone();
-            if let Err(err) = crate::config::save_theme_config(name.as_deref(), path.as_deref()) {
-                self.config_mut().theme_name = previous_theme_name;
-                self.config_mut().theme_path = previous_theme_path;
-                self.state.theme_picker_state.hide(true); // Restore original theme
-                                                          // Clear any pending theme picker error state.
-                self.state.theme_picker_state.take_error();
-                self.state.set_timed_footer_message(
-                    format!("Failed to save theme: {err}"),
-                    Duration::from_secs(5),
-                );
-                if !self.return_to_settings_menu_if_needed() {
-                    self.state.input_mode = InputMode::Normal;
+
+            use crate::ui::components::ThemeScope;
+            if scope == ThemeScope::Project && name.is_some() {
+                // Save theme to repository record
+                let repository_id = self
+                    .state
+                    .tab_manager
+                    .active_session()
+                    .and_then(|s| s.repository_id);
+                if let Some(repo_id) = repository_id {
+                    let dao = self.repo_dao_clone();
+                    if let Some(dao) = dao {
+                        if let Err(err) = dao.update_theme(repo_id, name.as_deref()) {
+                            self.state.theme_picker_state.hide(true);
+                            self.state.theme_picker_state.take_error();
+                            self.state.set_timed_footer_message(
+                                format!("Failed to save project theme: {err}"),
+                                Duration::from_secs(5),
+                            );
+                            if !self.return_to_settings_menu_if_needed() {
+                                self.state.input_mode = InputMode::Normal;
+                            }
+                            return Ok(Vec::new());
+                        }
+                    }
+                    if let Some(session) = self.state.tab_manager.active_session_mut() {
+                        session.project_theme = name.clone();
+                    }
                 }
-                return Ok(Vec::new());
+                self.state.set_timed_footer_message(
+                    format!("Project theme: {}", display_name),
+                    Duration::from_secs(3),
+                );
+            } else {
+                // Save theme globally (original behavior)
+                if let Err(err) = crate::config::save_theme_config(name.as_deref(), path.as_deref())
+                {
+                    self.config_mut().theme_name = previous_theme_name;
+                    self.config_mut().theme_path = previous_theme_path;
+                    self.state.theme_picker_state.hide(true); // Restore original theme
+                    self.state.theme_picker_state.take_error();
+                    self.state.set_timed_footer_message(
+                        format!("Failed to save theme: {err}"),
+                        Duration::from_secs(5),
+                    );
+                    if !self.return_to_settings_menu_if_needed() {
+                        self.state.input_mode = InputMode::Normal;
+                    }
+                    return Ok(Vec::new());
+                }
+                self.config_mut().theme_name = name;
+                self.config_mut().theme_path = path;
+                self.state.set_timed_footer_message(
+                    format!("Theme: {}", display_name),
+                    Duration::from_secs(3),
+                );
             }
-            self.config_mut().theme_name = name;
-            self.config_mut().theme_path = path;
-            self.state.set_timed_footer_message(
-                format!("Theme: {}", display_name),
-                Duration::from_secs(3),
-            );
         }
 
         self.state.theme_picker_state.hide(false); // Not cancelled
@@ -3952,6 +4007,39 @@ impl App {
             self.state.input_mode = InputMode::Normal;
         }
         Ok(Vec::new())
+    }
+
+    /// Clear the project theme override from the active session's repository.
+    pub(super) fn clear_project_theme(&mut self) {
+        let repository_id = self
+            .state
+            .tab_manager
+            .active_session()
+            .and_then(|s| s.repository_id);
+        let Some(repo_id) = repository_id else {
+            return;
+        };
+        let dao = self.repo_dao_clone();
+        if let Some(dao) = dao {
+            if let Err(err) = dao.update_theme(repo_id, None) {
+                self.state.set_timed_footer_message(
+                    format!("Failed to clear project theme: {err}"),
+                    Duration::from_secs(5),
+                );
+                return;
+            }
+        }
+        if let Some(session) = self.state.tab_manager.active_session_mut() {
+            session.project_theme = None;
+        }
+        self.state.theme_picker_state.hide(true); // Close picker and restore original
+        if !self.return_to_settings_menu_if_needed() {
+            self.state.input_mode = InputMode::Normal;
+        }
+        // Apply global fallback theme
+        self.sync_theme_to_active_tab();
+        self.state
+            .set_timed_footer_message("Project theme cleared".to_string(), Duration::from_secs(3));
     }
 
     /// Execute a command from command mode
@@ -4144,11 +4232,12 @@ impl App {
             return;
         }
 
-        // Get the repository name for the tab title
-        let project_name = self
+        // Get the repository name, ID, and project theme for the tab
+        let (project_name, repository_id, project_theme) = self
             .repo_dao()
             .and_then(|dao| dao.get_by_id(workspace.repository_id).ok().flatten())
-            .map(|repo| repo.name);
+            .map(|repo| (Some(repo.name), Some(repo.id), repo.theme_name))
+            .unwrap_or((None, None, None));
 
         // Check if there's a saved session for this workspace (to restore chat history)
         let saved_tab = self
@@ -4233,7 +4322,9 @@ impl App {
         // Store workspace info in session and restore chat history if available
         if let Some(session) = self.state.tab_manager.active_session_mut() {
             session.workspace_id = Some(workspace_id);
+            session.repository_id = repository_id;
             session.project_name = project_name;
+            session.project_theme = project_theme;
             session.workspace_name = Some(workspace.name.clone());
 
             // Restore saved session data if available
@@ -4840,7 +4931,22 @@ impl App {
             SettingsMenuEntryId::Theme => {
                 self.open_settings_child();
                 let theme_path = self.config().theme_path.clone();
-                self.state.theme_picker_state.show(theme_path.as_deref());
+                let project_theme = self
+                    .state
+                    .tab_manager
+                    .active_session()
+                    .and_then(|s| s.project_theme.clone());
+                let has_project_context = self
+                    .state
+                    .tab_manager
+                    .active_session()
+                    .and_then(|s| s.workspace_id)
+                    .is_some();
+                self.state.theme_picker_state.show_with_project_context(
+                    theme_path.as_deref(),
+                    project_theme.as_deref(),
+                    has_project_context,
+                );
                 self.state.input_mode = InputMode::SelectingTheme;
             }
             SettingsMenuEntryId::WorkspaceDefaults => {
@@ -5068,6 +5174,26 @@ impl App {
         } else if self.state.footer_spinner.is_some() {
             // Stop spinner if not processing, or awaiting response
             self.state.stop_footer_spinner();
+        }
+    }
+
+    /// Apply the active tab's project theme, or fall back to the global config theme.
+    pub(super) fn sync_theme_to_active_tab(&self) {
+        let project_theme = self
+            .state
+            .tab_manager
+            .active_session()
+            .and_then(|s| s.project_theme.as_deref());
+
+        if let Some(name) = project_theme {
+            if !crate::ui::components::load_theme_by_name(name) {
+                tracing::warn!(theme = %name, "Failed to apply project theme; keeping current theme");
+            }
+        } else {
+            crate::ui::components::init_theme(
+                self.config().theme_name.as_deref(),
+                self.config().theme_path.as_deref(),
+            );
         }
     }
 
@@ -5793,8 +5919,10 @@ impl App {
             agent_type,
             working_dir,
             workspace_id,
+            repository_id,
             project_name,
             workspace_name,
+            project_theme,
             pr_number,
             is_processing,
         ) = match self.state.tab_manager.session(active_index) {
@@ -5802,8 +5930,10 @@ impl App {
                 session.agent_type,
                 session.working_dir.clone(),
                 session.workspace_id,
+                session.repository_id,
                 session.project_name.clone(),
                 session.workspace_name.clone(),
+                session.project_theme.clone(),
                 session.pr_number,
                 session.is_processing,
             ),
@@ -5830,8 +5960,10 @@ impl App {
             AgentSession::new(agent_type)
         };
         new_session.workspace_id = workspace_id;
+        new_session.repository_id = repository_id;
         new_session.project_name = project_name;
         new_session.workspace_name = workspace_name;
+        new_session.project_theme = project_theme;
         new_session.pr_number = pr_number;
         new_session.model = Some(self.config().default_model_for(agent_type));
         new_session.model_invalid = false;

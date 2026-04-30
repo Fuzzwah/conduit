@@ -109,7 +109,7 @@ pub use spinner::Spinner;
 pub use status_bar::StatusBar;
 pub use tab_bar::{TabBar, TabBarHitTarget};
 pub use text_input::TextInputState;
-pub use theme_picker::{ThemePicker, ThemePickerItem, ThemePickerState};
+pub use theme_picker::{ThemePicker, ThemePickerItem, ThemePickerState, ThemeScope};
 // Theme system - new dynamic API (use these for new code)
 pub use theme::{
     // Accent colors (functions)

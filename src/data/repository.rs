@@ -48,7 +48,7 @@ impl RepositoryStore {
     pub fn get_by_id(&self, id: Uuid) -> SqliteResult<Option<Repository>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, base_path, repository_url, workspace_mode, archive_delete_branch, archive_remote_prompt, created_at, updated_at
+            "SELECT id, name, base_path, repository_url, workspace_mode, archive_delete_branch, archive_remote_prompt, created_at, updated_at, theme_name
              FROM repositories WHERE id = ?1",
         )?;
 
@@ -64,7 +64,7 @@ impl RepositoryStore {
     pub fn get_all(&self) -> SqliteResult<Vec<Repository>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, base_path, repository_url, workspace_mode, archive_delete_branch, archive_remote_prompt, created_at, updated_at
+            "SELECT id, name, base_path, repository_url, workspace_mode, archive_delete_branch, archive_remote_prompt, created_at, updated_at, theme_name
              FROM repositories ORDER BY COALESCE(position, 999999), name",
         )?;
 
@@ -122,7 +122,7 @@ impl RepositoryStore {
         let conn = self.conn.lock().unwrap();
         let path_str = path.to_string_lossy().to_string();
         let mut stmt = conn.prepare(
-            "SELECT id, name, base_path, repository_url, workspace_mode, archive_delete_branch, archive_remote_prompt, created_at, updated_at
+            "SELECT id, name, base_path, repository_url, workspace_mode, archive_delete_branch, archive_remote_prompt, created_at, updated_at, theme_name
              FROM repositories WHERE base_path = ?1",
         )?;
 
@@ -143,6 +143,7 @@ impl RepositoryStore {
         let archive_remote_prompt_raw: Option<i32> = row.get(6)?;
         let created_at_str: String = row.get(7)?;
         let updated_at_str: String = row.get(8)?;
+        let theme_name: Option<String> = row.get(9)?;
 
         let workspace_mode = match workspace_mode_raw {
             None => None,
@@ -176,7 +177,18 @@ impl RepositoryStore {
             updated_at: DateTime::parse_from_rfc3339(&updated_at_str)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),
+            theme_name,
         })
+    }
+
+    /// Update the theme name for a repository (None clears the project theme).
+    pub fn update_theme(&self, id: Uuid, theme_name: Option<&str>) -> SqliteResult<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE repositories SET theme_name = ?2, updated_at = ?3 WHERE id = ?1",
+            params![id.to_string(), theme_name, Utc::now().to_rfc3339()],
+        )?;
+        Ok(())
     }
 
     /// Set the display order of repositories by assigning each a position.

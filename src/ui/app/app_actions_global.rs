@@ -163,7 +163,22 @@ impl App {
             Action::ShowThemePicker => {
                 self.state.close_overlays();
                 let theme_path = self.config().theme_path.clone();
-                self.state.theme_picker_state.show(theme_path.as_deref());
+                let project_theme = self
+                    .state
+                    .tab_manager
+                    .active_session()
+                    .and_then(|s| s.project_theme.clone());
+                let has_project_context = self
+                    .state
+                    .tab_manager
+                    .active_session()
+                    .and_then(|s| s.workspace_id)
+                    .is_some();
+                self.state.theme_picker_state.show_with_project_context(
+                    theme_path.as_deref(),
+                    project_theme.as_deref(),
+                    has_project_context,
+                );
                 self.state.input_mode = InputMode::SelectingTheme;
             }
             Action::ShowProvidersSelector => {

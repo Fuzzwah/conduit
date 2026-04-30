@@ -542,6 +542,25 @@ impl App {
             return Ok(Vec::new());
         }
 
+        // Tab toggles Global/Project scope in the theme picker
+        if self.state.input_mode == InputMode::SelectingTheme
+            && key.modifiers.is_empty()
+            && key.code == KeyCode::Tab
+        {
+            self.state.theme_picker_state.toggle_scope();
+            return Ok(Vec::new());
+        }
+
+        // Ctrl+D clears the project theme override from within the theme picker
+        if self.state.input_mode == InputMode::SelectingTheme
+            && key.modifiers.contains(KeyModifiers::CONTROL)
+            && key.code == KeyCode::Char('d')
+            && self.state.theme_picker_state.can_clear_project_theme()
+        {
+            self.clear_project_theme();
+            return Ok(Vec::new());
+        }
+
         // Get the current context from input mode and active tab type
         let context = self.key_context_for_active_tab();
 
