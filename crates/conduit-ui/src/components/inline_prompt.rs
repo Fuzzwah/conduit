@@ -895,11 +895,14 @@ impl InlinePromptState {
                     Some(QuestionAnswer::MultiSelected(indices)) => indices.contains(&i),
                     _ => false,
                 };
-                lines.push(self.option_line(i, &opt.label, is_selected, show_checkbox, is_checked));
-                lines.push(Line::from(vec![
-                    Span::raw("     "), // Indent to align with label
-                    Span::styled(opt.description.clone(), Style::default().fg(text_muted())),
-                ]));
+                lines.extend(self.option_lines_wrapped(
+                    i,
+                    opt,
+                    is_selected,
+                    show_checkbox,
+                    is_checked,
+                    width,
+                ));
             }
 
             // "Type something" option
@@ -931,15 +934,16 @@ impl InlinePromptState {
         }
     }
 
-    /// Build an option line
-    fn option_line(
+    /// Build wrapped option lines for render_as_lines, handling long labels and descriptions.
+    fn option_lines_wrapped(
         &self,
         index: usize,
-        label: &str,
+        opt: &QuestionOption,
         is_selected: bool,
         show_checkbox: bool,
         is_checked: bool,
-    ) -> Line<'static> {
+        width: usize,
+    ) -> Vec<Line<'static>> {
         let selector = if is_selected { SELECTOR } else { " " };
         let selector_style = Style::default().fg(accent_primary());
         let number_style = if is_selected {
@@ -953,17 +957,50 @@ impl InlinePromptState {
             Style::default().fg(text_secondary())
         };
 
-        let label_text = if show_checkbox {
-            format!("[{}] {}", if is_checked { "x" } else { " " }, label)
+        let selector_str = format!("{} ", selector);
+        let number_str = format!("{}. ", index + 1);
+        let checkbox_str: String = if show_checkbox {
+            format!("[{}] ", if is_checked { "x" } else { " " })
         } else {
-            label.to_string()
+            String::new()
         };
 
-        Line::from(vec![
-            Span::styled(format!("{} ", selector), selector_style),
-            Span::styled(format!("{}. ", index + 1), number_style),
-            Span::styled(label_text, label_style),
-        ])
+        let prefix_width = UnicodeWidthStr::width(selector_str.as_str())
+            + UnicodeWidthStr::width(number_str.as_str())
+            + UnicodeWidthStr::width(checkbox_str.as_str());
+        let label_wrap_width = width.saturating_sub(prefix_width);
+        let wrapped_label = word_wrap_line(&opt.label, label_wrap_width);
+
+        let mut lines = Vec::new();
+
+        // First line: selector + number + optional checkbox + first label fragment
+        let first = wrapped_label.first().cloned().unwrap_or_default();
+        lines.push(Line::from(vec![
+            Span::styled(selector_str, selector_style),
+            Span::styled(number_str, number_style),
+            Span::styled(format!("{}{}", checkbox_str, first), label_style),
+        ]));
+
+        // Continuation lines indented to align with the label start
+        let indent = " ".repeat(prefix_width);
+        for cont in wrapped_label.into_iter().skip(1) {
+            lines.push(Line::from(vec![
+                Span::raw(indent.clone()),
+                Span::styled(cont, label_style),
+            ]));
+        }
+
+        // Description lines
+        let desc_indent = "     ";
+        let desc_wrap_width = width.saturating_sub(desc_indent.len());
+        for desc_line in word_wrap_line(&opt.description, desc_wrap_width) {
+            lines.push(Line::from(vec![
+                Span::raw(desc_indent),
+                Span::styled(desc_line, Style::default().fg(text_muted())),
+            ]));
+        }
+
+        lines
     }
 
     /// Build the "Type something" option line
@@ -1246,6 +1283,37 @@ impl<'a> InlinePrompt<'a> {
         Paragraph::new(line).render(area, buf);
     }
 
+    /// Calculate the number of terminal rows needed to render an option at the given width.
+    fn option_render_height(
+        &self,
+        index: usize,
+        option: &QuestionOption,
+        width: u16,
+        show_checkbox: bool,
+    ) -> u16 {
+        let selector_w = UnicodeWidthStr::width("❯ ");
+        let number_w = UnicodeWidthStr::width(format!("{}. ", index + 1).as_str());
+        let checkbox_w = if show_checkbox {
+            UnicodeWidthStr::width("[x] ")
+        } else {
+            0
+        };
+        let prefix_w = selector_w + number_w + checkbox_w;
+
+        let label_wrap_w = (width as usize).saturating_sub(prefix_w);
+        let label_h = word_wrap_line(&option.label, label_wrap_w).len();
+
+        let desc_indent = 5usize;
+        let desc_wrap_w = (width as usize).saturating_sub(desc_indent);
+        let desc_h = if option.description.is_empty() {
+            0
+        } else {
+            word_wrap_line(&option.description, desc_wrap_w).len()
+        };
+
+        (label_h + desc_h) as u16
+    }
+
     /// Render a single option
     #[allow(clippy::too_many_arguments)]
     fn render_option(
@@ -1258,7 +1326,6 @@ impl<'a> InlinePrompt<'a> {
         show_checkbox: bool,
         is_checked: bool,
     ) {
-        // First line: number and label
         let selector = if is_selected { SELECTOR } else { " " };
         let selector_style = Style::default().fg(accent_primary());
         let number_style = if is_selected {
@@ -1272,32 +1339,54 @@ impl<'a> InlinePrompt<'a> {
             Style::default().fg(text_secondary())
         };
 
-        let label = if show_checkbox {
-            format!("[{}] {}", if is_checked { "x" } else { " " }, option.label)
+        let selector_str = format!("{} ", selector);
+        let number_str = format!("{}. ", index + 1);
+        let checkbox_str: String = if show_checkbox {
+            format!("[{}] ", if is_checked { "x" } else { " " })
         } else {
-            option.label.clone()
+            String::new()
         };
-        let label_line = Line::from(vec![
-            Span::styled(format!("{} ", selector), selector_style),
-            Span::styled(format!("{}. ", index + 1), number_style),
-            Span::styled(label, label_style),
-        ]);
-        Paragraph::new(label_line).render(area, buf);
 
-        // Second line: description (indented)
-        if area.height > 1 {
+        let prefix_w = UnicodeWidthStr::width(selector_str.as_str())
+            + UnicodeWidthStr::width(number_str.as_str())
+            + UnicodeWidthStr::width(checkbox_str.as_str());
+        let label_wrap_w = (area.width as usize).saturating_sub(prefix_w);
+        let label_h = word_wrap_line(&option.label, label_wrap_w).len() as u16;
+        let label_h = label_h.min(area.height);
+
+        let label_line = Line::from(vec![
+            Span::styled(selector_str, selector_style),
+            Span::styled(number_str, number_style),
+            Span::styled(format!("{}{}", checkbox_str, option.label), label_style),
+        ]);
+        Paragraph::new(label_line)
+            .wrap(Wrap { trim: false })
+            .render(
+                Rect {
+                    x: area.x,
+                    y: area.y,
+                    width: area.width,
+                    height: label_h,
+                },
+                buf,
+            );
+
+        // Description below the label
+        if area.height > label_h && !option.description.is_empty() {
             let desc_area = Rect {
                 x: area.x,
-                y: area.y + 1,
+                y: area.y + label_h,
                 width: area.width,
-                height: 1,
+                height: area.height - label_h,
             };
             let desc_style = Style::default().fg(text_muted());
             let desc_line = Line::from(vec![
-                Span::raw("     "), // Indent to align with label
-                Span::styled(&option.description, desc_style),
+                Span::raw("     "),
+                Span::styled(option.description.clone(), desc_style),
             ]);
-            Paragraph::new(desc_line).render(desc_area, buf);
+            Paragraph::new(desc_line)
+                .wrap(Wrap { trim: false })
+                .render(desc_area, buf);
         }
     }
 
@@ -1555,12 +1644,14 @@ impl Widget for InlinePrompt<'_> {
                                 }
                                 _ => false,
                             };
+                            let opt_h =
+                                self.option_render_height(i, opt, area.width, show_checkbox);
                             self.render_option(
                                 Rect {
                                     x: area.x,
                                     y,
                                     width: area.width,
-                                    height: 2,
+                                    height: opt_h,
                                 },
                                 buf,
                                 i,
@@ -1569,7 +1660,7 @@ impl Widget for InlinePrompt<'_> {
                                 show_checkbox,
                                 is_checked,
                             );
-                            y += 2;
+                            y += opt_h;
                         }
 
                         // "Type something" option
