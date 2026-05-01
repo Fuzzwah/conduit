@@ -1,0 +1,23 @@
+[package]
+name = "conduit-config"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Conduit user configuration, keybindings, and tool/path resolution"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+conduit-agent = { workspace = true }
+conduit-git = { workspace = true }
+conduit-types = { workspace = true }
+conduit-util = { workspace = true }
+
+crossterm = { workspace = true }
+serde = { workspace = true }
+toml = { workspace = true }
+toml_edit = { workspace = true }
+tracing = { workspace = true }

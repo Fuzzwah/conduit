@@ -81,19 +81,19 @@
 - [x] 7.10 Update root `src/lib.rs` re-export, add path dep, verify `cargo check --workspace`
 - [x] 7.11 Verify CI gate: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` all pass
 
-## 8. Move `Action`/`events` into `conduit-types` and extract `conduit-config` (tier 6 — completes Fix B)
+## 8. Move `Action`/`events` into `conduit-types` and extract `conduit-config` (tier 6 — completes Fix B) ✓
 
-- [ ] 8.1 In `crates/conduit-types/Cargo.toml`, add `conduit-agent = { path = "../conduit-agent" }` and `conduit-git = { path = "../conduit-git" }` to `[dependencies]`
-- [ ] 8.2 Move `src/ui/action.rs` into `crates/conduit-types/src/action.rs` and `src/ui/events.rs` into `crates/conduit-types/src/events.rs`. Move `src/ui/git_tracker.rs`'s `GitTrackerUpdate` enum (only the enum, not the rest of the module if larger) into `crates/conduit-types/src/git_tracker_update.rs`
-- [ ] 8.3 In `crates/conduit-types/src/lib.rs` add `pub mod action; pub mod events; pub mod git_tracker_update;` plus flat re-exports if convenient (`pub use action::Action;` etc.)
-- [ ] 8.4 Update imports inside the moved files: `crate::agent::AgentEvent` → `conduit_agent::AgentEvent`, `crate::git::GithubIssue` → `conduit_git::GithubIssue`, etc.
-- [ ] 8.5 In `src/ui/mod.rs`, add re-export shims so existing `ui::action::Action`, `ui::events::InputMode`, `ui::git_tracker::GitTrackerUpdate` all still resolve: `pub mod action { pub use conduit_types::action::*; }` (or equivalent)
-- [ ] 8.6 Update `src/config/keys.rs:13,190,704,750,758`, `src/config/default_keys.rs:11`, `src/config/settings.rs:10` to import from `conduit_types` instead of `crate::ui` (Fix B)
-- [ ] 8.7 Create `crates/conduit-config/Cargo.toml` with deps `serde`, `toml`, `toml_edit`, `json5`, `dirs`, `crossterm`, `anyhow`, `conduit-util`, `conduit-types`, `conduit-agent`, `conduit-git`
-- [ ] 8.8 `git mv src/config crates/conduit-config/src` then rename `mod.rs` → `lib.rs`. Rewrite remaining `crate::*` imports
-- [ ] 8.9 In root `src/lib.rs`, replace `pub mod config;` with `pub use conduit_config as config;`
-- [ ] 8.10 Add path dep, verify `cargo check --workspace`
-- [ ] 8.11 Commit "refactor: extract conduit-config crate (Fix B complete)"
+- [x] 8.1 `Action`, `InputMode`, `ViewMode` already moved to `conduit-types` in tier 2 (4.5–4.10). No changes needed here.
+- [x] 8.2 Skipped — types already moved in tier 2 with re-export shims via `src/ui/action.rs`, `src/ui/events.rs`.
+- [x] 8.3 `conduit-types/src/lib.rs` already exports `Action`, `InputMode`, `ViewMode` from tier 2.
+- [x] 8.4 Skipped — `Action` is a pure `PathBuf`/`serde`-only enum; agent/git references in the original Action variants were removed earlier as dead code.
+- [x] 8.5 Re-export shims in `src/ui/action.rs`, `src/ui/app_prompt.rs`, `src/ui/events.rs` added in tier 2.
+- [x] 8.6 Update `crates/conduit-config/src/keys.rs`, `default_keys.rs`, `settings.rs` to import from `conduit_types` instead of `crate::ui` (Fix B complete)
+- [x] 8.7 Create `crates/conduit-config/Cargo.toml` with deps `crossterm`, `serde`, `toml`, `toml_edit`, `tracing`, `conduit-agent`, `conduit-git`, `conduit-types`, `conduit-util`
+- [x] 8.8 `git mv src/config/{default_keys,keys,settings}.rs crates/conduit-config/src/` then rename `mod.rs` → `lib.rs`. Rewrite `crate::agent::*` → `conduit_agent::*`, `crate::git::*` → `conduit_git::*`, `crate::util::*` → `conduit_util::*`. Restore `config.toml.example` from git.
+- [x] 8.9 In root `src/lib.rs`, replace `pub mod config;` with `pub use conduit_config as config;`
+- [x] 8.10 Add path dep, verify `cargo check --workspace`
+- [x] 8.11 Verify CI gate: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` all pass
 
 ## 9. Extract `conduit-theme` (tier 7 — completes Fix C)
 

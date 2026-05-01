@@ -798,6 +798,7 @@ dependencies = [
  "codex-app-server-protocol",
  "codex-protocol",
  "conduit-agent",
+ "conduit-config",
  "conduit-data",
  "conduit-git",
  "conduit-resolver",
@@ -845,6 +846,21 @@ dependencies = [
  "unicode-width",
  "uuid",
  "which",
+]
+
+[[package]]
+name = "conduit-config"
+version = "0.5.0"
+dependencies = [
+ "conduit-agent",
+ "conduit-git",
+ "conduit-types",
+ "conduit-util",
+ "crossterm 0.28.1",
+ "serde",
+ "toml",
+ "toml_edit 0.22.27",
+ "tracing",
 ]
 
 [[package]]

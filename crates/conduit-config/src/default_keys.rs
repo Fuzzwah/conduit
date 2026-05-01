@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use crossterm::event::{KeyCode, KeyModifiers};
 
 use super::keys::{KeyCombo, KeyContext, KeybindingConfig};
-use crate::ui::action::Action;
+use conduit_types::Action;
 
 /// Helper to insert a keybinding
 fn bind(map: &mut HashMap<KeyCombo, Action>, key: &str, action: Action) {

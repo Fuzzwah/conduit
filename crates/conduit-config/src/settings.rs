@@ -5,11 +5,11 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 use toml_edit::{Array, DocumentMut, Item, Table};
 
-use crate::agent::{AgentType, ModelRegistry};
-use crate::git::WorkspaceMode;
-use crate::ui::action::Action;
-use crate::util::paths::config_path;
-use crate::util::tools::{Tool, ToolAvailability, ToolPaths};
+use conduit_agent::{AgentType, ModelRegistry};
+use conduit_git::WorkspaceMode;
+use conduit_types::Action;
+use conduit_util::paths::config_path;
+use conduit_util::tools::{Tool, ToolAvailability, ToolPaths};
 
 use super::default_keys::default_keybindings;
 use super::keys::{parse_key_notation, KeyContext, KeybindingConfig};

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [".", "crates/conduit-util", "crates/conduit-types", "crates/conduit-git", "crates/conduit-agent", "crates/conduit-resolver", "crates/conduit-session", "crates/conduit-data"]
+members = [".", "crates/conduit-util", "crates/conduit-types", "crates/conduit-git", "crates/conduit-agent", "crates/conduit-resolver", "crates/conduit-session", "crates/conduit-data", "crates/conduit-config"]
 
 [workspace.package]
 version = "0.5.0"
@@ -19,6 +19,7 @@ conduit-agent = { path = "crates/conduit-agent" }
 conduit-resolver = { path = "crates/conduit-resolver" }
 conduit-session = { path = "crates/conduit-session" }
 conduit-data = { path = "crates/conduit-data" }
+conduit-config = { path = "crates/conduit-config" }
 
 # Async runtime
 tokio = { version = "1.42", features = ["full", "process", "sync", "macros", "rt-multi-thread"] }
@@ -146,6 +147,7 @@ conduit-agent = { workspace = true }
 conduit-resolver = { workspace = true }
 conduit-session = { workspace = true }
 conduit-data = { workspace = true }
+conduit-config = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 futures = { workspace = true }

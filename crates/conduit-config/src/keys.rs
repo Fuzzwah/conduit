@@ -10,7 +10,7 @@ use std::str::FromStr;
 use crossterm::event::{KeyCode, KeyModifiers};
 use serde::{Deserialize, Serialize};
 
-use crate::ui::action::Action;
+use conduit_types::Action;
 
 /// A key combination (key code + modifiers)
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -207,10 +207,10 @@ impl KeyContext {
 
     /// Convert from InputMode to KeyContext
     pub fn from_input_mode(
-        mode: crate::ui::events::InputMode,
-        view_mode: crate::ui::events::ViewMode,
+        mode: conduit_types::InputMode,
+        view_mode: conduit_types::ViewMode,
     ) -> Self {
-        use crate::ui::events::{InputMode, ViewMode};
+        use conduit_types::{InputMode, ViewMode};
 
         // Modal dialogs always take precedence - they overlay everything
         // Check for modal input modes first before considering view mode
@@ -791,7 +791,7 @@ mod tests {
 
     #[test]
     fn test_modal_dialogs_take_precedence_over_view_mode() {
-        use crate::ui::events::{InputMode, ViewMode};
+        use conduit_types::{InputMode, ViewMode};
 
         // When in ImportingSession mode with RawEvents view, the dialog should take precedence
         // This is the bug: dialogs should not be overridden by view mode
@@ -837,7 +837,7 @@ mod tests {
 
     #[test]
     fn test_selecting_theme_maps_to_theme_picker_context() {
-        use crate::ui::events::{InputMode, ViewMode};
+        use conduit_types::{InputMode, ViewMode};
 
         let context = KeyContext::from_input_mode(InputMode::SelectingTheme, ViewMode::Chat);
         assert_eq!(context, KeyContext::ThemePicker);
@@ -845,7 +845,7 @@ mod tests {
 
     #[test]
     fn test_file_viewer_maps_to_file_viewer_context() {
-        use crate::ui::events::{InputMode, ViewMode};
+        use conduit_types::{InputMode, ViewMode};
 
         let context = KeyContext::from_input_mode(InputMode::FileViewer, ViewMode::Chat);
         assert_eq!(context, KeyContext::FileViewer);
