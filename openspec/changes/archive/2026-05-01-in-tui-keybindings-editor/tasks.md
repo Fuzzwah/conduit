@@ -44,7 +44,7 @@
 ## 8. Verification
 
 - [x] 8.1 Run `cargo fmt --check && cargo clippy -- -D warnings && cargo test` and confirm all pass
-- [ ] 8.2 Manual test: open Settings → Keybindings, navigate list, remap a binding, verify `~/.conduit/config.toml` updated and new binding works in-session
-- [ ] 8.3 Manual test: reset an overridden binding (Del/R), verify override indicator removed and default key works
-- [ ] 8.4 Manual test: attempt to bind a key already in use → confirm conflict message shown, no change saved
-- [ ] 8.5 Manual test: type filter text → list narrows; Backspace removes filter chars; Esc closes editor back to Settings
+- [x] 8.2 Manual test: open Settings → Keybindings, navigate list, remap a binding, verify `~/.conduit/config.toml` updated and new binding works in-session
+- [x] 8.3 Manual test: reset an overridden binding (Del/R), verify override indicator removed and default key works
+- [x] 8.4 Manual test: attempt to bind a key already in use → confirm conflict message shown, no change saved
+- [x] 8.5 Manual test: type filter text → list narrows; Backspace removes filter chars; Esc closes editor back to Settings
