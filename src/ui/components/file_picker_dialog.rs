@@ -270,8 +270,8 @@ impl FilePickerDialog {
     pub fn dialog_area(area: Rect) -> Rect {
         let w = DIALOG_WIDTH.min(area.width.saturating_sub(4));
         let h = DIALOG_HEIGHT.min(area.height.saturating_sub(2));
-        let x = (area.width.saturating_sub(w)) / 2;
-        let y = (area.height.saturating_sub(h)) / 2;
+        let x = area.x + (area.width.saturating_sub(w)) / 2;
+        let y = area.y + (area.height.saturating_sub(h)) / 2;
         Rect {
             x,
             y,

@@ -76,9 +76,9 @@ impl<'a> DialogFrame<'a> {
         let dialog_width = self.width.min(area.width.saturating_sub(4));
         let dialog_height = self.height.min(area.height.saturating_sub(2));
 
-        // Center the dialog
-        let x = (area.width.saturating_sub(dialog_width)) / 2;
-        let y = (area.height.saturating_sub(dialog_height)) / 2;
+        // Center the dialog within area (area.x/y is the base offset)
+        let x = area.x + (area.width.saturating_sub(dialog_width)) / 2;
+        let y = area.y + (area.height.saturating_sub(dialog_height)) / 2;
 
         let dialog_area = Rect {
             x,

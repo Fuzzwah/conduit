@@ -9,7 +9,9 @@ use crate::agent::{AgentMode, AgentType, MessageDisplay};
 use crate::config::{remove_keybinding, save_keybinding, Config, KeyCombo, KeyContext};
 use crate::ui::action::Action;
 use crate::ui::app::App;
-use crate::ui::components::{build_keybinding_items, SIDEBAR_HEADER_ROWS};
+use crate::ui::components::{
+    build_keybinding_items, ConflictPending, KeybindingItem, SIDEBAR_HEADER_ROWS,
+};
 use crate::ui::effect::Effect;
 use crate::ui::events::{InputMode, ViewMode};
 use crate::ui::terminal_guard::TerminalGuard;
@@ -1562,14 +1564,24 @@ impl App {
         &mut self,
         key: KeyEvent,
     ) -> anyhow::Result<Vec<Effect>> {
-        // Esc or modifier-only key cancels capture
         let is_modifier_only = matches!(
             key.code,
             KeyCode::Modifier(_) | KeyCode::CapsLock | KeyCode::ScrollLock | KeyCode::NumLock
         ) || key.code == KeyCode::Null;
+
+        // Esc: if a conflict is pending, dismiss it and stay in capture; otherwise cancel capture.
         if key.code == KeyCode::Esc || is_modifier_only {
-            self.state.keybindings_editor_state.cancel_capture();
-            self.state.input_mode = InputMode::KeybindingsEditor;
+            if self
+                .state
+                .keybindings_editor_state
+                .conflict_pending
+                .is_some()
+            {
+                self.state.keybindings_editor_state.conflict_pending = None;
+            } else {
+                self.state.keybindings_editor_state.cancel_capture();
+                self.state.input_mode = InputMode::KeybindingsEditor;
+            }
             return Ok(vec![]);
         }
 
@@ -1580,9 +1592,51 @@ impl App {
         };
 
         let item = self.state.keybindings_editor_state.items[item_idx].clone();
+
+        // Enter while conflict is pending: steal the key from the conflicting action.
+        if key.code == KeyCode::Enter {
+            if let Some(conflict) = self.state.keybindings_editor_state.conflict_pending.take() {
+                return self
+                    .save_keybinding_and_finish(item, conflict.key_str)
+                    .await;
+            }
+            // Enter with no conflict pending is a no-op (not a valid key to bind).
+            return Ok(vec![]);
+        }
+
+        // Backspace or Delete: clear the user's custom binding (revert to default).
+        // Neither key is bindable as a hotkey.
+        let is_clear_key = matches!(key.code, KeyCode::Delete | KeyCode::Backspace);
+        if is_clear_key {
+            self.state.keybindings_editor_state.conflict_pending = None;
+            if item.is_user_override {
+                if let Err(e) = remove_keybinding(item.context, item.action_name) {
+                    self.state
+                        .keybindings_editor_state
+                        .set_status(format!("Error resetting: {e}"));
+                    self.state.keybindings_editor_state.cancel_capture();
+                    self.state.input_mode = InputMode::KeybindingsEditor;
+                    return Ok(vec![]);
+                }
+                self.config_mut().keybindings = Config::load().keybindings;
+                let new_items = build_keybinding_items(&self.config().keybindings);
+                self.state
+                    .keybindings_editor_state
+                    .set_status(format!("Reset to default: {}", item.default_key));
+                self.state.keybindings_editor_state.refresh_items(new_items);
+                self.state.keybindings_editor_state.cancel_capture();
+                self.state.input_mode = InputMode::KeybindingsEditor;
+            }
+            return Ok(vec![]);
+        }
+
+        // Any other key while conflict is pending: clear the conflict and treat the
+        // new key as a fresh capture attempt (fall through).
+        self.state.keybindings_editor_state.conflict_pending = None;
+
         let combo = KeyCombo::from_key_event(&key);
 
-        // Conflict check: look for another action bound to this combo
+        // Conflict check: look for another action already bound to this combo.
         let conflict = if let Some(ctx) = item.context {
             self.config()
                 .keybindings
@@ -1596,18 +1650,35 @@ impl App {
 
         if let Some(conflicting_action) = conflict {
             if conflicting_action != item.action {
-                let name =
-                    crate::config::action_to_name(&conflicting_action).unwrap_or("another action");
-                self.state
+                let conflicting_label = self
+                    .state
                     .keybindings_editor_state
-                    .set_status(format!("Key already bound to '{name}'"));
-                self.state.keybindings_editor_state.cancel_capture();
-                self.state.input_mode = InputMode::KeybindingsEditor;
+                    .items
+                    .iter()
+                    .find(|i| i.action == conflicting_action)
+                    .map(|i| i.action_label.clone())
+                    .unwrap_or_else(|| {
+                        crate::config::action_to_name(&conflicting_action)
+                            .unwrap_or("another action")
+                            .to_string()
+                    });
+                self.state.keybindings_editor_state.conflict_pending = Some(ConflictPending {
+                    key_str: combo.to_string(),
+                    conflicting_label,
+                });
                 return Ok(vec![]);
             }
         }
 
-        let key_str = combo.to_string();
+        self.save_keybinding_and_finish(item, combo.to_string())
+            .await
+    }
+
+    async fn save_keybinding_and_finish(
+        &mut self,
+        item: KeybindingItem,
+        key_str: String,
+    ) -> anyhow::Result<Vec<Effect>> {
         if let Err(e) = save_keybinding(item.context, item.action_name, &key_str) {
             self.state
                 .keybindings_editor_state
@@ -1616,10 +1687,7 @@ impl App {
             self.state.input_mode = InputMode::KeybindingsEditor;
             return Ok(vec![]);
         }
-
-        // Reload keybindings from disk so in-memory state reflects the change
         self.config_mut().keybindings = Config::load().keybindings;
-
         let new_items = build_keybinding_items(&self.config().keybindings);
         self.state
             .keybindings_editor_state
@@ -1628,35 +1696,5 @@ impl App {
         self.state.keybindings_editor_state.cancel_capture();
         self.state.input_mode = InputMode::KeybindingsEditor;
         Ok(vec![])
-    }
-
-    pub(super) fn handle_keybinding_reset(&mut self) {
-        let Some(item_idx) = self.state.keybindings_editor_state.selected_item_idx() else {
-            return;
-        };
-        let item = self.state.keybindings_editor_state.items[item_idx].clone();
-
-        if !item.is_user_override {
-            self.state
-                .keybindings_editor_state
-                .set_status("Already using default binding".to_string());
-            return;
-        }
-
-        if let Err(e) = remove_keybinding(item.context, item.action_name) {
-            self.state
-                .keybindings_editor_state
-                .set_status(format!("Error resetting: {e}"));
-            return;
-        }
-
-        // Reload keybindings from disk
-        self.config_mut().keybindings = Config::load().keybindings;
-
-        let new_items = build_keybinding_items(&self.config().keybindings);
-        self.state
-            .keybindings_editor_state
-            .set_status(format!("Reset to default: {}", item.default_key));
-        self.state.keybindings_editor_state.refresh_items(new_items);
     }
 }

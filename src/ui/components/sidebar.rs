@@ -12,8 +12,8 @@ use ratatui::{
 pub const SIDEBAR_HEADER_ROWS: u16 = 0;
 
 use crate::ui::components::{
-    accent_primary, ensure_contrast_fg, selected_bg, selected_bg_dim, sidebar_bg, text_muted,
-    text_primary,
+    accent_primary, ensure_contrast_fg, selected_bg_bright, selected_bg_dim, sidebar_bg,
+    text_muted, text_primary,
 };
 
 use super::tree_view::{SidebarData, TreeView, TreeViewState};
@@ -178,7 +178,7 @@ impl StatefulWidget for Sidebar<'_> {
             let label_fg = ensure_contrast_fg(text_primary(), sidebar_background, 4.5);
             let suffix_fg = ensure_contrast_fg(text_muted(), sidebar_background, 3.0);
 
-            let focused_bg = selected_bg();
+            let focused_bg = selected_bg_bright();
             let focused_fg = ensure_contrast_fg(text_primary(), focused_bg, 4.5);
             let unfocused_bg = selected_bg_dim();
             let unfocused_fg = ensure_contrast_fg(text_primary(), unfocused_bg, 4.5);

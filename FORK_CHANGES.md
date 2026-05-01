@@ -360,7 +360,171 @@ When adding a project via git URL, if the derived target directory already exist
 
 ---
 
-## 36. Workspace Creation Sync, Issue/Spec Pickers, and Filtering
+## 36. OpenSpec Development Workflow
+
+Conduit now supports a full spec-driven development workflow using OpenSpec and Specify (spec-kit) specs.
+
+- **OpenSpec change picker on workspace creation (#135):** When creating a new workspace, Conduit scans `openspec/changes/*/tasks.md` for incomplete (`- [ ]`) tasks and presents a picker. Selecting a change names the workspace after the `change_id`.
+- **Conditional display with remote sync (#142):** The picker only appears when incomplete specs exist. The flow now syncs from remote (`git fetch origin`) first, then fetches GitHub issues and scans specs in parallel — skipping both pickers when nothing is relevant.
+- **Spec-kit (specify) picker support (#145):** Conduit also detects `.specify/specs/*/tasks.md` files. When both OpenSpec and Specify specs are present, specify takes priority.
+- **Auto-send context-load message (#153):** When a workspace is first opened after being created from a spec, Conduit automatically sends a prompt asking the agent to read the spec files and summarise remaining work.
+
+---
+
+## 37. Syntax Highlighting in Read Tool Output
+
+File content displayed in Read tool output blocks is now syntax-highlighted using the same syntect pipeline used by the file viewer and markdown code blocks (#132). The language is detected from the file extension. The `cat -n` line-number prefixes are stripped before highlighting so syntect sees clean source code. Unknown extensions fall back to plain text.
+
+A companion fix (#133) lowered the contrast threshold for `tool_block_bg` on dark themes, producing a noticeably darker and less distracting background for tool output blocks.
+
+---
+
+## 38. Default Theme: Night Owl on Fresh Install
+
+Fresh installs with no theme configured now default to Night Owl instead of "Default Dark" (#140).
+
+---
+
+## 39. Pi Agent Stability Fixes
+
+Two fixes land for the Pi agent integration:
+
+- **Static allowlisted models (#134):** Pi model registration switched to a static allowlist matching the OpenRouter model set, with a guard test to prevent drift.
+- **Extension model resolution (#144):** Pi model IDs are now stored as `provider/model_id` (e.g. `openrouter/deepseek/deepseek-v4-flash`) so Pi routes extension models correctly instead of trying to use the built-in provider. Pi's table output is correctly parsed to combine provider and model columns. The `set_pi_models` function, which was silently discarding discovered entries, was also fixed.
+
+---
+
+## 40. Stable Releases and Verified Install Pipeline (v0.5.0)
+
+The fork now has a proper release pipeline and install flow (#146):
+
+- Version bumped to `0.5.0` with `rust-toolchain.toml` pinning the stable channel.
+- `scripts/preflight.sh` checks all build dependencies with OS-aware install hints.
+- `release.yml` redesigned as a 5-stage gate: **verify** (full CI) → **build** (4 targets: x86\_64 + aarch64 Linux musl, aarch64 + x86\_64 macOS) → **smoke-test** (containers + QEMU + install.sh) → **release** (8 assets with sha256 sidecars) → **announce** (Discord).
+- `website/public/install.sh` rewritten with correct repo URL, all 4 targets, sha256 verification, and `CONDUIT_INSTALL_FILE` local-file mode for CI smoke testing.
+- `README.md` and `FORK_INSTALL.md` updated with the curl one-liner as the primary install method.
+
+---
+
+## 41. In-TUI Keybindings Editor
+
+Keybindings can now be edited live from the TUI without editing `config.toml` by hand (#151):
+
+- Accessible via Settings (`Alt+,`) → Keybindings.
+- All bindings shown grouped by context (Global, Chat, Sidebar, etc.) with a live filter input.
+- **Enter** on a binding enters capture mode — the next keypress is saved to `config.toml` via `toml_edit`.
+- **Del** on an overridden binding resets it to default and removes the override from config.
+- Overridden bindings are marked with `*` and accent colour.
+- Conflict detection prevents binding a key already in use.
+- In-memory config is reloaded after each save/reset, so changes take effect immediately.
+
+Additional keybinding improvements:
+
+- **Super/Cmd modifier support (#152):** `D-` prefix added for the macOS Command / Windows key. `Cmd` and `Super` are accepted as aliases in config.toml.
+- **Show current key (#154):** The editor now shows the currently-configured key (not just the default) when a binding has been overridden, with the original shown dimmed in parentheses.
+- **Live footer hints (#155):** Footer key hints now reflect user-remapped keybindings instead of hardcoded defaults. All four render call sites look up the live `KeybindingConfig`.
+- **Remap replaces default (#160):** Remapping an action now replaces the default binding instead of adding alongside it. Previously remapping `C-t → C-s` would leave `C-t` still active.
+- **BackTab notation fix (#175):** BackTab is now normalised to `S-<Tab>` with proper round-trip parsing. Legacy `<BackTab>` notation is still accepted for backward compatibility.
+- **Hotkey remove fix (#176):** Correctly handles removing a keybinding that was previously added alongside a default, ensuring the removal actually takes effect.
+
+---
+
+## 42. Per-Repository TUI Theme Configuration
+
+The theme picker now supports per-repository theme overrides (#156/#159):
+
+- **`theme_name` column** added to the `repositories` SQLite table (migration 16).
+- Theme picker gets a **`Tab` key scope toggle** (`Global` ↔ `Project`). Project scope is disabled when the active tab has no repository context.
+- **`Ctrl+D`** clears a project theme override.
+- **`[Global]` / `[Project]`** badge shown in the picker search bar.
+- Themes are applied automatically on tab switch via `sync_theme_to_active_tab()`, called on every navigation path (sidebar click, mouse tab click, slash-command switch, new workspace tab, sidebar cursor move) (#164).
+- A global theme change never visually overrides a project-specific override — the project theme is re-applied immediately after the global confirm.
+
+### Night Fox Theme (#163)
+
+A new built-in theme is shipped alongside the 30 existing ones: **Night Fox** — a dark red/orange variant of Night Owl. Burgundy-tinged dark backgrounds (`#1c0a0a` base) instead of deep navy, with orange primary accent, coral secondary, and amber/crimson for success/error states.
+
+### Centered Session Title (#166)
+
+The workspace header's session title is now horizontally centered and uses the theme's brightest colour (`text_bright`) instead of the muted secondary colour. Placeholder "New session" text retains muted styling.
+
+### Removed Animated Footer Progress Bar (#156)
+
+The Knight Rider animated spinner in the global footer was redundant alongside the "Working" indicator in the session area — it has been removed, giving key hints the full footer width.
+
+---
+
+## 43. Tab Reordering
+
+Workspace tabs can now be reordered with **`Alt+Shift+,`** (move left) and **`Alt+Shift+.`** (move right) (#169). Tab position is persisted across sessions via `SaveSessionState`. The default keybindings were changed from `Alt+Shift+Left/Right` to `Alt+Shift+,/.` for iTerm2 compatibility (#171/#173). The reorder actions are registered as user-remappable in `settings.rs`.
+
+---
+
+## 44. Compact Tab Titles
+
+Tab titles are now compact: a 10-character truncated project name (with `…` if longer) followed by the trailing segment of the git branch name in square brackets. Format: `conduit [old-rose]` instead of `conduit (old-rose)` (#170). The `branch_name` field is populated on `AgentSession` from `workspace.branch` at all session creation points and preserved through agent handoffs.
+
+---
+
+## 45. Dialogs Centered on Main Pane
+
+All dialogs now centre within the main pane when the sidebar is visible, rather than across the full terminal width (#172). This affects `DialogFrame::render()` and all 10 dialog components (help, model selector, settings, keybindings editor, workspace defaults, rename project, file picker, multi-select, session import, project picker). When no sidebar is visible, behaviour is unchanged.
+
+---
+
+## 46. Kill Full Agent Process Trees on Archive
+
+Archiving or removing a workspace now terminates the entire agent process tree instead of only the top-level PID (#174):
+
+- Agent runners spawn into isolated process groups, so shutdown signals reach the full descendant tree (Claude child processes, Playwright MCP descendants, etc.).
+- A shared `util::process` module provides Unix process-group setup and teardown with SIGTERM/SIGKILL escalation and PID start-time safety checks.
+- `SessionManager` tracks PID start time for active web sessions.
+- TUI and web session shutdown use the same shared process-tree cleanup, keeping archive/close behaviour consistent across both surfaces.
+
+---
+
+## 47. Code Block Copy Improvements
+
+Several enhancements to the `Alt+y` code block copy feature (improving on entry #6 above):
+
+- **Backward cycling (`Alt+Shift+y`)** (#130): cycles code blocks in reverse (toward newer blocks), complementing the existing forward cycle.
+- **Auto-scroll to block** (#130): both forward and backward copy now auto-scroll the viewport to bring the copied block into view.
+- **First press always moves** (#131): the first press of `Alt+y` or `Alt+Shift+y` always moves to the next/prev block, even if the current scroll position is ambiguous.
+- **Green bar indicator** (#129): copied blocks are now indicated by a subtle green-background space on the left edge instead of a full background highlight, keeping code text fully readable.
+
+---
+
+## 48. Pinned Message Refinements
+
+The pinned agent status message feature (entry #33 above) received a refinement:
+
+- The pin now only activates when there is scrollable content below the pinned message (more cache, streaming output, extra lines) (#128/#124). When the agent's final response is the last item, normal scroll layout is restored, preventing the pinned message from obscuring earlier content.
+
+---
+
+## 49. File Viewer UX Improvements
+
+The file viewer (opened via clickable file paths in chat or the `:open` command) received several UX improvements (#162):
+
+- **Left margin:** 2-column left margin added to file content in both raw and rendered modes.
+- **Line numbers:** Line numbers are shown by default in raw mode (existing behaviour, unchanged).
+- **Restore origin tab:** Closing a file viewer tab now restores the exact tab that was active when the file was opened (`origin_tab_index`), instead of landing on whatever index happens to be last.
+
+---
+
+## 50. Help Dialog from Splash Screen and Sidebar
+
+Pressing `?` now opens the help dialog from both the splash screen and the sidebar (previously only worked from the chat input). E2E tests have been updated to cover both entry points.
+
+---
+
+## 51. Tab/BackTab Pass-Through in Inline Prompts
+
+Tab and BackTab are no longer silently consumed by inline prompt widgets (e.g. plan-mode feedback, single-question `AskUserQuestion`) when there are no question tabs to navigate (#158). Global hotkeys like tab switching and sidebar focus now work while an inline prompt is displayed. Multi-question navigation behaviour is unchanged.
+
+---
+
+## 52. Workspace Creation Sync, Issue/Spec Pickers, and Filtering
 
 The new-workspace flow (Alt+N) now runs as an explicit three-phase prelude: sync with the remote, then offer an issue picker (when issues exist), then offer a spec picker (when incomplete openspec/spec-kit specs exist). Specs are read from the `origin/<default>` ref via `git ls-tree` + `git show`, so changes that have already been merged and archived on the remote no longer appear in the picker — even when the local working tree still contains the stale directories.
 

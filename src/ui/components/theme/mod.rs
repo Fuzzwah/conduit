@@ -477,6 +477,13 @@ pub fn selected_bg_dim() -> Color {
     bg_elevated()
 }
 
+/// Selection background (bright, e.g. focused sidebar) - blends bg_highlight with accent_primary
+/// for a noticeably brighter, more interactive feel when the sidebar is focused.
+#[inline]
+pub fn selected_bg_bright() -> Color {
+    interpolate(bg_highlight(), accent_primary(), 0.18)
+}
+
 /// Tab bar background - maps to bg_surface
 #[inline]
 pub fn tab_bar_bg() -> Color {

@@ -2,6 +2,7 @@
 
 pub mod names;
 pub mod paths;
+pub mod process;
 pub mod project_folders;
 pub mod title_generator;
 pub mod tools;

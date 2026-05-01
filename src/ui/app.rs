@@ -699,6 +699,7 @@ impl App {
                     if let Ok(Some(workspace)) = workspace_dao.get_by_id(workspace_id) {
                         session.working_dir = Some(workspace.path);
                         session.workspace_name = Some(workspace.name.clone());
+                        session.branch_name = Some(workspace.branch.clone());
 
                         // Look up repository for project name and project theme
                         if let Some(repo_dao) = self.repo_dao() {
@@ -1806,214 +1807,13 @@ impl App {
     }
 
     fn terminate_agent_pid(pid: u32, pid_start_time: Option<u64>, context: &str) -> bool {
-        #[cfg(unix)]
-        {
-            let term_result = unsafe { libc::kill(pid as i32, libc::SIGTERM) };
-            if term_result == -1 {
-                let err = std::io::Error::last_os_error();
-                if err.raw_os_error() == Some(libc::ESRCH) {
-                    return true;
-                }
-                tracing::warn!(
-                    error = %err,
-                    pid,
-                    context,
-                    "Failed to send SIGTERM to agent"
-                );
-            } else if Self::wait_for_pid_exit(pid, AGENT_TERMINATION_GRACE, context, "SIGTERM") {
-                return true;
-            }
-
-            if !Self::pid_identity_matches(pid, pid_start_time, context) {
-                return false;
-            }
-
-            let kill_result = unsafe { libc::kill(pid as i32, libc::SIGKILL) };
-            if kill_result == -1 {
-                let kill_err = std::io::Error::last_os_error();
-                if kill_err.raw_os_error() == Some(libc::ESRCH) {
-                    return true;
-                }
-                tracing::warn!(
-                    error = %kill_err,
-                    pid,
-                    context,
-                    "Failed to send SIGKILL to agent"
-                );
-                return false;
-            }
-
-            if Self::wait_for_pid_exit(pid, AGENT_TERMINATION_GRACE, context, "SIGKILL") {
-                return true;
-            }
-
-            tracing::warn!(
-                pid,
-                context,
-                "Agent still running after SIGKILL grace period"
-            );
-            false
-        }
-        #[cfg(not(unix))]
-        {
-            tracing::warn!(
-                pid,
-                context,
-                "Process termination not implemented on this platform"
-            );
-            false
-        }
-    }
-
-    #[cfg(unix)]
-    fn wait_for_pid_exit(pid: u32, timeout: Duration, context: &str, signal: &str) -> bool {
-        let deadline = Instant::now() + timeout;
-        loop {
-            let result = unsafe { libc::kill(pid as i32, 0) };
-            if result == 0 {
-                if Instant::now() >= deadline {
-                    return false;
-                }
-                std::thread::sleep(AGENT_TERMINATION_POLL_INTERVAL);
-                continue;
-            }
-            let err = std::io::Error::last_os_error();
-            if let Some(code) = err.raw_os_error() {
-                if code == libc::ESRCH {
-                    return true;
-                }
-                if code == libc::EPERM {
-                    if Instant::now() >= deadline {
-                        return false;
-                    }
-                    std::thread::sleep(AGENT_TERMINATION_POLL_INTERVAL);
-                    continue;
-                }
-            }
-            tracing::warn!(
-                error = %err,
-                pid,
-                context,
-                signal,
-                "Failed to poll agent pid after signal"
-            );
-            return false;
-        }
-    }
-
-    #[cfg(unix)]
-    fn pid_identity_matches(pid: u32, pid_start_time: Option<u64>, context: &str) -> bool {
-        let Some(expected_start_time) = pid_start_time else {
-            tracing::warn!(
-                pid,
-                context,
-                "Agent pid identity unavailable; skipping SIGKILL"
-            );
-            return false;
-        };
-        match Self::pid_start_time(pid) {
-            Some(current_start_time) => {
-                if current_start_time != expected_start_time {
-                    tracing::warn!(
-                        pid,
-                        context,
-                        expected_start_time,
-                        current_start_time,
-                        "Agent pid start time mismatch; skipping SIGKILL"
-                    );
-                    return false;
-                }
-                true
-            }
-            None => {
-                tracing::warn!(
-                    pid,
-                    context,
-                    "Unable to verify agent pid start time; skipping SIGKILL"
-                );
-                false
-            }
-        }
-    }
-
-    #[cfg(target_os = "linux")]
-    fn pid_start_time(pid: u32) -> Option<u64> {
-        let stat = match std::fs::read_to_string(format!("/proc/{}/stat", pid)) {
-            Ok(contents) => contents,
-            Err(err) => {
-                tracing::debug!(
-                    pid,
-                    error = %err,
-                    "Failed to read /proc/{}/stat for pid start time",
-                    pid
-                );
-                return None;
-            }
-        };
-        let end = stat.rfind(')')?;
-        let after = &stat[end + 1..];
-        let mut fields = after.split_whitespace();
-        let start_time_str = fields.nth(19)?;
-        start_time_str.parse().ok()
-    }
-
-    #[cfg(target_os = "macos")]
-    fn pid_start_time(pid: u32) -> Option<u64> {
-        let mut info = ProcBsdInfo {
-            pbi_flags: 0,
-            pbi_status: 0,
-            pbi_xstatus: 0,
-            pbi_pid: 0,
-            pbi_ppid: 0,
-            pbi_uid: 0,
-            pbi_gid: 0,
-            pbi_ruid: 0,
-            pbi_rgid: 0,
-            pbi_svuid: 0,
-            pbi_svgid: 0,
-            rfu_1: 0,
-            pbi_comm: [0; MAXCOMLEN],
-            pbi_name: [0; 2 * MAXCOMLEN],
-            pbi_nfiles: 0,
-            pbi_pgid: 0,
-            pbi_pjobc: 0,
-            e_tdev: 0,
-            e_tpgid: 0,
-            pbi_nice: 0,
-            pbi_start_tvsec: 0,
-            pbi_start_tvusec: 0,
-        };
-        let size = std::mem::size_of::<ProcBsdInfo>() as libc::c_int;
-        let result = unsafe {
-            proc_pidinfo(
-                pid as libc::c_int,
-                PROC_PIDTBSDINFO,
-                0,
-                &mut info as *mut _ as *mut libc::c_void,
-                size,
-            )
-        };
-        if result <= 0 {
-            let err = std::io::Error::last_os_error();
-            tracing::debug!(
-                pid,
-                error = %err,
-                "Failed to read pid start time via proc_pidinfo"
-            );
-            return None;
-        }
-        if result < size {
-            tracing::debug!(
-                pid,
-                result,
-                expected = size,
-                "Short proc_pidinfo response for pid start time"
-            );
-            return None;
-        }
-        let secs = info.pbi_start_tvsec;
-        let usecs = info.pbi_start_tvusec;
-        Some(secs.saturating_mul(1_000_000).saturating_add(usecs))
+        crate::util::process::terminate_process_tree(
+            pid,
+            pid_start_time,
+            context,
+            AGENT_TERMINATION_GRACE,
+            AGENT_TERMINATION_POLL_INTERVAL,
+        )
     }
 
     #[cfg(all(unix, not(any(target_os = "linux", target_os = "macos"))))]
@@ -4334,6 +4134,7 @@ impl App {
             session.project_name = project_name;
             session.project_theme = project_theme;
             session.workspace_name = Some(workspace.name.clone());
+            session.branch_name = Some(workspace.branch.clone());
 
             // Restore saved session data if available
             if let Some(saved) = saved_tab.as_ref() {
@@ -6068,6 +5869,7 @@ impl App {
             repository_id,
             project_name,
             workspace_name,
+            branch_name,
             project_theme,
             pr_number,
             is_processing,
@@ -6079,6 +5881,7 @@ impl App {
                 session.repository_id,
                 session.project_name.clone(),
                 session.workspace_name.clone(),
+                session.branch_name.clone(),
                 session.project_theme.clone(),
                 session.pr_number,
                 session.is_processing,
@@ -6109,6 +5912,7 @@ impl App {
         new_session.repository_id = repository_id;
         new_session.project_name = project_name;
         new_session.workspace_name = workspace_name;
+        new_session.branch_name = branch_name;
         new_session.project_theme = project_theme;
         new_session.pr_number = pr_number;
         new_session.model = Some(self.config().default_model_for(agent_type));
@@ -7864,7 +7668,7 @@ impl App {
                 };
                 if let Some(session) = self.state.tab_manager.session_mut(tab_index) {
                     session.agent_pid = Some(pid);
-                    session.agent_pid_start_time = Self::pid_start_time(pid);
+                    session.agent_pid_start_time = crate::util::process::pid_start_time(pid);
                     session.agent_input_tx = input_tx;
                     tracing::debug!(
                         session_id = %session_id,
@@ -10222,6 +10026,7 @@ impl App {
             working_dir,
             project_name,
             workspace_name,
+            branch_name,
             pr_number,
             handoff_prompt,
         ) = {
@@ -10246,6 +10051,7 @@ impl App {
                 session.working_dir.clone(),
                 session.project_name.clone(),
                 session.workspace_name.clone(),
+                session.branch_name.clone(),
                 session.pr_number,
                 app_prompt::build_handoff_prompt(session.chat_view.messages()),
             )
@@ -10260,6 +10066,7 @@ impl App {
             working_dir,
             project_name,
             workspace_name,
+            branch_name,
             pr_number,
             handoff_prompt: Arc::from(handoff_prompt),
         });
@@ -10336,6 +10143,7 @@ impl App {
         session.workspace_id = pending.workspace_id;
         session.project_name = pending.project_name.clone();
         session.workspace_name = pending.workspace_name.clone();
+        session.branch_name = pending.branch_name.clone();
         session.pr_number = pending.pr_number;
         session.model = Some(target_model);
         session.init_context_for_model();
@@ -10607,6 +10415,7 @@ impl App {
         session.workspace_id = Some(workspace_id);
         session.project_name = project_name;
         session.workspace_name = Some(workspace.name.clone());
+        session.branch_name = Some(workspace.branch.clone());
         session.model = pending.model.clone();
         session.reasoning_effort = pending.reasoning_effort;
         session.model_invalid = false;
@@ -11463,42 +11272,66 @@ impl App {
                         // Render dialogs over empty state
                         if self.state.base_dir_dialog_state.is_visible() {
                             let dialog = BaseDirDialog::new();
-                            dialog.render(size, f.buffer_mut(), &self.state.base_dir_dialog_state);
+                            dialog.render(
+                                right_area,
+                                f.buffer_mut(),
+                                &self.state.base_dir_dialog_state,
+                            );
                         } else if self.state.provider_selector_state.is_visible() {
                             let selector = ProviderSelector::new();
                             selector.render(
-                                size,
+                                right_area,
                                 f.buffer_mut(),
                                 &self.state.provider_selector_state.dialog,
                             );
                         } else if self.state.project_picker_state.is_visible() {
                             let picker = ProjectPicker::new();
-                            picker.render(size, f.buffer_mut(), &self.state.project_picker_state);
+                            picker.render(
+                                right_area,
+                                f.buffer_mut(),
+                                &self.state.project_picker_state,
+                            );
                         } else if self.state.add_repo_dialog_state.is_visible() {
                             let dialog = AddRepoDialog::new();
-                            dialog.render(size, f.buffer_mut(), &self.state.add_repo_dialog_state);
+                            dialog.render(
+                                right_area,
+                                f.buffer_mut(),
+                                &self.state.add_repo_dialog_state,
+                            );
                         } else if self.state.session_import_state.is_visible() {
                             let picker = SessionImportPicker::new();
-                            picker.render(size, f.buffer_mut(), &self.state.session_import_state);
+                            picker.render(
+                                right_area,
+                                f.buffer_mut(),
+                                &self.state.session_import_state,
+                            );
                         } else if self.state.model_selector_state.is_visible() {
-                            self.state.model_selector_state.update_viewport(size);
+                            self.state.model_selector_state.update_viewport(right_area);
                             let selector = ModelSelector::new();
-                            selector.render(size, f.buffer_mut(), &self.state.model_selector_state);
+                            selector.render(
+                                right_area,
+                                f.buffer_mut(),
+                                &self.state.model_selector_state,
+                            );
                         } else if self.state.reasoning_selector_state.is_visible() {
                             let selector = ReasoningSelector::new();
                             selector.render(
-                                size,
+                                right_area,
                                 f.buffer_mut(),
                                 &self.state.reasoning_selector_state,
                             );
                         } else if self.state.theme_picker_state.is_visible() {
-                            self.render_theme_picker(size, f.buffer_mut());
+                            self.render_theme_picker(right_area, f.buffer_mut());
                         }
 
                         // Draw agent selector dialog if needed
                         if self.state.agent_selector_state.is_visible() {
                             let selector = AgentSelector::new();
-                            selector.render(size, f.buffer_mut(), &self.state.agent_selector_state);
+                            selector.render(
+                                right_area,
+                                f.buffer_mut(),
+                                &self.state.agent_selector_state,
+                            );
                         }
 
                         // Draw confirmation dialog if open
@@ -11506,14 +11339,14 @@ impl App {
                             use ratatui::widgets::Widget;
                             let dialog =
                                 ConfirmationDialog::new(&self.state.confirmation_dialog_state);
-                            dialog.render(size, f.buffer_mut());
+                            dialog.render(right_area, f.buffer_mut());
                         }
 
                         // Draw error dialog if open
                         if self.state.error_dialog_state.visible {
                             use ratatui::widgets::Widget;
                             let dialog = ErrorDialog::new(&self.state.error_dialog_state);
-                            dialog.render(size, f.buffer_mut());
+                            dialog.render(right_area, f.buffer_mut());
                         }
 
                         // Draw missing tool dialog if open
@@ -11521,13 +11354,13 @@ impl App {
                             use ratatui::widgets::Widget;
                             let dialog =
                                 MissingToolDialog::new(&self.state.missing_tool_dialog_state);
-                            dialog.render(size, f.buffer_mut());
+                            dialog.render(right_area, f.buffer_mut());
                         }
 
                         // Draw help dialog if open
                         if self.state.help_dialog_state.is_visible() {
                             HelpDialog::new().render(
-                                size,
+                                right_area,
                                 f.buffer_mut(),
                                 &mut self.state.help_dialog_state,
                             );
@@ -11537,7 +11370,7 @@ impl App {
                             || self.state.settings_menu_state.is_visible()
                         {
                             SettingsMenu::new().render(
-                                size,
+                                right_area,
                                 f.buffer_mut(),
                                 &self.state.settings_menu_state,
                             );
@@ -11546,7 +11379,7 @@ impl App {
                         // Draw command palette (on top of everything)
                         if self.state.command_palette_state.is_visible() {
                             CommandPalette::new().render(
-                                size,
+                                right_area,
                                 f.buffer_mut(),
                                 &self.state.command_palette_state,
                             );
@@ -11556,7 +11389,7 @@ impl App {
                             || self.state.workspace_defaults_dialog_state.is_visible()
                         {
                             WorkspaceDefaultsDialog::new().render(
-                                size,
+                                right_area,
                                 f.buffer_mut(),
                                 &self.state.workspace_defaults_dialog_state,
                             );
@@ -11566,7 +11399,7 @@ impl App {
                             || self.state.rename_project_dialog_state.is_visible()
                         {
                             RenameProjectDialog::new().render(
-                                size,
+                                right_area,
                                 f.buffer_mut(),
                                 &self.state.rename_project_dialog_state,
                             );
@@ -11934,13 +11767,13 @@ impl App {
         // Draw agent selector dialog if needed
         if self.state.agent_selector_state.is_visible() {
             let selector = AgentSelector::new();
-            selector.render(size, f.buffer_mut(), &self.state.agent_selector_state);
+            selector.render(right_area, f.buffer_mut(), &self.state.agent_selector_state);
         }
 
         if self.state.provider_selector_state.is_visible() {
             let selector = ProviderSelector::new();
             selector.render(
-                size,
+                right_area,
                 f.buffer_mut(),
                 &self.state.provider_selector_state.dialog,
             );
@@ -11949,77 +11782,93 @@ impl App {
         // Draw add repository dialog if open
         if self.state.add_repo_dialog_state.is_visible() {
             let dialog = AddRepoDialog::new();
-            dialog.render(size, f.buffer_mut(), &self.state.add_repo_dialog_state);
+            dialog.render(
+                right_area,
+                f.buffer_mut(),
+                &self.state.add_repo_dialog_state,
+            );
         }
 
         // Draw model selector dialog if open
         if self.state.model_selector_state.is_visible() {
-            self.state.model_selector_state.update_viewport(size);
+            self.state.model_selector_state.update_viewport(right_area);
             let model_selector = ModelSelector::new();
-            model_selector.render(size, f.buffer_mut(), &self.state.model_selector_state);
+            model_selector.render(right_area, f.buffer_mut(), &self.state.model_selector_state);
         }
 
         if self.state.reasoning_selector_state.is_visible() {
             let selector = ReasoningSelector::new();
-            selector.render(size, f.buffer_mut(), &self.state.reasoning_selector_state);
+            selector.render(
+                right_area,
+                f.buffer_mut(),
+                &self.state.reasoning_selector_state,
+            );
         }
 
         // Draw theme picker dialog if open
-        self.render_theme_picker(size, f.buffer_mut());
+        self.render_theme_picker(right_area, f.buffer_mut());
 
         // Draw base directory dialog if open
         if self.state.base_dir_dialog_state.is_visible() {
             let dialog = BaseDirDialog::new();
-            dialog.render(size, f.buffer_mut(), &self.state.base_dir_dialog_state);
+            dialog.render(
+                right_area,
+                f.buffer_mut(),
+                &self.state.base_dir_dialog_state,
+            );
         }
 
         // Draw project picker if open
         if self.state.project_picker_state.is_visible() {
             let picker = ProjectPicker::new();
-            picker.render(size, f.buffer_mut(), &self.state.project_picker_state);
+            picker.render(right_area, f.buffer_mut(), &self.state.project_picker_state);
         }
 
         // Draw session import picker if open
         if self.state.session_import_state.is_visible() {
             let picker = SessionImportPicker::new();
-            picker.render(size, f.buffer_mut(), &self.state.session_import_state);
+            picker.render(right_area, f.buffer_mut(), &self.state.session_import_state);
         }
 
         // Draw confirmation dialog if open
         if self.state.confirmation_dialog_state.visible {
             use ratatui::widgets::Widget;
             let dialog = ConfirmationDialog::new(&self.state.confirmation_dialog_state);
-            dialog.render(size, f.buffer_mut());
+            dialog.render(right_area, f.buffer_mut());
         }
 
         // Draw error dialog (on top of everything except spinner)
         if self.state.error_dialog_state.visible {
             use ratatui::widgets::Widget;
             let dialog = ErrorDialog::new(&self.state.error_dialog_state);
-            dialog.render(size, f.buffer_mut());
+            dialog.render(right_area, f.buffer_mut());
         }
 
         // Draw missing tool dialog (on top of everything except spinner)
         if self.state.missing_tool_dialog_state.is_visible() {
             use ratatui::widgets::Widget;
             let dialog = MissingToolDialog::new(&self.state.missing_tool_dialog_state);
-            dialog.render(size, f.buffer_mut());
+            dialog.render(right_area, f.buffer_mut());
         }
 
         // Draw help dialog (on top of everything)
         if self.state.help_dialog_state.is_visible() {
-            HelpDialog::new().render(size, f.buffer_mut(), &mut self.state.help_dialog_state);
+            HelpDialog::new().render(
+                right_area,
+                f.buffer_mut(),
+                &mut self.state.help_dialog_state,
+            );
         }
 
         if self.state.input_mode == InputMode::SettingsMenu
             || self.state.settings_menu_state.is_visible()
         {
-            SettingsMenu::new().render(size, f.buffer_mut(), &self.state.settings_menu_state);
+            SettingsMenu::new().render(right_area, f.buffer_mut(), &self.state.settings_menu_state);
         }
 
         if self.state.keybindings_editor_state.is_visible() {
             KeybindingsEditor::new().render(
-                size,
+                right_area,
                 f.buffer_mut(),
                 &self.state.keybindings_editor_state,
             );
@@ -12027,14 +11876,18 @@ impl App {
 
         // Draw command palette (on top of everything)
         if self.state.command_palette_state.is_visible() {
-            CommandPalette::new().render(size, f.buffer_mut(), &self.state.command_palette_state);
+            CommandPalette::new().render(
+                right_area,
+                f.buffer_mut(),
+                &self.state.command_palette_state,
+            );
         }
 
         if self.state.input_mode == InputMode::WorkspaceDefaults
             || self.state.workspace_defaults_dialog_state.is_visible()
         {
             WorkspaceDefaultsDialog::new().render(
-                size,
+                right_area,
                 f.buffer_mut(),
                 &self.state.workspace_defaults_dialog_state,
             );
@@ -12044,7 +11897,7 @@ impl App {
             || self.state.rename_project_dialog_state.is_visible()
         {
             RenameProjectDialog::new().render(
-                size,
+                right_area,
                 f.buffer_mut(),
                 &self.state.rename_project_dialog_state,
             );
@@ -12053,7 +11906,7 @@ impl App {
         if self.state.file_picker_dialog_state.is_visible() {
             use crate::ui::components::FilePickerDialog;
             FilePickerDialog::new().render(
-                size,
+                right_area,
                 f.buffer_mut(),
                 &self.state.file_picker_dialog_state,
             );
@@ -12062,7 +11915,7 @@ impl App {
         if self.state.scp_command_dialog_state.visible {
             use crate::ui::components::ScpCommandDialog;
             ScpCommandDialog::new().render(
-                size,
+                right_area,
                 f.buffer_mut(),
                 &self.state.scp_command_dialog_state,
             );
@@ -12070,17 +11923,21 @@ impl App {
 
         if self.state.issue_picker_state.visible {
             use crate::ui::components::IssuePicker;
-            IssuePicker::new().render(size, f.buffer_mut(), &self.state.issue_picker_state);
+            IssuePicker::new().render(right_area, f.buffer_mut(), &self.state.issue_picker_state);
         }
 
         if self.state.spec_picker_state.visible {
             use crate::ui::components::SpecPicker;
-            SpecPicker::new().render(size, f.buffer_mut(), &self.state.spec_picker_state);
+            SpecPicker::new().render(right_area, f.buffer_mut(), &self.state.spec_picker_state);
         }
 
         if self.state.specify_picker_state.visible {
             use crate::ui::components::SpecifyPicker;
-            SpecifyPicker::new().render(size, f.buffer_mut(), &self.state.specify_picker_state);
+            SpecifyPicker::new().render(
+                right_area,
+                f.buffer_mut(),
+                &self.state.specify_picker_state,
+            );
         }
 
         // Draw cloning repository spinner overlay
@@ -12091,7 +11948,7 @@ impl App {
             use ratatui::widgets::{Paragraph, Widget};
 
             let content_area =
-                DialogFrame::new("Cloning Repository", 38, 4).render(size, f.buffer_mut());
+                DialogFrame::new("Cloning Repository", 38, 4).render(right_area, f.buffer_mut());
 
             let spinner = Spinner::dots();
             let line = Line::from(vec![
@@ -12112,7 +11969,7 @@ impl App {
             use ratatui::widgets::{Paragraph, Widget};
 
             let content_area =
-                DialogFrame::new("Removing Project", 36, 4).render(size, f.buffer_mut());
+                DialogFrame::new("Removing Project", 36, 4).render(right_area, f.buffer_mut());
 
             let spinner = Spinner::dots();
             let line = Line::from(vec![
@@ -12130,7 +11987,7 @@ impl App {
             use crate::ui::components::WorkspaceProgressDialog;
             use ratatui::widgets::Widget;
             WorkspaceProgressDialog::new(&self.state.workspace_progress_dialog_state)
-                .render(size, f.buffer_mut());
+                .render(right_area, f.buffer_mut());
         }
 
         // Draw remote-sync dialog (shown during the SyncingRemote phase of
@@ -14566,6 +14423,7 @@ mod tests {
             working_dir: None,
             project_name: None,
             workspace_name: None,
+            branch_name: None,
             pr_number: None,
             handoff_prompt: Arc::from("handoff"),
         });
@@ -14682,6 +14540,7 @@ mod tests {
             working_dir: Some(working_dir.clone()),
             project_name: Some("project-a".to_string()),
             workspace_name: Some("workspace-a".to_string()),
+            branch_name: None,
             pr_number: Some(42),
             handoff_prompt: Arc::from("[CONDUIT_HANDOFF]\nReady"),
         });
@@ -14750,6 +14609,7 @@ mod tests {
             working_dir: None,
             project_name: None,
             workspace_name: None,
+            branch_name: None,
             pr_number: None,
             handoff_prompt: Arc::from("[CONDUIT_HANDOFF]\nReady"),
         });
@@ -14977,6 +14837,7 @@ mod tests {
             working_dir: None,
             project_name: None,
             workspace_name: None,
+            branch_name: None,
             pr_number: None,
             handoff_prompt: Arc::from("[CONDUIT_HANDOFF]\nReady"),
         });

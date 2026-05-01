@@ -16,7 +16,7 @@ use crate::config::keys::{KeyCombo, KeyContext, KeybindingConfig};
 use crate::ui::action::Action;
 
 use super::{
-    accent_primary, bg_highlight, dialog_bg, ensure_contrast_bg, ensure_contrast_fg,
+    accent_error, accent_primary, bg_highlight, dialog_bg, ensure_contrast_bg, ensure_contrast_fg,
     render_minimal_scrollbar, text_muted, text_primary, text_secondary, truncate_to_width,
     DialogFrame,
 };
@@ -49,6 +49,15 @@ enum DisplayRow {
     Item(usize),
 }
 
+/// A key conflict that needs user confirmation before reassigning.
+#[derive(Debug, Clone)]
+pub struct ConflictPending {
+    /// String form of the combo (e.g. "C-q"), used to save once confirmed.
+    pub key_str: String,
+    /// Human-readable label of the action that currently owns this key.
+    pub conflicting_label: String,
+}
+
 /// State for the keybindings editor dialog.
 #[derive(Debug, Clone)]
 pub struct KeybindingsEditorState {
@@ -69,6 +78,8 @@ pub struct KeybindingsEditorState {
     pub capture_mode: bool,
     /// Index into `items` of the binding being remapped
     pub capture_item_idx: Option<usize>,
+    /// Set when the pressed key conflicts with another binding; awaits confirmation.
+    pub conflict_pending: Option<ConflictPending>,
     /// Timed status message shown at the bottom of the dialog
     pub status_message: Option<String>,
 }
@@ -91,6 +102,7 @@ impl KeybindingsEditorState {
             scroll_offset: 0,
             capture_mode: false,
             capture_item_idx: None,
+            conflict_pending: None,
             status_message: None,
         }
     }
@@ -104,6 +116,7 @@ impl KeybindingsEditorState {
         self.scroll_offset = 0;
         self.capture_mode = false;
         self.capture_item_idx = None;
+        self.conflict_pending = None;
         self.status_message = None;
         self.rebuild_display_rows();
     }
@@ -112,6 +125,7 @@ impl KeybindingsEditorState {
         self.visible = false;
         self.capture_mode = false;
         self.capture_item_idx = None;
+        self.conflict_pending = None;
     }
 
     pub fn is_visible(&self) -> bool {
@@ -133,6 +147,7 @@ impl KeybindingsEditorState {
     pub fn cancel_capture(&mut self) {
         self.capture_mode = false;
         self.capture_item_idx = None;
+        self.conflict_pending = None;
     }
 
     pub fn set_status(&mut self, msg: impl Into<String>) {
@@ -582,8 +597,8 @@ impl KeybindingsEditor {
         let w = DIALOG_WIDTH.min(area.width.saturating_sub(4));
         let h = DIALOG_HEIGHT.min(area.height.saturating_sub(2));
         Rect {
-            x: (area.width.saturating_sub(w)) / 2,
-            y: (area.height.saturating_sub(h)) / 2,
+            x: area.x + (area.width.saturating_sub(w)) / 2,
+            y: area.y + (area.height.saturating_sub(h)) / 2,
             width: w,
             height: h,
         }
@@ -600,15 +615,17 @@ impl KeybindingsEditor {
             " Keybindings "
         };
 
+        let capture_item = state.capture_item_idx.and_then(|i| state.items.get(i));
         let instructions = if state.capture_mode {
-            vec![("Esc", "cancel")]
+            if state.conflict_pending.is_some() {
+                vec![("Enter", "reassign"), ("Esc", "different key")]
+            } else if capture_item.map(|i| i.is_user_override).unwrap_or(false) {
+                vec![("Esc", "cancel"), ("⌫", "reset to default")]
+            } else {
+                vec![("Esc", "cancel")]
+            }
         } else {
-            vec![
-                ("↑↓", "navigate"),
-                ("Enter", "remap"),
-                ("Del/r", "reset"),
-                ("Esc", "close"),
-            ]
+            vec![("↑↓", "navigate"), ("Enter", "remap"), ("Esc", "close")]
         };
 
         let frame = DialogFrame::new(title, DIALOG_WIDTH, DIALOG_HEIGHT).instructions(instructions);
@@ -682,44 +699,94 @@ impl KeybindingsEditor {
         }
 
         let item = state.capture_item_idx.and_then(|i| state.items.get(i));
-
-        let prompt = if let Some(item) = item {
-            format!(
-                "Press the new key for: {}  ({})",
-                item.action_label, item.context_label
-            )
-        } else {
-            "Press the new key combination...".to_string()
-        };
-
         let y = area.y + area.height / 2;
-        Paragraph::new(Span::styled(
-            truncate_to_width(&prompt, area.width as usize),
-            Style::default()
-                .fg(text_primary())
-                .add_modifier(Modifier::BOLD),
-        ))
-        .render(
-            Rect {
-                x: area.x,
-                y,
-                width: area.width,
-                height: 1,
-            },
-            buf,
-        );
 
-        let hint = "Esc to cancel";
-        if y + 1 < area.y + area.height {
-            Paragraph::new(Span::styled(hint, Style::default().fg(text_muted()))).render(
+        if let Some(conflict) = &state.conflict_pending {
+            let target_label = item
+                .map(|i| i.action_label.as_str())
+                .unwrap_or("this action");
+
+            let line1 = format!(
+                "\"{}\" is already used by \"{}\"",
+                conflict.key_str, conflict.conflicting_label
+            );
+            Paragraph::new(Span::styled(
+                truncate_to_width(&line1, area.width as usize),
+                Style::default()
+                    .fg(accent_error())
+                    .add_modifier(Modifier::BOLD),
+            ))
+            .render(
                 Rect {
                     x: area.x,
-                    y: y + 1,
+                    y,
                     width: area.width,
                     height: 1,
                 },
                 buf,
             );
+
+            if y + 2 < area.y + area.height {
+                let line2 = format!(
+                    "Enter to reassign to \"{target_label}\", or Esc to choose a different key"
+                );
+                Paragraph::new(Span::styled(
+                    truncate_to_width(&line2, area.width as usize),
+                    Style::default().fg(text_primary()),
+                ))
+                .render(
+                    Rect {
+                        x: area.x,
+                        y: y + 2,
+                        width: area.width,
+                        height: 1,
+                    },
+                    buf,
+                );
+            }
+        } else {
+            let prompt = if let Some(item) = item {
+                format!(
+                    "Press the new key for: {}  ({})",
+                    item.action_label, item.context_label
+                )
+            } else {
+                "Press the new key combination...".to_string()
+            };
+
+            Paragraph::new(Span::styled(
+                truncate_to_width(&prompt, area.width as usize),
+                Style::default()
+                    .fg(text_primary())
+                    .add_modifier(Modifier::BOLD),
+            ))
+            .render(
+                Rect {
+                    x: area.x,
+                    y,
+                    width: area.width,
+                    height: 1,
+                },
+                buf,
+            );
+
+            let has_override = item.map(|i| i.is_user_override).unwrap_or(false);
+            let hint = if has_override {
+                "Esc to cancel  •  ⌫ to reset to default"
+            } else {
+                "Esc to cancel"
+            };
+            if y + 1 < area.y + area.height {
+                Paragraph::new(Span::styled(hint, Style::default().fg(text_muted()))).render(
+                    Rect {
+                        x: area.x,
+                        y: y + 1,
+                        width: area.width,
+                        height: 1,
+                    },
+                    buf,
+                );
+            }
         }
     }
 
