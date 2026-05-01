@@ -11986,7 +11986,7 @@ impl App {
             use crate::components::RemoteSyncDialog;
             use ratatui::widgets::Widget;
             RemoteSyncDialog::new(&self.state.remote_sync_dialog_state)
-                .render(size, f.buffer_mut());
+                .render(right_area, f.buffer_mut());
         }
     }
 
