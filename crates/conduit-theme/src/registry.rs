@@ -12,7 +12,7 @@ use super::builtin::{builtin_themes, get_builtin};
 use super::toml::TomlTheme;
 use super::types::{Theme, ThemeInfo, ThemeSource};
 use super::vscode::VsCodeTheme;
-use crate::util;
+use conduit_util as util;
 
 /// Theme registry that manages all available themes.
 #[derive(Debug, Default)]

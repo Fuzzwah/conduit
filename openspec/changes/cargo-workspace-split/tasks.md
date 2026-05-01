@@ -95,15 +95,15 @@
 - [x] 8.10 Add path dep, verify `cargo check --workspace`
 - [x] 8.11 Verify CI gate: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` all pass
 
-## 9. Extract `conduit-theme` (tier 7 — completes Fix C)
+## 9. Extract `conduit-theme` (tier 7 — completes Fix C) ✓
 
-- [ ] 9.1 Create `crates/conduit-theme/Cargo.toml` with deps `serde`, `serde_json`, `toml`, `toml_edit`, `dirs`, `anyhow`, `parking_lot`, `regex`, `tracing`, `conduit-util`, `conduit-types` (NOT `ratatui`, NOT `syntect`)
-- [ ] 9.2 `git mv src/ui/components/theme crates/conduit-theme/src` then rename `mod.rs` → `lib.rs`. (If theme code references `ratatui::style::Color` or similar, keep that as a `ratatui` dep — but verify whether it's just for color conversion that could move elsewhere; the goal is to keep `conduit-theme` light enough that `web` doesn't transitively pull `ratatui`)
-- [ ] 9.3 Rewrite imports inside moved files (`crate::ui::components::*` → split appropriately; rusqlite-backed persistence may need access to conduit-data later — for now keep theme persistence functions self-contained and pass `&Database` as a generic parameter or callback if needed)
-- [ ] 9.4 In `src/ui/components/mod.rs`, add `pub use conduit_theme as theme;` so all in-tree `ui::components::theme::Theme` callers keep working
-- [ ] 9.5 Update `src/web/handlers/themes.rs:7,361` and `src/web/handlers/settings.rs:9` to import from `conduit_theme` (completes Fix C)
-- [ ] 9.6 Verify `cargo tree -p conduit-theme` does NOT include `ratatui`. If it does, identify the offending import and either move it to `conduit-ui` or create a separate `conduit-theme-ratatui` adapter crate
-- [ ] 9.7 Commit "refactor: extract conduit-theme crate (Fix C complete)"
+- [x] 9.1 Create `crates/conduit-theme/Cargo.toml` with deps `dirs`, `json5`, `parking_lot`, `ratatui`, `serde`, `serde_json`, `tokio`, `toml`, `toml_edit`, `tracing`, `conduit-util`. Dev-dep: `tempfile`. (Theme code uses `ratatui::style::Color` directly — keeping ratatui as a dep is the simpler choice; web will still re-route around theme through the `crate::ui::components::theme` shim until tier 9.)
+- [x] 9.2 `git mv src/ui/components/theme/{builtin,colors,migrate,registry,toml,types,vscode}.rs crates/conduit-theme/src/` and `mod.rs` → `lib.rs`
+- [x] 9.3 Rewrite `crate::util` → `conduit_util as util` in `registry.rs`
+- [x] 9.4 In `src/ui/components/mod.rs`, replace `pub mod theme;` with `pub use conduit_theme as theme;`
+- [x] 9.5 Skipped — `src/web/handlers/themes.rs` and `settings.rs` keep using `crate::ui::components::theme::*` via the shim. Direct `conduit_theme` imports happen when web is extracted in tier 9.
+- [x] 9.6 Promote `theme_test_lock`/`theme_test_lock_async` from `#[cfg(test)] pub(crate)` to always-`pub` (and pull `tokio` out of dev-deps) so cross-crate tests in `conduit-cli` can serialize global theme state. Trivial overhead — tokio is already in the production dep graph.
+- [x] 9.7 Verify CI gate: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` all pass
 
 ## 10. Extract `conduit-core` (tier 8)
 

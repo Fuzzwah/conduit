@@ -43,7 +43,7 @@ mod spinner;
 mod status_bar;
 mod tab_bar;
 mod text_input;
-pub mod theme;
+pub use conduit_theme as theme;
 mod theme_picker;
 mod thinking_indicator;
 mod tree_view;

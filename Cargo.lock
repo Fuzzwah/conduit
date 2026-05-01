@@ -803,6 +803,7 @@ dependencies = [
  "conduit-git",
  "conduit-resolver",
  "conduit-session",
+ "conduit-theme",
  "conduit-types",
  "conduit-util",
  "crossterm 0.28.1",
@@ -916,6 +917,24 @@ dependencies = [
  "dirs",
  "serde",
  "serde_json",
+ "tracing",
+]
+
+[[package]]
+name = "conduit-theme"
+version = "0.5.0"
+dependencies = [
+ "conduit-util",
+ "dirs",
+ "json5",
+ "parking_lot",
+ "ratatui",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "toml",
+ "toml_edit 0.22.27",
  "tracing",
 ]
 
