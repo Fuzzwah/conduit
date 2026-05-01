@@ -1,97 +1,57 @@
 ---
-description: Commit, create a PR, and merge the current branch to master
+description: Commit all changes, create a PR, and merge into the default branch
+argument-hint: "[base-branch]"
 ---
 
-Commit, create a PR, and merge the current branch to master.
+Use this when the current branch is ready for finalization and you want an OpenSpec-aware path from local changes to PR and merge.
 
-**Steps**
+Optionally specify a base branch (e.g., `/shipit main`, `/shipit develop`). If omitted, detect the default branch.
 
-1. **Check working state**
-   ```bash
-   git status
-   git diff
-   git log master..HEAD --oneline
-   ```
-   - If there are no changes and no unpushed commits, tell the user there's nothing to ship and stop.
+**Provided arguments**: $@
 
-2. **Check for associated OpenSpec change**
+## Workflow
 
-   Derive the workspace name from the current working directory:
-   ```bash
-   basename "$(pwd)"
-   ```
+1. Inspect the current worktree before doing anything destructive:
+   - review `git status` and the staged/unstaged diff
+   - identify the current branch and the repository's default branch
+   - if a base branch argument was provided, use that; otherwise detect via `gh repo view --json defaultBranch --jq .defaultBranch` or `git symbolic-ref refs/remotes/origin/HEAD`
+   - if there are no changes and no unpushed commits, tell the user there's nothing to ship and stop
 
-   Check if a matching tasks file exists:
-   ```bash
-   test -f "openspec/changes/<workspace_name>/tasks.md" && echo found || echo not found
-   ```
+2. Look back through the current conversation to determine whether this session was working on a specific OpenSpec change.
+   - signs include a named change, edits under `openspec/changes/<name>/`, calls to `opsx-apply` or `/skill:openspec-apply-change`, or task checklist updates
+   - if you can identify a change name, inspect only that change's tasks file
+   - do **not** scan unrelated OpenSpec changes just because they exist in the worktree
 
-   **If no tasks file found:** Skip to step 3.
+3. If you identified a specific OpenSpec change from the session:
+   - count complete (`- [x]`) and incomplete (`- [ ]`) items and report the totals
+   - if incomplete items remain, list them grouped by section heading, warn the user that the change still has unfinished tasks, and ask whether to continue anyway
+   - if all items are complete, ask the user whether to archive that change before shipping
 
-   **If tasks file found:**
+4. If you cannot identify an OpenSpec change that was worked on in this session, skip the OpenSpec task check entirely and continue with the standard finalization flow.
 
-   Count incomplete vs complete tasks:
-   ```bash
-   grep -c '^- \['"'"' \]' "openspec/changes/<workspace_name>/tasks.md" || true
-   grep -c '^- \[x\]' "openspec/changes/<workspace_name>/tasks.md" || true
-   ```
+5. If the user wants to archive a completed OpenSpec change before shipping:
+   - use `/opsx-archive` or invoke the `openspec-archive-change` skill
+   - summarize what was archived
 
-   **If incomplete tasks exist:**
-   - Extract and display each incomplete task line (the `- [ ] ...` lines), grouped by their nearest `##` section heading
-   - Announce clearly: "⚠️ X incomplete task(s) remain in the OpenSpec change `<name>`:" followed by the list
-   - Continue to step 3 (do not block shipping on incomplete tasks)
+6. Finalization flow after any required confirmation or optional OpenSpec archive work:
+   - confirm the commit scope with the user if it is ambiguous
+   - stage and commit the current changes with a concise message
+   - push the branch to the remote
+   - create a pull request targeting the default branch (let `gh` infer the repository from git origin — do not hardcode a repo)
+   - monitor PR checks until they finish or until you hit a reasonable wait limit
+   - report the status of each check and call out any failures or blockers
 
-   **If all tasks are complete (zero `- [ ]` lines):**
-   - Announce: "✓ All tasks complete in OpenSpec change `<name>`."
-   - Use **AskUserQuestion tool** to ask: "All OpenSpec tasks are complete. Archive the `<name>` change before shipping?"
-   - If user says **yes**: invoke `/skill:openspec-archive-change` for change `<name>`, wait for it to complete, then continue to step 3.
-   - If user says **no**: continue to step 3.
+7. After reporting PR status, ask the user whether to merge into the default branch.
+   - never merge without explicit approval
+   - if checks are failing or branch protection blocks merge, explain the blocker clearly
 
-3. **Stage and commit any uncommitted changes**
-   - If there are uncommitted changes, stage and commit them.
-   - Write a concise commit message describing what changed and why.
-   - If there are already commits ahead of master but no uncommitted changes, skip this step.
+## Guardrails
 
-4. **Push the branch**
-   ```bash
-   git push -u origin HEAD
-   ```
-
-5. **Create a PR**
-   - Write a PR body to a temp file and use `--body-file`:
-     ```bash
-     tmp_body="$(mktemp)"
-     cat > "$tmp_body" <<'EOF'
-     ## Summary
-     - <bullet points>
-
-     ## Testing
-     - <what was verified>
-     EOF
-
-     gh pr create \
-       --repo Fuzzwah/conduit \
-       --base master \
-       --head "$(git branch --show-current)" \
-       --title "<title>" \
-       --body-file "$tmp_body"
-     rm -f "$tmp_body"
-     ```
-
-6. **Ask for merge approval then merge**
-   - Use **AskUserQuestion tool** to ask: "Merge the PR into master?"
-   - If approved, merge:
-     ```bash
-     gh pr merge --repo Fuzzwah/conduit --squash --delete-branch "$(git branch --show-current)"
-     ```
-   - Use `--squash` to keep master history clean.
-
-7. **Report the result** — print the PR URL and confirm it was merged.
-
-**Guardrails**
+- Never hide unfinished OpenSpec tasks from the user when you found a session-specific OpenSpec change.
+- Never mark tasks complete unless the underlying work is actually done.
 - Never force-push.
 - Never skip hooks (`--no-verify`).
+- Never merge automatically.
 - If any step fails, stop and report the error rather than continuing.
-- Use `--repo Fuzzwah/conduit` for all `gh` calls — never `conduit-cli/conduit`.
-- Never merge automatically — always ask for explicit approval before merging (step 6).
-- Prefer stopping and asking a focused question over making assumptions about branch targets or merge strategy.
+- Prefer stopping and asking a focused question over making assumptions about OpenSpec change names, tooling, branch targets, or merge strategy.
+- Let `gh` infer the remote repository from the git origin — do not hardcode a repo.
