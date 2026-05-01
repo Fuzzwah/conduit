@@ -41,9 +41,9 @@
 ## 5. Manual + automated verification
 
 - [x] 5.1 Run `cargo fmt --check && cargo clippy -- -D warnings && cargo test`. Fix everything before proceeding.
-- [ ] 5.2 Manual repro of the original bug pre-merge: on a repo with locally-present-but-archived-on-remote OpenSpec change, build & run from `~/.conduit/workspaces/conduit/posh-iris`, Alt+N, confirm the spec picker DOES show the stale change. Document this in the PR description.
-- [ ] 5.3 Apply this change, rebuild, repeat: confirm the spec picker no longer shows the archived change. Verify the "Syncing with remote…" then "Fetching open issues…" messages appear in order.
-- [ ] 5.4 Manual filter exercise on the issue picker: type to filter; `Tab` to pick a label; `m` to toggle mine; verify counts; verify Esc progressively clears.
-- [ ] 5.5 Manual filter exercise on the spec picker: type to filter; `s` to cycle sort on the filtered subset; verify selection stays valid.
-- [ ] 5.6 Negative cases: repo without `gh` installed (issue phase silently skips); repo with no remote (working-tree fallback path used); dirty `base_path` on default branch (FF skipped, picker still correct); feature-branch `base_path` (FF skipped, picker still correct).
-- [ ] 5.7 Configure `gitea_hosts` in conduit config pointing at any reachable Gitea instance with `GITEA_TOKEN` set; create a repo, open an issue, run Alt+N, verify the issue appears. (Skip if no Gitea instance available; note in PR.) Same for Forgejo if available.
+- [x] 5.2 Manual repro of the original bug pre-merge: on a repo with locally-present-but-archived-on-remote OpenSpec change, build & run from `~/.conduit/workspaces/conduit/posh-iris`, Alt+N, confirm the spec picker DOES show the stale change. Document this in the PR description.
+- [x] 5.3 Apply this change, rebuild, repeat: confirm the spec picker no longer shows the archived change. Verify the "Syncing with remote…" then "Fetching open issues…" messages appear in order.
+- [x] 5.4 Manual filter exercise on the issue picker: type to filter; `Tab` to pick a label; `m` to toggle mine; verify counts; verify Esc progressively clears.
+- [x] 5.5 Manual filter exercise on the spec picker: type to filter; `s` to cycle sort on the filtered subset; verify selection stays valid.
+- [x] 5.6 Negative cases: repo without `gh` installed (issue phase silently skips); repo with no remote (working-tree fallback path used); dirty `base_path` on default branch (FF skipped, picker still correct); feature-branch `base_path` (FF skipped, picker still correct).
+- [x] 5.7 Configure `gitea_hosts` in conduit config pointing at any reachable Gitea instance with `GITEA_TOKEN` set; create a repo, open an issue, run Alt+N, verify the issue appears. (Skip if no Gitea instance available; note in PR.) Same for Forgejo if available.
