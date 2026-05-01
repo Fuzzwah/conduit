@@ -768,9 +768,9 @@ impl ChatView {
     /// Calculate content area with padding for left margin and optional scrollbar.
     fn content_area(area: Rect, show_scrollbar: bool) -> Option<Rect> {
         let width = if show_scrollbar {
-            area.width.saturating_sub(6) // 4 left margin + 1 scrollbar + 1 gap
+            area.width.saturating_sub(10) // 4 left margin + 1 scrollbar + 1 gap + 4 right margin
         } else {
-            area.width.saturating_sub(4) // 4 left margin
+            area.width.saturating_sub(8) // 4 left margin + 4 right margin
         };
         let content = Rect {
             x: area.x.saturating_add(4),

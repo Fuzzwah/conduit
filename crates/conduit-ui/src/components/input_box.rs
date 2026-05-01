@@ -853,7 +853,7 @@ impl InputBox {
         let segment = &self.input[line.start..cursor_pos];
         let segment_width = UnicodeWidthStr::width(segment) as u16;
         let cursor_x = area.x + line.prefix_width + segment_width;
-        let max_x = area.x + content_width.saturating_sub(1);
+        let max_x = area.x + content_width;
         let visible_y = cursor_line.saturating_sub(scroll_offset);
         (cursor_x.min(max_x), area.y + padding_top + visible_y as u16)
     }
