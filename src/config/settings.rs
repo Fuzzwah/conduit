@@ -447,6 +447,8 @@ pub fn parse_action(name: &str) -> Option<Action> {
         "close_tab" => Some(Action::CloseTab),
         "next_tab" => Some(Action::NextTab),
         "prev_tab" => Some(Action::PrevTab),
+        "move_tab_left" => Some(Action::MoveTabLeft),
+        "move_tab_right" => Some(Action::MoveTabRight),
 
         // Scrolling
         "scroll_up" => Some(Action::ScrollUp(1)),
@@ -591,6 +593,8 @@ pub fn action_to_name(action: &Action) -> Option<&'static str> {
         Action::CloseTab => Some("close_tab"),
         Action::NextTab => Some("next_tab"),
         Action::PrevTab => Some("prev_tab"),
+        Action::MoveTabLeft => Some("move_tab_left"),
+        Action::MoveTabRight => Some("move_tab_right"),
         Action::SwitchToTab(_) => None, // parametric
         // File viewer
         Action::OpenFile(_) => None, // parametric

@@ -64,6 +64,10 @@ pub enum Action {
     PrevTab,
     /// Switch to tab by number (1-9)
     SwitchToTab(u8),
+    /// Move active tab one position left
+    MoveTabLeft,
+    /// Move active tab one position right
+    MoveTabRight,
 
     // ========== File Viewer ==========
     /// Open a file in a new tab
@@ -286,6 +290,8 @@ impl Action {
             Action::NextTab => "Next tab",
             Action::PrevTab => "Previous tab",
             Action::SwitchToTab(_) => "Switch to tab",
+            Action::MoveTabLeft => "Move tab left",
+            Action::MoveTabRight => "Move tab right",
 
             // File viewer
             Action::OpenFile(_) => "Open file",
@@ -449,6 +455,8 @@ impl Action {
                 | Action::CloseTab
                 | Action::NextTab
                 | Action::PrevTab
+                | Action::MoveTabLeft
+                | Action::MoveTabRight
                 // Scrolling (page-level)
                 | Action::ScrollPageUp
                 | Action::ScrollPageDown

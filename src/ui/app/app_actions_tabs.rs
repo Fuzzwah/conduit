@@ -103,6 +103,14 @@ impl App {
                 self.sync_footer_spinner();
                 self.sync_theme_to_active_tab();
             }
+            Action::MoveTabLeft => {
+                self.state.tab_manager.move_tab_left();
+                effects.push(Effect::SaveSessionState);
+            }
+            Action::MoveTabRight => {
+                self.state.tab_manager.move_tab_right();
+                effects.push(Effect::SaveSessionState);
+            }
             _ => {}
         }
     }

@@ -132,6 +132,22 @@ impl TabManager {
         }
     }
 
+    /// Move active tab one position left; no-op if already first
+    pub fn move_tab_left(&mut self) {
+        if self.active_tab > 0 {
+            self.tabs.swap(self.active_tab - 1, self.active_tab);
+            self.active_tab -= 1;
+        }
+    }
+
+    /// Move active tab one position right; no-op if already last
+    pub fn move_tab_right(&mut self) {
+        if self.active_tab + 1 < self.tabs.len() {
+            self.tabs.swap(self.active_tab, self.active_tab + 1);
+            self.active_tab += 1;
+        }
+    }
+
     /// Get the current active tab index
     pub fn active_index(&self) -> usize {
         self.active_tab

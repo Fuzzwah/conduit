@@ -2214,7 +2214,12 @@ impl App {
             }
 
             // ========== Tab Management ==========
-            Action::CloseTab | Action::NextTab | Action::PrevTab | Action::SwitchToTab(_) => {
+            Action::CloseTab
+            | Action::NextTab
+            | Action::PrevTab
+            | Action::SwitchToTab(_)
+            | Action::MoveTabLeft
+            | Action::MoveTabRight => {
                 self.handle_tab_action(action, &mut effects);
             }
 
