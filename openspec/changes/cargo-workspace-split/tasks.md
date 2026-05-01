@@ -141,24 +141,26 @@
 
 ## 13. Create `conduit` umbrella crate and move `tests/`
 
-- [ ] 13.1 Create `crates/conduit/Cargo.toml` (lib only, name `conduit`) with internal deps on every workspace member except `conduit-bin`
-- [ ] 13.2 Create `crates/conduit/src/lib.rs` containing only `pub use` re-exports mirroring the pre-split `src/lib.rs:12-35` (the `pub use agent::{...}`, `pub use config::Config`, `pub use ui::App`, etc.). Use full paths (`pub use conduit_agent::{AgentError, AgentEvent, ...}`)
-- [ ] 13.3 `git mv tests crates/conduit/tests`. Verify integration tests under `crates/conduit/tests/integration/*.rs` still compile against the umbrella's re-exports
-- [ ] 13.4 Move `tests/fixtures/`, `tests/common/`, `tests/e2e/` along with the integration tests
-- [ ] 13.5 Verify `cargo test -p conduit` runs the integration tests and they pass
-- [ ] 13.6 Verify `bash crates/conduit/tests/e2e/run_all.sh` (path may need adjusting) still works against `target/debug/conduit`
-- [ ] 13.7 Commit "refactor: add conduit umbrella crate, relocate tests"
+> **Note:** Tiers 13 and 14 are executed as one atomic commit. The `[lib] name = "conduit"` cannot exist on two packages simultaneously, so the legacy root `[package]` / `[lib]` / `[[bin]]` is removed in the same step that adds `crates/conduit/` and `crates/conduit-bin/`.
+
+- [x] 13.1 Created `crates/conduit/Cargo.toml` (lib only, name `conduit`) with internal deps on every workspace member except `conduit-bin`
+- [x] 13.2 Created `crates/conduit/src/lib.rs` containing only `pub use` re-exports mirroring the pre-split `src/lib.rs:12-35` (the `pub use agent::{...}`, `pub use config::Config`, `pub use ui::App`, etc.) using `pub use conduit_X as X` aliases plus the flat re-exports
+- [x] 13.3 `git mv tests crates/conduit/tests`. Integration tests under `crates/conduit/tests/integration/*.rs` continue to compile against the umbrella's re-exports
+- [x] 13.4 `tests/fixtures/`, `tests/common/`, `tests/e2e/` moved as part of the same `git mv`
+- [x] 13.5 `cargo test --workspace` ran the integration tests; all pass
+- [ ] 13.6 Verify `bash crates/conduit/tests/e2e/run_all.sh` still works (deferred to tier 17 verification)
+- [x] 13.7 Combined into the tier 13+14 commit "refactor: add conduit umbrella + bin crates, remove legacy root src/"
 
 ## 14. Extract `conduit-bin` and finalise root manifest
 
-- [ ] 14.1 Create `crates/conduit-bin/Cargo.toml` with `[[bin]] name = "conduit"`, deps on `conduit` umbrella + `clap`, `tokio`, `anyhow`, `tracing-subscriber`, `crossterm`, `ratatui` (anything `main.rs` imports directly)
-- [ ] 14.2 `git mv src/main.rs crates/conduit-bin/src/main.rs`. Update its imports (`use conduit::{...}` should mostly Just Work via the umbrella)
-- [ ] 14.3 Delete the now-empty `src/` directory and any leftover root `src/lib.rs`
-- [ ] 14.4 Remove the temporary root `[package]` / `[lib]` / `[[bin]]` / `[dependencies]` blocks from root `Cargo.toml`. Update `[workspace] members` to `["crates/*"]` only (drop the `"."` entry)
-- [ ] 14.5 Verify `cargo build --workspace` produces `target/debug/conduit`
-- [ ] 14.6 Verify `./target/debug/conduit --help` matches pre-split help output (subcommands and flags)
-- [ ] 14.7 Verify `cargo install --path crates/conduit-bin --locked --force` installs successfully
-- [ ] 14.8 Commit "refactor: extract conduit-bin, remove legacy root src/"
+- [x] 14.1 Created `crates/conduit-bin/Cargo.toml` with `[[bin]] name = "conduit"`, deps on `conduit` umbrella + `clap`, `tokio`, `anyhow`, `tracing-subscriber`, `crossterm`, `ratatui`
+- [x] 14.2 `git mv src/main.rs crates/conduit-bin/src/main.rs`. `use conduit::{...}` Just Worked via the umbrella — no import changes needed
+- [x] 14.3 Deleted root `src/lib.rs` and the now-empty `src/` directory
+- [x] 14.4 Removed the temporary root `[package]` / `[lib]` / `[[bin]]` / `[dependencies]` / `[target.'cfg(unix)'.dependencies]` / `[dev-dependencies]` blocks from root `Cargo.toml`. Updated `[workspace] members` to `["crates/*"]` only. Added `conduit = { path = "crates/conduit" }` to `[workspace.dependencies]`
+- [x] 14.5 `cargo build --workspace` produces `target/debug/conduit`
+- [ ] 14.6 Verify `./target/debug/conduit --help` matches pre-split help output (deferred to tier 17 verification)
+- [ ] 14.7 Verify `cargo install --path crates/conduit-bin --locked --force` installs successfully (deferred to tier 17)
+- [x] 14.8 Combined commit "refactor: add conduit umbrella + bin crates, remove legacy root src/"
 
 ## 15. Linker config and dependency hygiene
 

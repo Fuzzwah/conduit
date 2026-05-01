@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [".", "crates/conduit-util", "crates/conduit-types", "crates/conduit-git", "crates/conduit-agent", "crates/conduit-resolver", "crates/conduit-session", "crates/conduit-data", "crates/conduit-config", "crates/conduit-theme", "crates/conduit-core", "crates/conduit-web", "crates/conduit-ui"]
+members = ["crates/*"]
 
 [workspace.package]
 version = "0.5.0"
@@ -12,6 +12,7 @@ repository = "https://github.com/Fuzzwah/conduit"
 
 [workspace.dependencies]
 # Internal crates
+conduit = { path = "crates/conduit" }
 conduit-util = { path = "crates/conduit-util" }
 conduit-types = { path = "crates/conduit-types" }
 conduit-git = { path = "crates/conduit-git" }
@@ -117,100 +118,3 @@ incremental = true
 
 [profile.dev.package."*"]
 opt-level = 0
-
-# ============================================================================
-# Root package (temporary — will be removed in tier 14 once all source moved)
-# ============================================================================
-
-[package]
-name = "conduit-cli"
-version.workspace = true
-edition.workspace = true
-rust-version.workspace = true
-description = "Multi-agent TUI for Claude Code and Codex CLI"
-authors.workspace = true
-license.workspace = true
-repository.workspace = true
-readme = "README.md"
-keywords = ["tui", "cli", "claude", "ai", "terminal"]
-categories = ["command-line-utilities", "development-tools"]
-
-[lib]
-name = "conduit"
-path = "src/lib.rs"
-
-[[bin]]
-name = "conduit"
-path = "src/main.rs"
-
-[dependencies]
-conduit-util = { workspace = true }
-conduit-types = { workspace = true }
-conduit-git = { workspace = true }
-conduit-agent = { workspace = true }
-conduit-resolver = { workspace = true }
-conduit-session = { workspace = true }
-conduit-data = { workspace = true }
-conduit-config = { workspace = true }
-conduit-theme = { workspace = true }
-conduit-core = { workspace = true }
-conduit-web = { workspace = true }
-conduit-ui = { workspace = true }
-tokio = { workspace = true }
-tokio-util = { workspace = true }
-futures = { workspace = true }
-agent-client-protocol = { workspace = true }
-ratatui = { workspace = true }
-crossterm = { workspace = true }
-tui-markdown = { workspace = true }
-pulldown-cmark = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-json5 = { workspace = true }
-toml = { workspace = true }
-toml_edit = { workspace = true }
-thiserror = { workspace = true }
-anyhow = { workspace = true }
-async-trait = { workspace = true }
-codex-protocol = { workspace = true }
-codex-app-server-protocol = { workspace = true }
-clap = { workspace = true }
-uuid = { workspace = true }
-chrono = { workspace = true }
-which = { workspace = true }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
-unicode-width = { workspace = true }
-ansi-to-tui = { workspace = true }
-arboard = { workspace = true }
-image = { workspace = true }
-tempfile = { workspace = true }
-regex = { workspace = true }
-syntect = { workspace = true }
-two-face = { workspace = true }
-rusqlite = { workspace = true }
-dirs = { workspace = true }
-rand = { workspace = true }
-sha2 = { workspace = true }
-base64 = { workspace = true }
-parking_lot = { workspace = true }
-axum = { workspace = true }
-axum-extra = { workspace = true }
-tower = { workspace = true }
-tower-http = { workspace = true }
-rust-embed = { workspace = true }
-mime_guess = { workspace = true }
-reqwest = { workspace = true }
-reqwest-eventsource = { workspace = true }
-
-[target.'cfg(unix)'.dependencies]
-libc = { workspace = true }
-
-[dev-dependencies]
-insta = { workspace = true }
-proptest = { workspace = true }
-assert_cmd = { workspace = true }
-predicates = { workspace = true }
-tokio-test = { workspace = true }
-http-body-util = { workspace = true }
-once_cell = { workspace = true }

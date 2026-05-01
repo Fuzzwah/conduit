@@ -1,0 +1,43 @@
+[package]
+name = "conduit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Multi-agent TUI for Claude Code, Codex CLI, Gemini CLI, OpenCode, Copilot, and Pi"
+readme = "README.md"
+keywords = ["tui", "cli", "claude", "ai", "terminal"]
+categories = ["command-line-utilities", "development-tools"]
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+conduit-agent = { workspace = true }
+conduit-config = { workspace = true }
+conduit-core = { workspace = true }
+conduit-data = { workspace = true }
+conduit-git = { workspace = true }
+conduit-resolver = { workspace = true }
+conduit-session = { workspace = true }
+conduit-theme = { workspace = true }
+conduit-types = { workspace = true }
+conduit-ui = { workspace = true }
+conduit-util = { workspace = true }
+conduit-web = { workspace = true }
+
+[dev-dependencies]
+anyhow = { workspace = true }
+chrono = { workspace = true }
+codex-app-server-protocol = { workspace = true }
+codex-protocol = { workspace = true }
+image = { workspace = true }
+ratatui = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true }
+uuid = { workspace = true }
+which = { workspace = true }

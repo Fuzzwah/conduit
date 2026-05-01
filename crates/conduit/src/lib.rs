@@ -1,3 +1,9 @@
+//! Conduit umbrella crate.
+//!
+//! Re-exports the public surface of the per-tier workspace crates so that
+//! external consumers and integration tests can use a single `conduit::*`
+//! prefix.
+
 pub use conduit_agent as agent;
 pub use conduit_config as config;
 pub use conduit_core as core;
