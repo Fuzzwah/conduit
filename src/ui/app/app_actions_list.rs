@@ -12,6 +12,7 @@ impl App {
                         .sidebar_state
                         .tree_state
                         .select_next(visible_count);
+                    self.sync_theme_to_sidebar_selection();
                 }
                 InputMode::SelectingModel => {
                     self.state.model_selector_state.select_next();
@@ -66,6 +67,7 @@ impl App {
                         .sidebar_state
                         .tree_state
                         .select_previous(visible_count);
+                    self.sync_theme_to_sidebar_selection();
                 }
                 InputMode::SelectingModel => {
                     self.state.model_selector_state.select_previous();
