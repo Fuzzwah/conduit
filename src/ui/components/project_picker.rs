@@ -122,8 +122,8 @@ impl ProjectPickerState {
         let dialog_width = dialog_width.min(area.width.saturating_sub(4));
         let dialog_height = dialog_height.min(area.height.saturating_sub(2));
 
-        let dialog_x = area.width.saturating_sub(dialog_width) / 2;
-        let dialog_y = area.height.saturating_sub(dialog_height) / 2;
+        let dialog_x = area.x + area.width.saturating_sub(dialog_width) / 2;
+        let dialog_y = area.y + area.height.saturating_sub(dialog_height) / 2;
 
         let dialog_area = Rect {
             x: dialog_x,

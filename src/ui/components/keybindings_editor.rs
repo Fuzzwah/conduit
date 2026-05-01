@@ -582,8 +582,8 @@ impl KeybindingsEditor {
         let w = DIALOG_WIDTH.min(area.width.saturating_sub(4));
         let h = DIALOG_HEIGHT.min(area.height.saturating_sub(2));
         Rect {
-            x: (area.width.saturating_sub(w)) / 2,
-            y: (area.height.saturating_sub(h)) / 2,
+            x: area.x + (area.width.saturating_sub(w)) / 2,
+            y: area.y + (area.height.saturating_sub(h)) / 2,
             width: w,
             height: h,
         }
