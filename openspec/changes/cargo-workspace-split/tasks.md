@@ -129,13 +129,15 @@
 - [x] 11.10 Verify CI gate: `cargo check --workspace`, `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` — all pass.
 - [x] 11.11 Commit "refactor: extract conduit-web crate (tier 9) — completes Fix C".
 
-## 12. Extract `conduit-ui` (tier 10)
+## 12. Extract `conduit-ui` (tier 10) ✓
 
-- [ ] 12.1 Create `crates/conduit-ui/Cargo.toml` with deps `ratatui`, `crossterm`, `tui-markdown`, `pulldown-cmark`, `syntect`, `two-face`, `unicode-width`, `ansi-to-tui`, `arboard`, `image`, `tempfile`, `base64`, `tokio`, `serde_json`, `regex`, `tracing`, plus internal deps `conduit-util`, `conduit-types`, `conduit-agent`, `conduit-config`, `conduit-data`, `conduit-git`, `conduit-session`, `conduit-resolver`, `conduit-core`, `conduit-theme`
-- [ ] 12.2 `git mv src/ui crates/conduit-ui/src` then rename `mod.rs` → `lib.rs`. Rewrite all `crate::*` imports to per-crate paths
-- [ ] 12.3 Verify the re-export shims for `action`, `events`, `app_prompt`, `components::theme`, `components::{ChatMessage, ...}` are present at the right paths in `crates/conduit-ui/src/`
-- [ ] 12.4 Verify `cargo check -p conduit-ui && cargo check --workspace`
-- [ ] 12.5 Commit "refactor: extract conduit-ui crate"
+- [x] 12.1 Create `crates/conduit-ui/Cargo.toml` with internal deps `conduit-{agent,config,core,data,git,resolver,session,theme,types,util}` and external deps `ansi-to-tui`, `anyhow`, `arboard`, `base64`, `chrono`, `crossterm`, `dirs`, `futures`, `image`, `parking_lot`, `pulldown-cmark`, `rand`, `ratatui`, `regex`, `serde`, `serde_json`, `syntect`, `tempfile`, `tokio`, `tracing`, `two-face`, `unicode-width`, `uuid`. Unix-only: `libc`. (`tui-markdown` listed in original spec is unused.)
+- [x] 12.2 `git mv src/ui crates/conduit-ui/src` then `mv crates/conduit-ui/src/mod.rs crates/conduit-ui/src/lib.rs`. Bulk-rewrite `crate::{agent,config,core,data,git,session,command_resolver,util}::` → `conduit_*::` then `crate::ui::` → `crate::`.
+- [x] 12.3 Re-export shims (`action`, `events`, `app_prompt`, `components::theme`, `components::{ChatMessage, ...}`) live inside the moved tree (e.g. `crates/conduit-ui/src/app_prompt.rs` is `pub use conduit_types::app_prompt::*;`) — no extra files needed.
+- [x] 12.4 Fix one-off `use crate::PrState;` in `crates/conduit-ui/src/app.rs:5237` → `use conduit_git::PrState;` (root-level re-export the sed pattern did not catch).
+- [x] 12.5 In root `src/lib.rs`, replace `pub mod ui;` with `pub use conduit_ui as ui;`.
+- [x] 12.6 Verify CI gate: `cargo check --workspace`, `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` — all pass.
+- [x] 12.7 Commit "refactor: extract conduit-ui crate (tier 10)".
 
 ## 13. Create `conduit` umbrella crate and move `tests/`
 

@@ -1,0 +1,479 @@
+//! Background git and PR status tracker
+//!
+//! Polls git status and PR information in the background without blocking the UI.
+
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
+
+use tokio::sync::mpsc;
+use uuid::Uuid;
+
+use conduit_git::{get_ahead_behind, GitDiffStats, PrManager, PrStatus};
+
+/// Configuration for the background tracker
+pub struct GitTrackerConfig {
+    /// How often to poll for git status (default: 2 seconds)
+    pub git_status_poll_interval: Duration,
+    /// How often to poll for PR updates (default: 20 seconds)
+    pub pr_poll_interval: Duration,
+    /// How often to poll for ahead/behind counts (default: 30 seconds)
+    pub ahead_behind_poll_interval: Duration,
+}
+
+impl Default for GitTrackerConfig {
+    fn default() -> Self {
+        Self {
+            git_status_poll_interval: Duration::from_secs(2),
+            pr_poll_interval: Duration::from_secs(20),
+            ahead_behind_poll_interval: Duration::from_secs(30),
+        }
+    }
+}
+
+/// State tracked per workspace
+#[derive(Debug, Clone, Default)]
+struct WorkspaceGitState {
+    pr_status: Option<PrStatus>,
+    diff_stats: GitDiffStats,
+    branch_name: Option<String>,
+    commits_ahead: usize,
+    commits_behind: usize,
+    #[allow(dead_code)]
+    last_pr_check: Option<Instant>,
+    #[allow(dead_code)]
+    last_git_check: Option<Instant>,
+}
+
+/// Updates sent from background tracker to UI
+#[derive(Debug, Clone)]
+pub enum GitTrackerUpdate {
+    /// PR status changed for a workspace.
+    ///
+    /// `None` indicates PR status is unavailable (e.g., `gh` command failed or
+    /// network error). To distinguish between "no PR exists" and "status unavailable",
+    /// consumers should check `PrStatus.exists` when status is `Some`.
+    PrStatusChanged {
+        workspace_id: Uuid,
+        status: Option<PrStatus>,
+    },
+    /// Git diff stats changed for a workspace
+    GitStatsChanged {
+        workspace_id: Uuid,
+        stats: GitDiffStats,
+    },
+    /// Branch name changed (None means detached HEAD)
+    BranchChanged {
+        workspace_id: Uuid,
+        branch: Option<String>,
+    },
+    /// Ahead/behind counts changed relative to origin main branch
+    AheadBehindChanged {
+        workspace_id: Uuid,
+        commits_ahead: usize,
+        commits_behind: usize,
+    },
+}
+
+/// Commands to the background tracker
+#[derive(Debug)]
+pub enum GitTrackerCommand {
+    /// Register a workspace to track
+    TrackWorkspace {
+        workspace_id: Uuid,
+        working_dir: PathBuf,
+    },
+    /// Stop tracking a workspace
+    UntrackWorkspace { workspace_id: Uuid },
+    /// Force immediate refresh for a workspace
+    RefreshNow { workspace_id: Uuid },
+    /// Shutdown the tracker
+    Shutdown,
+}
+
+/// Handle to control the background tracker
+#[derive(Clone)]
+pub struct GitTrackerHandle {
+    cmd_tx: mpsc::UnboundedSender<GitTrackerCommand>,
+}
+
+impl GitTrackerHandle {
+    /// Track a workspace for git/PR status updates
+    pub fn track_workspace(&self, workspace_id: Uuid, working_dir: PathBuf) {
+        if self
+            .cmd_tx
+            .send(GitTrackerCommand::TrackWorkspace {
+                workspace_id,
+                working_dir,
+            })
+            .is_err()
+        {
+            tracing::debug!("Failed to send git tracker TrackWorkspace command");
+        }
+    }
+
+    /// Stop tracking a workspace
+    pub fn untrack_workspace(&self, workspace_id: Uuid) {
+        if self
+            .cmd_tx
+            .send(GitTrackerCommand::UntrackWorkspace { workspace_id })
+            .is_err()
+        {
+            tracing::debug!("Failed to send git tracker UntrackWorkspace command");
+        }
+    }
+
+    /// Force an immediate refresh for a workspace
+    pub fn refresh_now(&self, workspace_id: Uuid) {
+        if self
+            .cmd_tx
+            .send(GitTrackerCommand::RefreshNow { workspace_id })
+            .is_err()
+        {
+            tracing::debug!("Failed to send git tracker RefreshNow command");
+        }
+    }
+
+    /// Shutdown the tracker
+    pub fn shutdown(&self) {
+        if self.cmd_tx.send(GitTrackerCommand::Shutdown).is_err() {
+            tracing::debug!("Failed to send git tracker Shutdown command");
+        }
+    }
+}
+
+fn send_update(
+    update_tx: &mpsc::UnboundedSender<GitTrackerUpdate>,
+    update: GitTrackerUpdate,
+    context: &'static str,
+) {
+    if update_tx.send(update).is_err() {
+        tracing::debug!(context, "Failed to send git tracker update");
+    }
+}
+
+/// Background git and PR status tracker
+struct GitTracker {
+    config: GitTrackerConfig,
+    /// Tracked workspaces: workspace_id -> (working_dir, state)
+    workspaces: HashMap<Uuid, (PathBuf, WorkspaceGitState)>,
+    /// Receive commands from UI
+    cmd_rx: mpsc::UnboundedReceiver<GitTrackerCommand>,
+    /// Send updates to UI
+    update_tx: mpsc::UnboundedSender<GitTrackerUpdate>,
+}
+
+impl GitTracker {
+    /// Spawn the background tracker and return a handle to control it
+    pub fn spawn(
+        config: GitTrackerConfig,
+        update_tx: mpsc::UnboundedSender<GitTrackerUpdate>,
+    ) -> GitTrackerHandle {
+        let (cmd_tx, cmd_rx) = mpsc::unbounded_channel();
+
+        let tracker = Self {
+            config,
+            workspaces: HashMap::new(),
+            cmd_rx,
+            update_tx,
+        };
+
+        tokio::spawn(tracker.run());
+
+        GitTrackerHandle { cmd_tx }
+    }
+
+    /// Main loop for the background tracker
+    async fn run(mut self) {
+        let mut git_interval = tokio::time::interval(self.config.git_status_poll_interval);
+        let mut pr_interval = tokio::time::interval(self.config.pr_poll_interval);
+        let mut ahead_behind_interval =
+            tokio::time::interval(self.config.ahead_behind_poll_interval);
+
+        // Skip the first immediate tick
+        git_interval.tick().await;
+        pr_interval.tick().await;
+        ahead_behind_interval.tick().await;
+
+        loop {
+            tokio::select! {
+                // Handle commands
+                Some(cmd) = self.cmd_rx.recv() => {
+                    match cmd {
+                        GitTrackerCommand::Shutdown => break,
+                        GitTrackerCommand::TrackWorkspace { workspace_id, working_dir } => {
+                            self.workspaces.insert(workspace_id, (working_dir.clone(), WorkspaceGitState::default()));
+                            // Immediate check on registration
+                            self.check_workspace(workspace_id, &working_dir).await;
+                        }
+                        GitTrackerCommand::UntrackWorkspace { workspace_id } => {
+                            self.workspaces.remove(&workspace_id);
+                        }
+                        GitTrackerCommand::RefreshNow { workspace_id } => {
+                            if let Some((working_dir, _)) = self.workspaces.get(&workspace_id).cloned() {
+                                self.check_workspace(workspace_id, &working_dir).await;
+                            }
+                        }
+                    }
+                }
+                // Git status polling (fast)
+                _ = git_interval.tick() => {
+                    self.poll_git_status().await;
+                }
+                // PR polling (slow)
+                _ = pr_interval.tick() => {
+                    self.poll_pr_status().await;
+                }
+                // Ahead/behind polling (medium)
+                _ = ahead_behind_interval.tick() => {
+                    self.poll_ahead_behind().await;
+                }
+            }
+        }
+    }
+
+    /// Check git status for all tracked workspaces
+    ///
+    /// TODO: Consider parallel polling with join_all for many workspaces
+    async fn poll_git_status(&mut self) {
+        let workspace_ids: Vec<_> = self.workspaces.keys().copied().collect();
+        let update_tx = self.update_tx.clone();
+
+        for workspace_id in workspace_ids {
+            if let Some((working_dir, state)) = self.workspaces.get_mut(&workspace_id) {
+                let dir = working_dir.clone();
+
+                // Get git diff stats using spawn_blocking
+                let new_stats =
+                    tokio::task::spawn_blocking(move || GitDiffStats::from_working_dir(&dir))
+                        .await
+                        .unwrap_or_default();
+
+                // Only send update if stats changed
+                if new_stats != state.diff_stats {
+                    state.diff_stats = new_stats.clone();
+                    state.last_git_check = Some(Instant::now());
+                    send_update(
+                        &update_tx,
+                        GitTrackerUpdate::GitStatsChanged {
+                            workspace_id,
+                            stats: new_stats,
+                        },
+                        "git_stats_changed",
+                    );
+                }
+
+                // Also check branch name
+                let dir = working_dir.clone();
+                let new_branch =
+                    tokio::task::spawn_blocking(move || PrManager::get_current_branch(&dir))
+                        .await
+                        .ok()
+                        .flatten();
+
+                if new_branch != state.branch_name {
+                    state.branch_name = new_branch.clone();
+                    // Always send update (including None for detached HEAD)
+                    send_update(
+                        &update_tx,
+                        GitTrackerUpdate::BranchChanged {
+                            workspace_id,
+                            branch: new_branch,
+                        },
+                        "branch_changed",
+                    );
+                }
+            }
+        }
+    }
+
+    /// Check PR status for all tracked workspaces
+    async fn poll_pr_status(&mut self) {
+        let workspace_ids: Vec<_> = self.workspaces.keys().copied().collect();
+        let update_tx = self.update_tx.clone();
+
+        for workspace_id in workspace_ids {
+            if let Some((working_dir, state)) = self.workspaces.get_mut(&workspace_id) {
+                let dir = working_dir.clone();
+
+                // Get PR status using spawn_blocking
+                let new_pr_status =
+                    tokio::task::spawn_blocking(move || PrManager::get_existing_pr(&dir))
+                        .await
+                        .ok()
+                        .flatten();
+
+                // Compare with current state - include check status and merge readiness
+                let pr_changed = match (&state.pr_status, &new_pr_status) {
+                    (None, Some(_)) => true,
+                    (Some(_), None) => true,
+                    (Some(old), Some(new)) => {
+                        old.number != new.number
+                            || old.state != new.state
+                            || old.exists != new.exists
+                            || old.checks.state() != new.checks.state()
+                            || old.merge_readiness != new.merge_readiness
+                            || old.mergeable != new.mergeable
+                    }
+                    (None, None) => false,
+                };
+
+                if pr_changed {
+                    state.pr_status = new_pr_status.clone();
+                    state.last_pr_check = Some(Instant::now());
+                    // Send update: None means status unavailable (gh failed),
+                    // Some with exists=false means no PR, Some with exists=true means PR exists
+                    send_update(
+                        &update_tx,
+                        GitTrackerUpdate::PrStatusChanged {
+                            workspace_id,
+                            status: new_pr_status,
+                        },
+                        "pr_status_changed",
+                    );
+                }
+            }
+        }
+    }
+
+    /// Check ahead/behind counts for all tracked workspaces
+    async fn poll_ahead_behind(&mut self) {
+        let workspace_ids: Vec<_> = self.workspaces.keys().copied().collect();
+        let update_tx = self.update_tx.clone();
+
+        for workspace_id in workspace_ids {
+            if let Some((working_dir, state)) = self.workspaces.get_mut(&workspace_id) {
+                let dir = working_dir.clone();
+
+                let (new_ahead, new_behind) =
+                    tokio::task::spawn_blocking(move || get_ahead_behind(&dir))
+                        .await
+                        .unwrap_or((0, 0));
+
+                if new_ahead != state.commits_ahead || new_behind != state.commits_behind {
+                    state.commits_ahead = new_ahead;
+                    state.commits_behind = new_behind;
+                    send_update(
+                        &update_tx,
+                        GitTrackerUpdate::AheadBehindChanged {
+                            workspace_id,
+                            commits_ahead: new_ahead,
+                            commits_behind: new_behind,
+                        },
+                        "ahead_behind_changed",
+                    );
+                }
+            }
+        }
+    }
+
+    /// Check a single workspace immediately (both git and PR)
+    async fn check_workspace(&mut self, workspace_id: Uuid, working_dir: &Path) {
+        let dir = working_dir.to_path_buf();
+        let update_tx = self.update_tx.clone();
+
+        let (stats_result, branch_result, pr_result, ahead_behind_result) = tokio::join!(
+            tokio::task::spawn_blocking({
+                let dir = dir.clone();
+                move || GitDiffStats::from_working_dir(&dir)
+            }),
+            tokio::task::spawn_blocking({
+                let dir = dir.clone();
+                move || PrManager::get_current_branch(&dir)
+            }),
+            tokio::task::spawn_blocking({
+                let dir = dir.clone();
+                move || PrManager::get_existing_pr(&dir)
+            }),
+            tokio::task::spawn_blocking(move || get_ahead_behind(&dir)),
+        );
+
+        let new_stats = stats_result.unwrap_or_default();
+        let new_branch = branch_result.ok().flatten();
+        let new_pr_status = pr_result.ok().flatten();
+        let (new_ahead, new_behind) = ahead_behind_result.unwrap_or((0, 0));
+
+        // Update state and send updates
+        if let Some((_, state)) = self.workspaces.get_mut(&workspace_id) {
+            state.diff_stats = new_stats.clone();
+            state.branch_name = new_branch.clone();
+            state.pr_status = new_pr_status.clone();
+            state.commits_ahead = new_ahead;
+            state.commits_behind = new_behind;
+            state.last_git_check = Some(Instant::now());
+            state.last_pr_check = Some(Instant::now());
+        }
+
+        // Send all updates
+        send_update(
+            &update_tx,
+            GitTrackerUpdate::GitStatsChanged {
+                workspace_id,
+                stats: new_stats,
+            },
+            "git_stats_changed",
+        );
+
+        // Always send branch update (including None for detached HEAD)
+        send_update(
+            &update_tx,
+            GitTrackerUpdate::BranchChanged {
+                workspace_id,
+                branch: new_branch,
+            },
+            "branch_changed",
+        );
+
+        // Send PR update: None means status unavailable (gh failed),
+        // Some with exists=false means no PR, Some with exists=true means PR exists
+        tracing::debug!(
+            workspace_id = %workspace_id,
+            pr_exists = new_pr_status.as_ref().map(|s| s.exists),
+            pr_number = new_pr_status.as_ref().and_then(|s| s.number),
+            "Sending PR status update from check_workspace"
+        );
+        send_update(
+            &update_tx,
+            GitTrackerUpdate::PrStatusChanged {
+                workspace_id,
+                status: new_pr_status,
+            },
+            "pr_status_changed",
+        );
+
+        send_update(
+            &update_tx,
+            GitTrackerUpdate::AheadBehindChanged {
+                workspace_id,
+                commits_ahead: new_ahead,
+                commits_behind: new_behind,
+            },
+            "ahead_behind_changed",
+        );
+    }
+}
+
+/// Spawn the git tracker and return a handle
+pub fn spawn_git_tracker(update_tx: mpsc::UnboundedSender<GitTrackerUpdate>) -> GitTrackerHandle {
+    GitTracker::spawn(GitTrackerConfig::default(), update_tx)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_tracker_spawn_shutdown() {
+        let (update_tx, mut update_rx) = mpsc::unbounded_channel();
+        let handle = spawn_git_tracker(update_tx);
+
+        // Shutdown should work
+        handle.shutdown();
+
+        // Give it a moment to shut down
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        // No updates should be pending (or channel should be dropped)
+        assert!(update_rx.try_recv().is_err());
+    }
+}

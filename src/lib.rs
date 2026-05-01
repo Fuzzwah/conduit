@@ -5,7 +5,7 @@ pub use conduit_data as data;
 pub use conduit_git as git;
 pub use conduit_resolver as command_resolver;
 pub use conduit_session as session;
-pub mod ui;
+pub use conduit_ui as ui;
 pub use conduit_util as util;
 pub use conduit_web as web;
 
