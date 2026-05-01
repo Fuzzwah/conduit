@@ -699,6 +699,7 @@ impl App {
                     if let Ok(Some(workspace)) = workspace_dao.get_by_id(workspace_id) {
                         session.working_dir = Some(workspace.path);
                         session.workspace_name = Some(workspace.name.clone());
+                        session.branch_name = Some(workspace.branch.clone());
 
                         // Look up repository for project name and project theme
                         if let Some(repo_dao) = self.repo_dao() {
@@ -5969,6 +5970,7 @@ impl App {
             repository_id,
             project_name,
             workspace_name,
+            branch_name,
             project_theme,
             pr_number,
             is_processing,
@@ -5980,6 +5982,7 @@ impl App {
                 session.repository_id,
                 session.project_name.clone(),
                 session.workspace_name.clone(),
+                session.branch_name.clone(),
                 session.project_theme.clone(),
                 session.pr_number,
                 session.is_processing,
@@ -6010,6 +6013,7 @@ impl App {
         new_session.repository_id = repository_id;
         new_session.project_name = project_name;
         new_session.workspace_name = workspace_name;
+        new_session.branch_name = branch_name;
         new_session.project_theme = project_theme;
         new_session.pr_number = pr_number;
         new_session.model = Some(self.config().default_model_for(agent_type));
@@ -10145,6 +10149,7 @@ impl App {
             working_dir,
             project_name,
             workspace_name,
+            branch_name,
             pr_number,
             handoff_prompt,
         ) = {
@@ -10169,6 +10174,7 @@ impl App {
                 session.working_dir.clone(),
                 session.project_name.clone(),
                 session.workspace_name.clone(),
+                session.branch_name.clone(),
                 session.pr_number,
                 app_prompt::build_handoff_prompt(session.chat_view.messages()),
             )
@@ -10183,6 +10189,7 @@ impl App {
             working_dir,
             project_name,
             workspace_name,
+            branch_name,
             pr_number,
             handoff_prompt: Arc::from(handoff_prompt),
         });
@@ -10259,6 +10266,7 @@ impl App {
         session.workspace_id = pending.workspace_id;
         session.project_name = pending.project_name.clone();
         session.workspace_name = pending.workspace_name.clone();
+        session.branch_name = pending.branch_name.clone();
         session.pr_number = pending.pr_number;
         session.model = Some(target_model);
         session.init_context_for_model();
@@ -10530,6 +10538,7 @@ impl App {
         session.workspace_id = Some(workspace_id);
         session.project_name = project_name;
         session.workspace_name = Some(workspace.name.clone());
+        session.branch_name = Some(workspace.branch.clone());
         session.model = pending.model.clone();
         session.reasoning_effort = pending.reasoning_effort;
         session.model_invalid = false;
@@ -14480,6 +14489,7 @@ mod tests {
             working_dir: None,
             project_name: None,
             workspace_name: None,
+            branch_name: None,
             pr_number: None,
             handoff_prompt: Arc::from("handoff"),
         });
@@ -14596,6 +14606,7 @@ mod tests {
             working_dir: Some(working_dir.clone()),
             project_name: Some("project-a".to_string()),
             workspace_name: Some("workspace-a".to_string()),
+            branch_name: None,
             pr_number: Some(42),
             handoff_prompt: Arc::from("[CONDUIT_HANDOFF]\nReady"),
         });
@@ -14664,6 +14675,7 @@ mod tests {
             working_dir: None,
             project_name: None,
             workspace_name: None,
+            branch_name: None,
             pr_number: None,
             handoff_prompt: Arc::from("[CONDUIT_HANDOFF]\nReady"),
         });
@@ -14891,6 +14903,7 @@ mod tests {
             working_dir: None,
             project_name: None,
             workspace_name: None,
+            branch_name: None,
             pr_number: None,
             handoff_prompt: Arc::from("[CONDUIT_HANDOFF]\nReady"),
         });

@@ -46,6 +46,8 @@ pub struct AgentSession {
     pub project_name: Option<String>,
     /// Workspace name (for display in tab)
     pub workspace_name: Option<String>,
+    /// Git branch name for the workspace (for display in tab)
+    pub branch_name: Option<String>,
     /// Session ID to resume on next prompt (set when restoring from saved state)
     pub resume_session_id: Option<SessionId>,
     /// Chat view component
@@ -140,6 +142,7 @@ impl AgentSession {
             working_dir: None,
             project_name: None,
             workspace_name: None,
+            branch_name: None,
             resume_session_id: None,
             chat_view: ChatView::new(),
             raw_events_view: RawEventsView::new(),
@@ -192,26 +195,28 @@ impl AgentSession {
 
     /// Get display name for the tab
     pub fn tab_name(&self) -> String {
-        // Use project_name and workspace_name if available
-        match (&self.project_name, &self.workspace_name) {
-            (Some(project), Some(workspace)) => {
-                format!("{} ({})", project, workspace)
+        match &self.project_name {
+            Some(project) => {
+                let truncated = if project.chars().count() > 10 {
+                    format!("{}…", project.chars().take(10).collect::<String>())
+                } else {
+                    project.clone()
+                };
+                let branch_suffix = self
+                    .branch_name
+                    .as_deref()
+                    .map(|b| format!(" [{}]", b.rsplit('/').next().unwrap_or(b)))
+                    .unwrap_or_default();
+                format!("{}{}", truncated, branch_suffix)
             }
-            (Some(project), None) => project.clone(),
-            (None, Some(workspace)) => workspace.clone(),
-            (None, None) => {
+            None => {
                 // Fall back to deriving from working_dir
-                let name = self
-                    .working_dir
+                self.working_dir
                     .as_ref()
                     .and_then(|p| p.file_name())
                     .and_then(|n| n.to_str())
-                    .map(String::from);
-
-                match name {
-                    Some(dir_name) => dir_name,
-                    None => format!("{} (new)", self.agent_type.as_str()),
-                }
+                    .map(String::from)
+                    .unwrap_or_else(|| format!("{} (new)", self.agent_type.as_str()))
             }
         }
     }

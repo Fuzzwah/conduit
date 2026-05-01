@@ -303,6 +303,7 @@ pub struct PendingHandoffRequest {
     pub working_dir: Option<PathBuf>,
     pub project_name: Option<String>,
     pub workspace_name: Option<String>,
+    pub branch_name: Option<String>,
     pub pr_number: Option<u32>,
     /// Uses Arc to avoid cloning large handoff prompts during struct clones
     pub handoff_prompt: Arc<str>,
