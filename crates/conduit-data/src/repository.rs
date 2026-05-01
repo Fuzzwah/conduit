@@ -1,8 +1,8 @@
 //! Repository data access object
 
 use super::models::Repository;
-use crate::git::WorkspaceMode;
 use chrono::{DateTime, Utc};
+use conduit_git::WorkspaceMode;
 use rusqlite::{params, Connection, Result as SqliteResult};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -234,7 +234,7 @@ impl RepositoryStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::data::Database;
+    use crate::Database;
     use tempfile::tempdir;
 
     fn setup_db() -> (tempfile::TempDir, Database, RepositoryStore) {

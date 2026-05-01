@@ -14,8 +14,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::warn;
 
-use crate::agent::AgentType;
-use crate::session::cache::{get_file_mtime, SessionCache};
+use conduit_agent::AgentType;
+
+use crate::cache::{get_file_mtime, SessionCache};
 
 /// A session discovered from an external agent
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -10,7 +10,7 @@ use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
 
-use crate::session::ExternalSession;
+use crate::ExternalSession;
 
 /// Cached session entry with file metadata for validation
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,7 +32,7 @@ pub struct SessionCache {
 impl SessionCache {
     /// Get the cache file path
     pub fn cache_path() -> PathBuf {
-        crate::util::data_dir().join("sessions_cache.json")
+        conduit_util::data_dir().join("sessions_cache.json")
     }
 
     /// Load cache from disk, returning empty cache if missing/corrupt

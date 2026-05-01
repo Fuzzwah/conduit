@@ -258,7 +258,7 @@ impl WorkspaceStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::data::{Database, Repository, RepositoryStore};
+    use crate::{Database, Repository, RepositoryStore};
     use tempfile::tempdir;
 
     fn setup_db() -> (tempfile::TempDir, Database, RepositoryStore, WorkspaceStore) {

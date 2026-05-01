@@ -1,8 +1,8 @@
 //! Fork seed data access object
 
 use super::models::ForkSeed;
-use crate::agent::AgentType;
 use chrono::{DateTime, Utc};
+use conduit_agent::AgentType;
 use rusqlite::{params, Connection, Result as SqliteResult};
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;

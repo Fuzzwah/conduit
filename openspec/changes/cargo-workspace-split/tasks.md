@@ -67,19 +67,19 @@
 - [x] 6.6 Fix doctest paths in `mock.rs` to use `conduit_agent::*` instead of `conduit::agent::*`
 - [x] 6.7 Verify CI gate: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` all pass
 
-## 7. Extract `conduit-resolver`, `conduit-session`, `conduit-data` (tier 5, parallel-safe)
+## 7. Extract `conduit-resolver`, `conduit-session`, `conduit-data` (tier 5, parallel-safe) ✓
 
-- [ ] 7.1 Create `crates/conduit-resolver/Cargo.toml` with deps `serde`, `serde_json`, `regex`, `anyhow`, `conduit-util`, `conduit-agent`
-- [ ] 7.2 `git mv src/command_resolver.rs crates/conduit-resolver/src/lib.rs`. Rewrite `crate::agent::X` → `conduit_agent::X`. Rename internal modules if needed
-- [ ] 7.3 In root `src/lib.rs`, replace `pub mod command_resolver;` with `pub use conduit_resolver as command_resolver;`
-- [ ] 7.4 Add path dep, verify `cargo check --workspace`
-- [ ] 7.5 Create `crates/conduit-session/Cargo.toml` with deps `serde`, `serde_json`, `chrono`, `tracing`, `dirs`, `conduit-util`, `conduit-agent`
-- [ ] 7.6 `git mv src/session crates/conduit-session/src` then rename `mod.rs` → `lib.rs`. Rewrite cross-module imports
-- [ ] 7.7 Update root `src/lib.rs` re-export, add path dep, verify `cargo check --workspace`
-- [ ] 7.8 Create `crates/conduit-data/Cargo.toml` with deps `rusqlite` (with `bundled` feature), `serde`, `serde_json`, `chrono`, `uuid`, `anyhow`, `tracing`, `conduit-util`, `conduit-agent`, `conduit-git`
-- [ ] 7.9 `git mv src/data crates/conduit-data/src` then rename `mod.rs` → `lib.rs`. Rewrite cross-module imports
-- [ ] 7.10 Update root `src/lib.rs` re-export, add path dep, verify `cargo check --workspace`
-- [ ] 7.11 Commit "refactor: extract conduit-resolver, conduit-session, conduit-data crates"
+- [x] 7.1 Create `crates/conduit-resolver/Cargo.toml` with deps `serde`, `dirs`, `toml`, `tracing`, `conduit-agent`, `conduit-types`. Dev-dep: `tempfile`
+- [x] 7.2 `git mv src/command_resolver.rs crates/conduit-resolver/src/lib.rs`. Rewrite `crate::agent::AgentType` → `conduit_agent::AgentType`
+- [x] 7.3 In root `src/lib.rs`, replace `pub mod command_resolver;` with `pub use conduit_resolver as command_resolver;`
+- [x] 7.4 Add path dep, verify `cargo check --workspace`
+- [x] 7.5 Create `crates/conduit-session/Cargo.toml` with deps `anyhow`, `chrono`, `dirs`, `serde`, `serde_json`, `tracing`, `conduit-agent`, `conduit-util`
+- [x] 7.6 `git mv src/session crates/conduit-session/src` then rename `mod.rs` → `lib.rs`. Rewrite `crate::agent::AgentType` → `conduit_agent::AgentType`, `crate::session::cache::*` → `crate::cache::*`, `crate::util::data_dir()` → `conduit_util::data_dir()`, `crate::session::ExternalSession` → `crate::ExternalSession`
+- [x] 7.7 Update root `src/lib.rs` re-export, add path dep, verify `cargo check --workspace`
+- [x] 7.8 Create `crates/conduit-data/Cargo.toml` with deps `chrono`, `rusqlite` (bundled), `serde`, `serde_json`, `sha2`, `thiserror`, `tracing`, `uuid`, `conduit-agent`, `conduit-git`, `conduit-util`. Dev-dep: `tempfile`
+- [x] 7.9 `git mv src/data crates/conduit-data/src` then rename `mod.rs` → `lib.rs`. Rewrite `crate::agent::AgentType` → `conduit_agent::AgentType`, `crate::git::WorkspaceMode` → `conduit_git::WorkspaceMode`, `crate::util::database_path()` → `conduit_util::database_path()`, `crate::data::*` → `crate::*` (in tests). Promote 5 `pub(crate)` `*_with_conn` fns on `SessionTabStore` to `pub` since they're called from `conduit-cli::core::services::session_service`
+- [x] 7.10 Update root `src/lib.rs` re-export, add path dep, verify `cargo check --workspace`
+- [x] 7.11 Verify CI gate: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` all pass
 
 ## 8. Move `Action`/`events` into `conduit-types` and extract `conduit-config` (tier 6 — completes Fix B)
 

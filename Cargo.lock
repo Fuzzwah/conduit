@@ -798,7 +798,10 @@ dependencies = [
  "codex-app-server-protocol",
  "codex-protocol",
  "conduit-agent",
+ "conduit-data",
  "conduit-git",
+ "conduit-resolver",
+ "conduit-session",
  "conduit-types",
  "conduit-util",
  "crossterm 0.28.1",
@@ -845,6 +848,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "conduit-data"
+version = "0.5.0"
+dependencies = [
+ "chrono",
+ "conduit-agent",
+ "conduit-git",
+ "conduit-util",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "conduit-git"
 version = "0.5.0"
 dependencies = [
@@ -852,6 +873,33 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
+name = "conduit-resolver"
+version = "0.5.0"
+dependencies = [
+ "conduit-agent",
+ "conduit-types",
+ "dirs",
+ "serde",
+ "tempfile",
+ "toml",
+ "tracing",
+]
+
+[[package]]
+name = "conduit-session"
+version = "0.5.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "conduit-agent",
+ "conduit-util",
+ "dirs",
+ "serde",
+ "serde_json",
  "tracing",
 ]
 

@@ -133,7 +133,7 @@ impl Database {
 
     /// Open database in the default location (~/.conduit/conduit.db)
     pub fn open_default() -> Result<Self, DatabaseError> {
-        Self::open(crate::util::database_path())
+        Self::open(conduit_util::database_path())
     }
 
     /// Initialize the database schema

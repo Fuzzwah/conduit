@@ -59,7 +59,7 @@ impl AppStateStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::data::Database;
+    use crate::Database;
     use tempfile::tempdir;
 
     fn setup_db() -> (tempfile::TempDir, Database, AppStateStore) {

@@ -1,8 +1,8 @@
 //! Session tab data access object
 
 use super::models::{QueuedMessage, SessionTab};
-use crate::agent::AgentType;
 use chrono::{DateTime, Utc};
+use conduit_agent::AgentType;
 use rusqlite::{params, Connection, Result as SqliteResult};
 use std::sync::{Arc, Mutex};
 use tracing::warn;
@@ -120,7 +120,7 @@ impl SessionTabStore {
         Ok(())
     }
 
-    pub(crate) fn update_with_conn(conn: &Connection, tab: &SessionTab) -> SqliteResult<()> {
+    pub fn update_with_conn(conn: &Connection, tab: &SessionTab) -> SqliteResult<()> {
         let queued_messages = serialize_queued_messages(&tab.queued_messages);
         let input_history = serialize_input_history(&tab.input_history);
         conn.execute(
@@ -250,7 +250,7 @@ impl SessionTabStore {
         Self::get_by_workspace_id_with_conn(&conn, workspace_id)
     }
 
-    pub(crate) fn get_by_workspace_id_with_conn(
+    pub fn get_by_workspace_id_with_conn(
         conn: &Connection,
         workspace_id: Uuid,
     ) -> SqliteResult<Option<SessionTab>> {
@@ -272,7 +272,7 @@ impl SessionTabStore {
         Self::get_open_by_workspace_id_with_conn(&conn, workspace_id)
     }
 
-    pub(crate) fn get_open_by_workspace_id_with_conn(
+    pub fn get_open_by_workspace_id_with_conn(
         conn: &Connection,
         workspace_id: Uuid,
     ) -> SqliteResult<Option<SessionTab>> {
@@ -315,7 +315,7 @@ impl SessionTabStore {
         Self::next_tab_index_with_conn(&conn)
     }
 
-    pub(crate) fn next_tab_index_with_conn(conn: &Connection) -> SqliteResult<i32> {
+    pub fn next_tab_index_with_conn(conn: &Connection) -> SqliteResult<i32> {
         conn.query_row(
             "SELECT COALESCE(MAX(tab_index), -1) + 1 FROM session_tabs",
             [],
@@ -323,7 +323,7 @@ impl SessionTabStore {
         )
     }
 
-    pub(crate) fn create_with_next_index_with_conn(
+    pub fn create_with_next_index_with_conn(
         conn: &Connection,
         mut tab: SessionTab,
     ) -> SqliteResult<SessionTab> {
@@ -442,7 +442,7 @@ fn deserialize_input_history(raw: Option<&str>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::data::{
+    use crate::{
         Database, QueuedImageAttachment, QueuedMessageMode, Repository, RepositoryStore, Workspace,
         WorkspaceStore,
     };
