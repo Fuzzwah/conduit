@@ -7511,6 +7511,7 @@ impl App {
 
                         if !self.state.tab_manager.is_empty() {
                             self.sync_sidebar_to_active_tab();
+                            self.sync_theme_to_active_tab();
                         } else {
                             let visible_count = self.state.sidebar_data.visible_nodes().len();
                             if visible_count > 0 {
@@ -7524,6 +7525,7 @@ impl App {
                             } else {
                                 self.state.sidebar_state.tree_state.selected = 0;
                             }
+                            self.sync_theme_to_sidebar_selection();
                         }
 
                         if archived.warnings.is_empty() {
