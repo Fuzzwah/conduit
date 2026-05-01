@@ -373,6 +373,7 @@ impl AgentRunner for ClaudeCodeRunner {
 
     async fn start(&self, config: AgentStartConfig) -> Result<AgentHandle, AgentError> {
         let mut cmd = self.build_command(&config);
+        crate::util::process::configure_command_process_group(&mut cmd);
         let mut child = cmd.spawn()?;
 
         let use_stream_input = config
@@ -646,10 +647,8 @@ impl AgentRunner for ClaudeCodeRunner {
     async fn stop(&self, handle: &AgentHandle) -> Result<(), AgentError> {
         #[cfg(unix)]
         {
-            let result = unsafe { libc::kill(handle.pid as i32, libc::SIGTERM) };
-            if result == -1 {
-                return Err(AgentError::Io(std::io::Error::last_os_error()));
-            }
+            crate::util::process::signal_process_tree(handle.pid, libc::SIGTERM)
+                .map_err(AgentError::Io)?;
         }
         #[cfg(not(unix))]
         {
@@ -664,10 +663,8 @@ impl AgentRunner for ClaudeCodeRunner {
     async fn kill(&self, handle: &AgentHandle) -> Result<(), AgentError> {
         #[cfg(unix)]
         {
-            let result = unsafe { libc::kill(handle.pid as i32, libc::SIGKILL) };
-            if result == -1 {
-                return Err(AgentError::Io(std::io::Error::last_os_error()));
-            }
+            crate::util::process::signal_process_tree(handle.pid, libc::SIGKILL)
+                .map_err(AgentError::Io)?;
         }
         #[cfg(not(unix))]
         {

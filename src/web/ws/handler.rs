@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::extract::ws::{Message, WebSocket};
 use base64::engine::general_purpose;
@@ -30,6 +31,8 @@ struct ActiveSession {
     working_dir: PathBuf,
     /// Process ID for stopping the agent
     pid: Option<u32>,
+    /// Process start time used to avoid killing a reused PID.
+    pid_start_time: Option<u64>,
     /// Sender to broadcast events to all subscribers
     event_tx: broadcast::Sender<AgentEvent>,
     /// Input sender for sending follow-up messages
@@ -253,6 +256,7 @@ impl SessionManager {
                 existing.agent_type = agent_type;
                 existing.working_dir = session_working_dir.clone();
                 existing.pid = Some(pid);
+                existing.pid_start_time = crate::util::process::pid_start_time(pid);
                 existing.input_tx = input_tx;
                 (existing.event_tx.clone(), existing.event_tx.subscribe())
             } else {
@@ -263,6 +267,7 @@ impl SessionManager {
                         agent_type,
                         working_dir: session_working_dir,
                         pid: Some(pid),
+                        pid_start_time: crate::util::process::pid_start_time(pid),
                         event_tx: event_tx.clone(),
                         input_tx,
                     },
@@ -360,6 +365,7 @@ impl SessionManager {
                 agent_type: tab.agent_type,
                 working_dir,
                 pid: None,
+                pid_start_time: None,
                 event_tx,
                 input_tx: None,
             },
@@ -372,33 +378,15 @@ impl SessionManager {
     pub async fn stop_session(&self, session_id: Uuid) -> Result<(), String> {
         let mut sessions = self.sessions.write().await;
         if let Some(session) = sessions.remove(&session_id) {
-            // Kill the process by PID
             #[cfg(unix)]
-            {
-                use std::process::Command;
-                if let Some(pid) = session.pid {
-                    match Command::new("kill")
-                        .arg("-TERM")
-                        .arg(pid.to_string())
-                        .status()
-                    {
-                        Ok(status) if status.success() => {}
-                        Ok(status) => {
-                            tracing::warn!(
-                                pid,
-                                exit_status = ?status.code(),
-                                "Failed to terminate session process with kill"
-                            );
-                        }
-                        Err(err) => {
-                            tracing::warn!(
-                                error = %err,
-                                pid,
-                                "Failed to execute kill for session process"
-                            );
-                        }
-                    }
-                }
+            if let Some(pid) = session.pid {
+                let _ = crate::util::process::terminate_process_tree(
+                    pid,
+                    session.pid_start_time,
+                    "web_session_stop",
+                    Duration::from_secs(2),
+                    Duration::from_millis(50),
+                );
             }
             #[cfg(windows)]
             {
@@ -427,6 +415,35 @@ impl SessionManager {
                 }
             }
         }
+        Ok(())
+    }
+
+    pub async fn stop_workspace_sessions(&self, workspace_id: Uuid) -> Result<(), String> {
+        let session_ids = {
+            let store = {
+                let core = self.core.read().await;
+                core.session_tab_store_clone()
+                    .ok_or_else(|| "Database not available".to_string())?
+            };
+
+            store
+                .get_all()
+                .map_err(|e| {
+                    format!(
+                        "Failed to list sessions for workspace {}: {}",
+                        workspace_id, e
+                    )
+                })?
+                .into_iter()
+                .filter(|tab| tab.workspace_id == Some(workspace_id))
+                .map(|tab| tab.id)
+                .collect::<Vec<_>>()
+        };
+
+        for session_id in session_ids {
+            self.stop_session(session_id).await?;
+        }
+
         Ok(())
     }
 
