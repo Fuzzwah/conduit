@@ -195,10 +195,10 @@ session:
 
 steps:
   - waitForIdle: {idleMs: 1000, timeoutMs: 10000}
-  - waitForText: {text: "(kind-mist)", timeoutMs: 5000}
-  - expectText: {text: "(live-jade)"}
-  - expectText: {text: "(pale-snow)"}
-  - expectText: {text: "(trim-moss)"}
+  - waitForText: {text: "[kind-mist]", timeoutMs: 5000}
+  - expectText: {text: "[live-jade]"}
+  - expectText: {text: "[pale-snow]"}
+  - expectText: {text: "[trim-moss]"}
 
   # Quit
   - hotkey: {ctrl: true, ch: "q"}
@@ -217,13 +217,10 @@ session:
 
 steps:
   - waitForIdle: {idleMs: 1000, timeoutMs: 10000}
-  - waitForText: {text: "(kind-mist)", timeoutMs: 5000}
-  - expectText: {text: "(live-jade)"}
-  - expectText: {text: "(pale-snow)"}
-  - expectText: {text: "(trim-moss)"}
-  - expectText: {text: "(live-jade)"}
-  - expectText: {text: "(pale-snow)"}
-  - expectText: {text: "(trim-moss)"}
+  - waitForText: {text: "[kind-mist]", timeoutMs: 5000}
+  - expectText: {text: "[live-jade]"}
+  - expectText: {text: "[pale-snow]"}
+  - expectText: {text: "[trim-moss]"}
 
   # Quit
   - hotkey: {ctrl: true, ch: "q"}
