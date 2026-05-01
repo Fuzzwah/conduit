@@ -8,24 +8,24 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::agent::{
+use crate::error::WebError;
+use crate::handlers::workspaces::WorkspaceResponse;
+use crate::state::WebAppState;
+use conduit_agent::{
     load_claude_history_with_debug, load_codex_history_with_debug,
     load_opencode_history_with_debug, load_pi_history_with_debug, AgentMode, AgentType,
     ModelRegistry,
 };
-use crate::core::resolve_repo_workspace_settings;
-use crate::core::services::session_service::CreateForkedSessionParams;
-use crate::core::services::{
+use conduit_core::resolve_repo_workspace_settings;
+use conduit_core::services::session_service::CreateForkedSessionParams;
+use conduit_core::services::{
     ContextWindowService, CreateSessionParams, ServiceError, SessionService, UpdateSessionParams,
 };
-use crate::data::{ForkSeed, SessionTab, Workspace};
-use crate::ui::app_prompt;
-use crate::ui::components::{ChatMessage, MessageRole};
-use crate::util::names::{generate_branch_name, generate_workspace_name, get_git_username};
-use crate::util::workspace_setup::run_workspace_setup_script;
-use crate::web::error::WebError;
-use crate::web::handlers::workspaces::WorkspaceResponse;
-use crate::web::state::WebAppState;
+use conduit_data::{ForkSeed, SessionTab, Workspace};
+use conduit_types::app_prompt;
+use conduit_types::{ChatMessage, MessageRole};
+use conduit_util::names::{generate_branch_name, generate_workspace_name, get_git_username};
+use conduit_util::workspace_setup::run_workspace_setup_script;
 
 /// Response for a single session.
 #[derive(Debug, Serialize)]

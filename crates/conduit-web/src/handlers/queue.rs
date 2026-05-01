@@ -8,10 +8,10 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::core::services::{ServiceError, SessionService};
-use crate::data::{QueuedImageAttachment, QueuedMessage, QueuedMessageMode};
-use crate::web::error::WebError;
-use crate::web::state::WebAppState;
+use crate::error::WebError;
+use crate::state::WebAppState;
+use conduit_core::services::{ServiceError, SessionService};
+use conduit_data::{QueuedImageAttachment, QueuedMessage, QueuedMessageMode};
 
 #[derive(Debug, Serialize)]
 pub struct QueuedImageAttachmentResponse {

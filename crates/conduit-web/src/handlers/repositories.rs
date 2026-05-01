@@ -9,11 +9,11 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
 
-use crate::core::resolve_repo_workspace_settings;
-use crate::data::Repository;
-use crate::git::WorkspaceMode;
-use crate::web::error::WebError;
-use crate::web::state::WebAppState;
+use crate::error::WebError;
+use crate::state::WebAppState;
+use conduit_core::resolve_repo_workspace_settings;
+use conduit_data::Repository;
+use conduit_git::WorkspaceMode;
 
 /// Response for a single repository.
 #[derive(Debug, Serialize)]
@@ -33,7 +33,7 @@ pub struct RepositoryResponse {
 }
 
 impl RepositoryResponse {
-    pub(crate) fn from_repo(repo: Repository, config: &crate::config::Config) -> Self {
+    pub(crate) fn from_repo(repo: Repository, config: &conduit_config::Config) -> Self {
         let settings = resolve_repo_workspace_settings(config, &repo);
         Self {
             id: repo.id,
@@ -449,8 +449,8 @@ pub async fn remove_repository(
     }
 
     // Delete repository folder (with path safety checks)
-    let workspaces_dir = crate::util::workspaces_dir();
-    if let Some(e) = crate::util::remove_project_workspaces_dir(&workspaces_dir, &repo.name) {
+    let workspaces_dir = conduit_util::workspaces_dir();
+    if let Some(e) = conduit_util::remove_project_workspaces_dir(&workspaces_dir, &repo.name) {
         errors.push(e);
     }
 

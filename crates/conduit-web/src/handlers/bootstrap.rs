@@ -1,13 +1,13 @@
 use axum::{extract::State, Json};
 use uuid::Uuid;
 
-use crate::core::services::{ServiceError, SessionService};
-use crate::data::{SessionTab, Workspace};
-use crate::web::error::WebError;
-use crate::web::handlers::sessions::SessionResponse;
-use crate::web::handlers::ui_state::{load_ui_state, state_store, WebUiStateResponse};
-use crate::web::handlers::workspaces::WorkspaceResponse;
-use crate::web::state::WebAppState;
+use crate::error::WebError;
+use crate::handlers::sessions::SessionResponse;
+use crate::handlers::ui_state::{load_ui_state, state_store, WebUiStateResponse};
+use crate::handlers::workspaces::WorkspaceResponse;
+use crate::state::WebAppState;
+use conduit_core::services::{ServiceError, SessionService};
+use conduit_data::{SessionTab, Workspace};
 
 #[derive(Debug, serde::Serialize)]
 pub struct BootstrapResponse {

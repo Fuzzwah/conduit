@@ -3,7 +3,7 @@
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
-use crate::git::{CheckState, GitDiffStats, PrState, PrStatus};
+use conduit_git::{CheckState, GitDiffStats, PrState, PrStatus};
 
 /// Response for git diff statistics.
 #[derive(Debug, Serialize, Clone, Default)]
@@ -62,10 +62,10 @@ impl PrStatusResponse {
             url: pr.url.clone(),
             merge_readiness: Some(
                 match pr.merge_readiness {
-                    crate::git::MergeReadiness::Ready => "ready",
-                    crate::git::MergeReadiness::Blocked => "blocked",
-                    crate::git::MergeReadiness::HasConflicts => "has_conflicts",
-                    crate::git::MergeReadiness::Unknown => "unknown",
+                    conduit_git::MergeReadiness::Ready => "ready",
+                    conduit_git::MergeReadiness::Blocked => "blocked",
+                    conduit_git::MergeReadiness::HasConflicts => "has_conflicts",
+                    conduit_git::MergeReadiness::Unknown => "unknown",
                 }
                 .to_string(),
             ),
@@ -76,18 +76,18 @@ impl PrStatusResponse {
             checks_skipped: Some(pr.checks.skipped),
             mergeable: Some(
                 match pr.mergeable {
-                    crate::git::MergeableStatus::Mergeable => "mergeable",
-                    crate::git::MergeableStatus::Conflicting => "conflicting",
-                    crate::git::MergeableStatus::Unknown => "unknown",
+                    conduit_git::MergeableStatus::Mergeable => "mergeable",
+                    conduit_git::MergeableStatus::Conflicting => "conflicting",
+                    conduit_git::MergeableStatus::Unknown => "unknown",
                 }
                 .to_string(),
             ),
             review_decision: Some(
                 match pr.review_decision {
-                    crate::git::ReviewDecision::Approved => "approved",
-                    crate::git::ReviewDecision::ReviewRequired => "review_required",
-                    crate::git::ReviewDecision::ChangesRequested => "changes_requested",
-                    crate::git::ReviewDecision::None => "none",
+                    conduit_git::ReviewDecision::Approved => "approved",
+                    conduit_git::ReviewDecision::ReviewRequired => "review_required",
+                    conduit_git::ReviewDecision::ChangesRequested => "changes_requested",
+                    conduit_git::ReviewDecision::None => "none",
                 }
                 .to_string(),
             ),

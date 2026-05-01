@@ -1,8 +1,8 @@
 //! Tests for WebSocket message types and serialization.
 
 use super::messages::{ClientMessage, ServerMessage};
-use crate::agent::events::{AgentEvent, AssistantMessageEvent, SessionInitEvent};
-use crate::agent::session::SessionId;
+use conduit_agent::events::{AgentEvent, AssistantMessageEvent, SessionInitEvent};
+use conduit_agent::session::SessionId;
 use uuid::Uuid;
 
 #[test]
@@ -184,7 +184,7 @@ fn test_server_message_session_init_event_serialization() {
 
 #[test]
 fn test_server_message_session_started_serialization() {
-    use crate::agent::runner::AgentType;
+    use conduit_agent::runner::AgentType;
 
     let session_id = Uuid::nil();
     let msg = ServerMessage::session_started(

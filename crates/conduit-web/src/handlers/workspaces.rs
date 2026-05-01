@@ -13,16 +13,16 @@ use std::path::PathBuf;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use crate::core::resolve_repo_workspace_settings;
-use crate::core::services::{ServiceError, SessionService};
-use crate::data::Workspace;
-use crate::git::PrManager;
-use crate::util::names::{generate_branch_name, generate_workspace_name, get_git_username};
-use crate::util::workspace_setup::run_workspace_setup_script;
-use crate::web::error::WebError;
-use crate::web::handlers::sessions::SessionResponse;
-use crate::web::state::WebAppState;
-use crate::web::status_types::{PrStatusResponse, WorkspaceStatusResponse};
+use crate::error::WebError;
+use crate::handlers::sessions::SessionResponse;
+use crate::state::WebAppState;
+use crate::status_types::{PrStatusResponse, WorkspaceStatusResponse};
+use conduit_core::resolve_repo_workspace_settings;
+use conduit_core::services::{ServiceError, SessionService};
+use conduit_data::Workspace;
+use conduit_git::PrManager;
+use conduit_util::names::{generate_branch_name, generate_workspace_name, get_git_username};
+use conduit_util::workspace_setup::run_workspace_setup_script;
 
 /// Response for a single workspace.
 #[derive(Debug, Serialize)]
@@ -752,7 +752,7 @@ pub async fn auto_create_workspace_stream(
                     })
                     .await;
 
-                    let workspace = crate::data::Workspace::new(
+                    let workspace = conduit_data::Workspace::new(
                         repository_id,
                         &workspace_name,
                         &branch_name,
@@ -935,7 +935,7 @@ fn map_service_error(error: ServiceError) -> WebError {
     }
 }
 
-fn build_pr_preflight_response(preflight: crate::git::PrPreflightResult) -> PrPreflightResponse {
+fn build_pr_preflight_response(preflight: conduit_git::PrPreflightResult) -> PrPreflightResponse {
     PrPreflightResponse {
         gh_installed: preflight.gh_installed,
         gh_authenticated: preflight.gh_authenticated,

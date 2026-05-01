@@ -7,7 +7,7 @@ pub use conduit_resolver as command_resolver;
 pub use conduit_session as session;
 pub mod ui;
 pub use conduit_util as util;
-pub mod web;
+pub use conduit_web as web;
 
 pub use agent::{
     AgentError, AgentEvent, AgentHandle, AgentMode, AgentRunner, AgentStartConfig, AgentType,

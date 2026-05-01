@@ -6,8 +6,8 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::agent::events::AgentEvent;
-use crate::agent::runner::AgentType;
+use conduit_agent::events::AgentEvent;
+use conduit_agent::runner::AgentType;
 
 /// Image attachment for WebSocket prompts (base64-encoded).
 #[derive(Debug, Clone, Serialize, Deserialize)]

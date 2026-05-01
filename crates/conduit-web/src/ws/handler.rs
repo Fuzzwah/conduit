@@ -13,15 +13,15 @@ use futures::{SinkExt, StreamExt};
 use tokio::sync::{broadcast, mpsc, RwLock};
 use uuid::Uuid;
 
-use crate::agent::events::AgentEvent;
-use crate::agent::runner::{AgentInput, AgentRunner, AgentStartConfig, AgentType};
-use crate::agent::session::SessionId;
-use crate::agent::{generate_title_and_branch, sanitize_branch_suffix};
-use crate::command_resolver::{CommandResolver, ConduitCommand, ResolveResult, SkillReference};
-use crate::core::services::{SessionService, UpdateSessionParams};
-use crate::core::ConduitCore;
-use crate::ui::app_prompt;
-use crate::util::get_git_username;
+use conduit_agent::events::AgentEvent;
+use conduit_agent::runner::{AgentInput, AgentRunner, AgentStartConfig, AgentType};
+use conduit_agent::session::SessionId;
+use conduit_agent::{generate_title_and_branch, sanitize_branch_suffix};
+use conduit_core::services::{SessionService, UpdateSessionParams};
+use conduit_core::ConduitCore;
+use conduit_resolver::{CommandResolver, ConduitCommand, ResolveResult, SkillReference};
+use conduit_types::app_prompt;
+use conduit_util::get_git_username;
 use serde_json::json;
 
 use super::messages::{ClientMessage, ImageAttachment, ServerMessage};
@@ -257,7 +257,7 @@ impl SessionManager {
                 existing.agent_type = agent_type;
                 existing.working_dir = session_working_dir.clone();
                 existing.pid = Some(pid);
-                existing.pid_start_time = crate::util::process::pid_start_time(pid);
+                existing.pid_start_time = conduit_util::process::pid_start_time(pid);
                 existing.input_tx = input_tx;
                 (existing.event_tx.clone(), existing.event_tx.subscribe())
             } else {
@@ -268,7 +268,7 @@ impl SessionManager {
                         agent_type,
                         working_dir: session_working_dir,
                         pid: Some(pid),
-                        pid_start_time: crate::util::process::pid_start_time(pid),
+                        pid_start_time: conduit_util::process::pid_start_time(pid),
                         event_tx: event_tx.clone(),
                         input_tx,
                     },
@@ -381,7 +381,7 @@ impl SessionManager {
         if let Some(session) = sessions.remove(&session_id) {
             #[cfg(unix)]
             if let Some(pid) = session.pid {
-                let _ = crate::util::process::terminate_process_tree(
+                let _ = conduit_util::process::terminate_process_tree(
                     pid,
                     session.pid_start_time,
                     "web_session_stop",
@@ -541,7 +541,7 @@ impl SessionManager {
     }
 }
 
-fn should_generate_title(hidden: bool, session: &crate::data::SessionTab) -> bool {
+fn should_generate_title(hidden: bool, session: &conduit_data::SessionTab) -> bool {
     !hidden && session.title.is_none() && !session.title_generated
 }
 
@@ -855,7 +855,7 @@ fn decode_base64_image(data: &str, fallback_media_type: &str) -> Result<(Vec<u8>
 }
 
 fn uploads_dir() -> Result<PathBuf, String> {
-    let dir = crate::util::data_dir().join("uploads");
+    let dir = conduit_util::data_dir().join("uploads");
     fs::create_dir_all(&dir).map_err(|e| format!("Failed to create uploads dir: {}", e))?;
     Ok(dir)
 }

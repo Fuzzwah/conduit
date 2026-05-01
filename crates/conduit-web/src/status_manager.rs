@@ -14,10 +14,10 @@ use tokio::sync::Semaphore;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use crate::config::Config;
-use crate::data::Workspace;
-use crate::git::{GitDiffStats, PrManager};
-use crate::web::status_types::{GitDiffStatsResponse, PrStatusResponse, WorkspaceStatusResponse};
+use crate::status_types::{GitDiffStatsResponse, PrStatusResponse, WorkspaceStatusResponse};
+use conduit_config::Config;
+use conduit_data::Workspace;
+use conduit_git::{GitDiffStats, PrManager};
 
 #[derive(Debug, Clone)]
 pub struct StatusManagerConfig {

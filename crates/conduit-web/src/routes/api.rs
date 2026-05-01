@@ -5,11 +5,11 @@ use axum::{
     Router,
 };
 
-use crate::web::handlers::{
+use crate::handlers::{
     bootstrap, external_sessions, models, onboarding, queue, repositories, sessions, settings,
     themes, ui_state, workspaces,
 };
-use crate::web::state::WebAppState;
+use crate::state::WebAppState;
 
 /// Build the API router with all REST endpoints.
 pub fn api_routes() -> Router<WebAppState> {

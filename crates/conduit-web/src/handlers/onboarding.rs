@@ -4,10 +4,10 @@ use axum::{extract::State, Json};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-use crate::data::Repository;
-use crate::web::error::WebError;
-use crate::web::handlers::repositories::RepositoryResponse;
-use crate::web::state::WebAppState;
+use crate::error::WebError;
+use crate::handlers::repositories::RepositoryResponse;
+use crate::state::WebAppState;
+use conduit_data::Repository;
 
 const PROJECTS_BASE_DIR_KEY: &str = "projects_base_dir";
 

@@ -3,11 +3,11 @@
 use axum::{extract::State, http::StatusCode, Json};
 use serde::Deserialize;
 
-use crate::agent::AgentType;
-use crate::core::dto::ListModelsDto;
-use crate::core::services::{ConfigService, ModelService, ServiceError};
-use crate::web::error::WebError;
-use crate::web::state::WebAppState;
+use crate::error::WebError;
+use crate::state::WebAppState;
+use conduit_agent::AgentType;
+use conduit_core::dto::ListModelsDto;
+use conduit_core::services::{ConfigService, ModelService, ServiceError};
 
 /// List all available models grouped by agent type.
 pub async fn list_models(

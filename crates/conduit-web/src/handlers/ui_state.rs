@@ -4,9 +4,9 @@ use axum::{extract::State, Json};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::data::AppStateStore;
-use crate::web::error::WebError;
-use crate::web::state::WebAppState;
+use crate::error::WebError;
+use crate::state::WebAppState;
+use conduit_data::AppStateStore;
 
 const WEB_UI_STATE_KEY: &str = "web_ui_state";
 
@@ -59,7 +59,7 @@ impl From<WebUiState> for WebUiStateResponse {
     }
 }
 
-pub(crate) fn state_store(core: &crate::core::ConduitCore) -> Result<&AppStateStore, WebError> {
+pub(crate) fn state_store(core: &conduit_core::ConduitCore) -> Result<&AppStateStore, WebError> {
     core.app_state_store()
         .ok_or_else(|| WebError::Internal("Database not available".to_string()))
 }

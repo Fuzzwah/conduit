@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::core::ConduitCore;
+use conduit_core::ConduitCore;
 
 use super::ws::SessionManager;
 use super::{StatusManager, StatusManagerConfig};

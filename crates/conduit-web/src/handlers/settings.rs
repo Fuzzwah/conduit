@@ -3,12 +3,12 @@
 use axum::{extract::State, http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
 
-use crate::agent::{AgentType, ModelRegistry};
-use crate::core::services::{ConfigService, ServiceError};
-use crate::git::WorkspaceMode;
-use crate::ui::components::theme::current_theme_name;
-use crate::web::error::WebError;
-use crate::web::state::WebAppState;
+use crate::error::WebError;
+use crate::state::WebAppState;
+use conduit_agent::{AgentType, ModelRegistry};
+use conduit_core::services::{ConfigService, ServiceError};
+use conduit_git::WorkspaceMode;
+use conduit_theme::current_theme_name;
 
 // --- Unified settings summary ---
 
@@ -148,13 +148,13 @@ pub async fn get_providers(
         .iter()
         .map(|&agent| {
             let tool = match agent {
-                AgentType::Claude => crate::util::Tool::Claude,
-                AgentType::Codex => crate::util::Tool::Codex,
-                AgentType::Dirac => crate::util::Tool::Dirac,
-                AgentType::Gemini => crate::util::Tool::Gemini,
-                AgentType::Opencode => crate::util::Tool::Opencode,
-                AgentType::Copilot => crate::util::Tool::Copilot,
-                AgentType::Pi => crate::util::Tool::Pi,
+                AgentType::Claude => conduit_util::Tool::Claude,
+                AgentType::Codex => conduit_util::Tool::Codex,
+                AgentType::Dirac => conduit_util::Tool::Dirac,
+                AgentType::Gemini => conduit_util::Tool::Gemini,
+                AgentType::Opencode => conduit_util::Tool::Opencode,
+                AgentType::Copilot => conduit_util::Tool::Copilot,
+                AgentType::Pi => conduit_util::Tool::Pi,
             };
             ProviderInfo {
                 id: format!("{:?}", agent).to_lowercase(),

@@ -8,18 +8,18 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::path::{Path as StdPath, PathBuf};
 
-use crate::agent::AgentType;
-use crate::core::services::session_service::CreateImportedSessionParams;
-use crate::core::services::{ServiceError, SessionService};
-use crate::data::{Repository, Workspace};
-use crate::git::{WorkspaceMode, WorktreeManager};
-use crate::session::{discover_all_sessions, ExternalSession};
-use crate::util::names::{generate_branch_name, get_git_username};
-use crate::web::error::WebError;
-use crate::web::handlers::repositories::RepositoryResponse;
-use crate::web::handlers::sessions::SessionResponse;
-use crate::web::handlers::workspaces::WorkspaceResponse;
-use crate::web::state::WebAppState;
+use crate::error::WebError;
+use crate::handlers::repositories::RepositoryResponse;
+use crate::handlers::sessions::SessionResponse;
+use crate::handlers::workspaces::WorkspaceResponse;
+use crate::state::WebAppState;
+use conduit_agent::AgentType;
+use conduit_core::services::session_service::CreateImportedSessionParams;
+use conduit_core::services::{ServiceError, SessionService};
+use conduit_data::{Repository, Workspace};
+use conduit_git::{WorkspaceMode, WorktreeManager};
+use conduit_session::{discover_all_sessions, ExternalSession};
+use conduit_util::names::{generate_branch_name, get_git_username};
 
 #[derive(Debug, Deserialize, Default)]
 pub struct ExternalSessionsQuery {
@@ -137,7 +137,7 @@ pub async fn import_external_session(
 }
 
 fn ensure_workspace_for_external_session(
-    core: &crate::core::ConduitCore,
+    core: &conduit_core::ConduitCore,
     session: &ExternalSession,
 ) -> Result<(Option<Workspace>, Option<Repository>), WebError> {
     let project = match session.project.as_ref() {

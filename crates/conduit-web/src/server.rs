@@ -69,7 +69,7 @@ struct AgentInfo {
 
 /// List available agents.
 async fn list_agents(State(state): State<WebAppState>) -> Json<AgentsResponse> {
-    use crate::util::Tool;
+    use conduit_util::Tool;
 
     let core = state.core().await;
     let tools = core.tools();
@@ -164,11 +164,11 @@ pub async fn run_server(state: WebAppState, config: ServerConfig) -> anyhow::Res
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::Config;
-    use crate::core::ConduitCore;
-    use crate::util::ToolAvailability;
     use axum::body::Body;
     use axum::http::{header, Method, Request, StatusCode};
+    use conduit_config::Config;
+    use conduit_core::ConduitCore;
+    use conduit_util::ToolAvailability;
     use http_body_util::BodyExt;
     use std::path::PathBuf;
     use std::sync::OnceLock;
@@ -185,7 +185,7 @@ mod tests {
                 let path = dir.path().to_path_buf();
                 // Keep temp dir alive for test process lifetime.
                 std::mem::forget(dir);
-                crate::util::init_data_dir(Some(path.clone()));
+                conduit_util::init_data_dir(Some(path.clone()));
                 path
             })
             .clone()

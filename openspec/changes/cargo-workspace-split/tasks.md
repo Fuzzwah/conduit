@@ -115,18 +115,19 @@
 - [x] 10.6 Verify CI gate: `cargo check --workspace`, `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` — all pass.
 - [x] 10.7 Commit "refactor: extract conduit-core crate (tier 8)".
 
-## 11. Extract `conduit-web` (tier 9 — verifies Fix C)
+## 11. Extract `conduit-web` (tier 9 — verifies Fix C) ✓
 
-- [ ] 11.1 Create `crates/conduit-web/Cargo.toml` with deps `axum`, `axum-extra`, `tower`, `tower-http`, `rust-embed`, `mime_guess`, `reqwest`, `serde`, `serde_json`, `tokio`, `tracing`, `chrono`, `anyhow`, plus internal deps `conduit-util`, `conduit-types`, `conduit-agent`, `conduit-config`, `conduit-data`, `conduit-git`, `conduit-session`, `conduit-resolver`, `conduit-core`, `conduit-theme`. Also add `[build-dependencies] which = { workspace = true }`
-- [ ] 11.2 `git mv src/web crates/conduit-web/src` then rename `mod.rs` → `lib.rs`. Rewrite `crate::*` imports
-- [ ] 11.3 `git mv web crates/conduit-web/web` (the React frontend directory)
-- [ ] 11.4 `git mv build.rs crates/conduit-web/build.rs`. Verify the `cargo::rerun-if-changed=web/src` directives still resolve relative to the new crate root
-- [ ] 11.5 Verify `crates/conduit-web/src/routes/static_files.rs:13` still has `#[folder = "web/dist"]` and that the path resolves correctly
-- [ ] 11.6 Verify `cargo build -p conduit-web` triggers the npm build and embeds assets correctly
-- [ ] 11.7 Verify `cargo tree -p conduit-web` does NOT include `ratatui`, `syntect`, `tui-markdown`, or `arboard`
-- [ ] 11.8 In root `src/lib.rs`, replace `pub mod web;` with `pub use conduit_web as web;`
-- [ ] 11.9 Add path dep, verify `cargo check --workspace`
-- [ ] 11.10 Commit "refactor: extract conduit-web crate, move web/ and build.rs"
+- [x] 11.1 Create `crates/conduit-web/Cargo.toml` with internal deps `conduit-{agent,config,core,data,git,resolver,session,theme,types,util}` and external deps `anyhow`, `axum`, `axum-extra`, `base64`, `chrono`, `dirs`, `futures`, `mime_guess`, `parking_lot`, `ratatui`, `reqwest`, `reqwest-eventsource`, `rusqlite`, `rust-embed`, `serde`, `serde_json`, `thiserror`, `tokio`, `tokio-util`, `tower`, `tower-http`, `tracing`, `uuid`. Dev-deps: `http-body-util`, `tempfile`, `tokio-test`. Build-deps: `which`. (`ratatui` and `parking_lot` not listed in original task spec but are required transitively — ratatui via `Color` type from `conduit-theme`, parking_lot via `status_manager.rs`.)
+- [x] 11.2 `git mv src/web crates/conduit-web/src` then `mv crates/conduit-web/src/mod.rs crates/conduit-web/src/lib.rs`. Bulk-rewrite `crate::{agent,config,core,data,git,session,command_resolver,util}::` → `conduit_*::`, plus Fix C rewrites: `crate::ui::app_prompt` → `conduit_types::app_prompt`, `crate::ui::components::theme::*` → `conduit_theme::*`, `crate::ui::components::Theme` → `conduit_theme::Theme`, `crate::ui::components::{ChatMessage, MessageRole}` → `conduit_types::{ChatMessage, MessageRole}`. Then `crate::web::` → `crate::`.
+- [x] 11.3 `git mv web crates/conduit-web/web` (the React frontend directory).
+- [x] 11.4 `git mv build.rs crates/conduit-web/build.rs`. The `cargo::rerun-if-changed=web/src` directives use paths relative to the crate manifest root, which now correctly points to `crates/conduit-web/web/`.
+- [x] 11.5 `crates/conduit-web/src/routes/static_files.rs:13` still has `#[folder = "web/dist"]`, which `rust-embed` resolves relative to the crate root — confirmed working from the build log "Frontend build complete!".
+- [x] 11.6 `cargo build -p conduit-web` triggers the npm build (visible "Building frontend..." warning) and the resulting binary embeds the assets.
+- [x] 11.7 `cargo tree -p conduit-web --edges no-build,no-dev | grep -cE '(syntect|tui-markdown|arboard|ansi-to-tui|two-face)'` returns **0** — none of the heavy ui-only deps leak into the web graph. (`ratatui` itself does appear, since `conduit-theme` re-exports `ratatui::style::Color`, but the heavy widget/syntax-highlighting crates do not.)
+- [x] 11.8 In root `src/lib.rs`, replace `pub mod web;` with `pub use conduit_web as web;`.
+- [x] 11.9 Remove root `[build-dependencies] which = { workspace = true }` (the build.rs that needed it has moved to conduit-web). Add `conduit-web = { workspace = true }` to root `[dependencies]`.
+- [x] 11.10 Verify CI gate: `cargo check --workspace`, `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` — all pass.
+- [x] 11.11 Commit "refactor: extract conduit-web crate (tier 9) — completes Fix C".
 
 ## 12. Extract `conduit-ui` (tier 10)
 

@@ -4,10 +4,8 @@ use axum::Json;
 use ratatui::style::Color;
 use serde::{Deserialize, Serialize};
 
-use crate::ui::components::theme::{
-    current_theme, list_themes, load_theme_by_name, ThemeInfo, ThemeSource,
-};
-use crate::web::error::WebError;
+use crate::error::WebError;
+use conduit_theme::{current_theme, list_themes, load_theme_by_name, ThemeInfo, ThemeSource};
 
 #[derive(Debug, Clone, Copy)]
 enum SyntaxSurfaceKind {
@@ -312,7 +310,7 @@ pub async fn set_current_theme(
 }
 
 fn build_syntax_surface(
-    theme: &crate::ui::components::Theme,
+    theme: &conduit_theme::Theme,
     surface: SyntaxSurfaceKind,
 ) -> SyntaxSurfaceResponse {
     let (foreground, emphasize_functions) = match surface {
@@ -358,7 +356,7 @@ fn build_syntax_surface(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ui::components::theme::{set_theme, theme_test_lock_async, Theme};
+    use conduit_theme::{set_theme, theme_test_lock_async, Theme};
 
     struct ThemeReset(Theme);
 
