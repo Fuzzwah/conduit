@@ -11,8 +11,7 @@ use thiserror::Error;
 use tokio::process::Command;
 
 use crate::agent::{AgentEvent, AgentRunner, AgentStartConfig, CodexCliRunner};
-
-use super::{Tool, ToolAvailability};
+use crate::util::{Tool, ToolAvailability};
 
 /// Timeout for AI title generation calls
 const AI_CALL_TIMEOUT_SECS: u64 = 20;

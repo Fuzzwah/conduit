@@ -14,6 +14,7 @@ pub mod pi;
 pub mod runner;
 pub mod session;
 pub mod stream;
+pub mod title_generator;
 
 pub use claude::ClaudeCodeRunner;
 pub use codex::CodexCliRunner;
@@ -36,3 +37,4 @@ pub use runner::{
     AgentHandle, AgentInput, AgentMode, AgentRunner, AgentStartConfig, AgentType, ReasoningEffort,
 };
 pub use session::{SessionId, SessionMetadata, SessionStatus};
+pub use title_generator::{generate_title_and_branch, sanitize_branch_suffix, GeneratedMetadata};

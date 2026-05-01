@@ -767,6 +767,7 @@ dependencies = [
  "clap",
  "codex-app-server-protocol",
  "codex-protocol",
+ "conduit-util",
  "crossterm 0.28.1",
  "dirs",
  "futures",
@@ -806,6 +807,20 @@ dependencies = [
  "tui-markdown",
  "two-face",
  "unicode-width",
+ "uuid",
+ "which",
+]
+
+[[package]]
+name = "conduit-util"
+version = "0.5.0"
+dependencies = [
+ "dirs",
+ "libc",
+ "rand 0.9.4",
+ "serde",
+ "tokio",
+ "tracing",
  "uuid",
  "which",
 ]

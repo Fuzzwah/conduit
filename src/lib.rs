@@ -6,7 +6,7 @@ pub mod data;
 pub mod git;
 pub mod session;
 pub mod ui;
-pub mod util;
+pub use conduit_util as util;
 pub mod web;
 
 pub use agent::{

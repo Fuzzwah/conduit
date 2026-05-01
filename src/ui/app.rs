@@ -12461,7 +12461,8 @@ async fn generate_title_and_branch_impl(
     worktree_manager: WorkspaceRepoManager,
     workspace_dao: Option<WorkspaceStore>,
 ) -> Result<TitleGeneratedResult, String> {
-    use crate::util::{generate_title_and_branch, get_git_username, sanitize_branch_suffix};
+    use crate::agent::{generate_title_and_branch, sanitize_branch_suffix};
+    use crate::util::get_git_username;
 
     // Call AI for title generation
     let metadata = generate_title_and_branch(&tools, &user_message, &working_dir)

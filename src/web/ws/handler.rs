@@ -16,11 +16,12 @@ use uuid::Uuid;
 use crate::agent::events::AgentEvent;
 use crate::agent::runner::{AgentInput, AgentRunner, AgentStartConfig, AgentType};
 use crate::agent::session::SessionId;
+use crate::agent::{generate_title_and_branch, sanitize_branch_suffix};
 use crate::command_resolver::{CommandResolver, ConduitCommand, ResolveResult, SkillReference};
 use crate::core::services::{SessionService, UpdateSessionParams};
 use crate::core::ConduitCore;
 use crate::ui::app_prompt;
-use crate::util::{generate_title_and_branch, get_git_username, sanitize_branch_suffix};
+use crate::util::get_git_username;
 use serde_json::json;
 
 use super::messages::{ClientMessage, ImageAttachment, ServerMessage};

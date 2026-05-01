@@ -157,7 +157,7 @@ fn pid_identity_matches(pid: u32, pid_start_time: Option<u64>, context: &str) ->
         return false;
     };
 
-    match crate::util::process::pid_start_time(pid) {
+    match crate::process::pid_start_time(pid) {
         Some(current_start_time) => {
             if current_start_time != expected_start_time {
                 tracing::warn!(

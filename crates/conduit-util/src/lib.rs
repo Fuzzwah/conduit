@@ -4,7 +4,6 @@ pub mod names;
 pub mod paths;
 pub mod process;
 pub mod project_folders;
-pub mod title_generator;
 pub mod tools;
 pub mod workspace_setup;
 
@@ -14,5 +13,4 @@ pub use paths::{
     migrate_worktrees_to_workspaces, workspaces_dir,
 };
 pub use project_folders::remove_project_workspaces_dir;
-pub use title_generator::{generate_title_and_branch, sanitize_branch_suffix, GeneratedMetadata};
 pub use tools::{Tool, ToolAvailability, ToolPaths, ToolStatus};

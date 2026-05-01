@@ -1,7 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["."]
-# crates/* will be added as crates are extracted (tier-by-tier)
+members = [".", "crates/conduit-util"]
 
 [workspace.package]
 version = "0.5.0"
@@ -131,6 +130,7 @@ name = "conduit"
 path = "src/main.rs"
 
 [dependencies]
+conduit-util = { path = "crates/conduit-util" }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 futures = { workspace = true }
