@@ -4136,6 +4136,7 @@ impl App {
             session.project_name = project_name;
             session.project_theme = project_theme;
             session.workspace_name = Some(workspace.name.clone());
+            session.branch_name = Some(workspace.branch.clone());
 
             // Restore saved session data if available
             if let Some(saved) = saved_tab.as_ref() {
