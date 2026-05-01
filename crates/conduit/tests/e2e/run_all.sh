@@ -5,7 +5,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR/../.."
+cd "$SCRIPT_DIR/../../../.."
 
 # Colors
 RED='\033[0;31m'

@@ -86,4 +86,4 @@ steps:
 
 artifacts:
   mode: always
-  dir: ./tests/e2e/artifacts/base-dir-arrows
+  dir: ./crates/conduit/tests/e2e/artifacts/base-dir-arrows

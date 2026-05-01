@@ -12,7 +12,7 @@ NC='\033[0m' # No Color
 
 # Global variables - use absolute path
 SCRIPT_DIR_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR_LIB/../.." && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR_LIB/../../../.." && pwd)"
 CONDUIT_BINARY="${CONDUIT_BINARY:-$PROJECT_ROOT/target/release/conduit}"
 TEST_TIMEOUT="${TEST_TIMEOUT:-10000}"
 SCREENSHOT_DIR="$(dirname "$0")/screenshots"
