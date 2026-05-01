@@ -3853,6 +3853,7 @@ impl App {
             self.sync_input_mode_for_active_tab();
             self.sync_sidebar_to_active_tab();
             self.sync_footer_spinner();
+            self.sync_theme_to_active_tab();
         }
         let mut effects = Vec::new();
         if let Some(action) = Self::slash_command_action(command) {
@@ -4006,6 +4007,9 @@ impl App {
         if !self.return_to_settings_menu_if_needed() {
             self.state.input_mode = InputMode::Normal;
         }
+        // Re-apply the active tab's project theme if one is set, so that a global
+        // theme change does not visually override a project-specific override.
+        self.sync_theme_to_active_tab();
         Ok(Vec::new())
     }
 
@@ -4205,6 +4209,7 @@ impl App {
         if let Some(existing_index) = self.find_tab_for_workspace(workspace_id) {
             self.state.tab_manager.switch_to(existing_index);
             self.sync_footer_spinner();
+            self.sync_theme_to_active_tab();
             if close_sidebar {
                 self.state.sidebar_state.hide();
                 self.state.input_mode = InputMode::Normal;
@@ -4506,6 +4511,8 @@ impl App {
             self.state.sidebar_state.hide();
             self.state.input_mode = InputMode::Normal;
         }
+
+        self.sync_theme_to_active_tab();
     }
 
     /// Open a workspace (create or switch to tab), closing the sidebar unless always_show_sidebar is set
@@ -5188,6 +5195,41 @@ impl App {
         if let Some(name) = project_theme {
             if !crate::ui::components::load_theme_by_name(name) {
                 tracing::warn!(theme = %name, "Failed to apply project theme; keeping current theme");
+            }
+        } else {
+            crate::ui::components::init_theme(
+                self.config().theme_name.as_deref(),
+                self.config().theme_path.as_deref(),
+            );
+        }
+    }
+
+    /// Apply the project theme for whichever repository is currently highlighted in the sidebar,
+    /// falling back to the global config theme when no project theme is set.
+    pub(super) fn sync_theme_to_sidebar_selection(&self) {
+        use crate::ui::components::{ActionType, NodeType};
+
+        let selected = self.state.sidebar_state.tree_state.selected;
+        let repo_id =
+            self.state
+                .sidebar_data
+                .get_at(selected)
+                .and_then(|node| match node.node_type {
+                    NodeType::Repository => Some(node.id),
+                    NodeType::Workspace | NodeType::Action(ActionType::NewWorkspace) => {
+                        node.parent_id
+                    }
+                });
+
+        let theme_name = repo_id.and_then(|id| {
+            self.repo_dao()
+                .and_then(|dao| dao.get_by_id(id).ok().flatten())
+                .and_then(|repo| repo.theme_name)
+        });
+
+        if let Some(name) = theme_name.as_deref() {
+            if !crate::ui::components::load_theme_by_name(name) {
+                tracing::warn!(theme = %name, "Failed to apply sidebar selection theme");
             }
         } else {
             crate::ui::components::init_theme(
@@ -6102,6 +6144,7 @@ impl App {
             .tab_manager
             .switch_to(tab_count.saturating_sub(1));
         self.sync_footer_spinner();
+        self.sync_theme_to_active_tab();
 
         Ok(())
     }
@@ -6451,6 +6494,7 @@ impl App {
                 self.ensure_tab_bar_scroll(tab_bar_area.width, tabs_focused);
                 self.sync_sidebar_to_active_tab();
                 self.sync_footer_spinner();
+                self.sync_theme_to_active_tab();
             }
             TabBarHitTarget::ScrollLeft => {
                 self.scroll_tab_bar(tab_bar_area.width, tabs_focused, true);

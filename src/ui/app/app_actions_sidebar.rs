@@ -16,6 +16,7 @@ impl App {
                     self.state.sidebar_state.hide();
                     self.state.sidebar_state.set_focused(false);
                     self.state.input_mode = InputMode::Normal;
+                    self.sync_theme_to_active_tab();
                 } else {
                     // Already hidden — show and focus sidebar
                     self.state.sidebar_state.show();
@@ -66,6 +67,7 @@ impl App {
                     } else {
                         self.state.sidebar_state.set_focused(false);
                         self.state.input_mode = InputMode::Normal;
+                        self.sync_theme_to_active_tab();
                     }
                 }
             }
@@ -83,6 +85,7 @@ impl App {
                 } else {
                     self.state.input_mode = InputMode::Normal;
                 }
+                self.sync_theme_to_active_tab();
             }
             Action::ExpandOrSelect
                 // Same as Confirm for sidebar
