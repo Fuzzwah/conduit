@@ -60,6 +60,26 @@ pub struct Config {
     pub web_status: WebStatusConfig,
     /// Workspace defaults
     pub workspaces: WorkspacesConfig,
+    /// Remote issue provider configuration
+    pub issues: IssuesConfig,
+}
+
+/// Configuration for remote issue providers (Gitea, Forgejo).
+///
+/// GitHub is detected by `github.com` in the origin URL and needs no config.
+/// Gitea and Forgejo cannot be reliably detected from the URL alone, so users
+/// must list their hosts here. `GITEA_TOKEN` / `FORGEJO_TOKEN` env vars supply
+/// authentication; without a token, the provider returns an empty list.
+#[derive(Debug, Clone, Default)]
+pub struct IssuesConfig {
+    pub gitea_hosts: Vec<String>,
+    pub forgejo_hosts: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct TomlIssuesConfig {
+    pub gitea_hosts: Option<Vec<String>>,
+    pub forgejo_hosts: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
@@ -261,6 +281,7 @@ impl Default for Config {
                 archive_remote_prompt: true,
                 use_gh_cli_merge_status: false,
             },
+            issues: IssuesConfig::default(),
         }
     }
 }
@@ -337,6 +358,8 @@ pub struct TomlConfig {
     pub web_status: Option<TomlWebStatusConfig>,
     /// Workspace defaults
     pub workspaces: Option<TomlWorkspacesConfig>,
+    /// Remote issue provider configuration
+    pub issues: Option<TomlIssuesConfig>,
 }
 
 impl TomlKeybindings {
@@ -937,6 +960,15 @@ impl Config {
                         }
                         if let Some(pr_refresh_interval_ms) = web_status.pr_refresh_interval_ms {
                             config.web_status.pr_refresh_interval_ms = pr_refresh_interval_ms;
+                        }
+                    }
+                    // Load remote issue provider configuration
+                    if let Some(issues) = toml_config.issues {
+                        if let Some(hosts) = issues.gitea_hosts {
+                            config.issues.gitea_hosts = hosts;
+                        }
+                        if let Some(hosts) = issues.forgejo_hosts {
+                            config.issues.forgejo_hosts = hosts;
                         }
                     }
                     // Load workspace defaults

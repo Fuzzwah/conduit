@@ -15,6 +15,7 @@ pub mod session;
 pub mod tab;
 pub mod tab_manager;
 pub mod terminal_guard;
+pub mod workspace_creation;
 
 pub use action::Action;
 pub use app::App;

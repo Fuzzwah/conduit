@@ -623,6 +623,10 @@ pub async fn fork_session(
     let workspace_name = generate_workspace_name(&existing_names);
     let branch_name = generate_branch_name(&get_git_username(), &workspace_name);
 
+    // Sync the base repo's remote-tracking refs first so the new branch starts
+    // from the freshest origin/<base_branch>.
+    crate::git::sync_remote(&base_repo_path);
+
     let worktree_path = worktree_manager
         .create_workspace_from_branch(
             settings.mode,

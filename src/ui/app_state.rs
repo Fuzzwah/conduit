@@ -11,7 +11,7 @@ use crate::ui::components::{
     ConfirmationDialogState, ErrorDialogState, FilePickerDialogState, HelpDialogState,
     IssuePickerState, KeybindingsEditorState, KnightRiderSpinner, LogoShineAnimation,
     MissingToolDialogState, ModelSelectorState, ProjectPickerState, ProviderSelectorState,
-    ReasoningSelectorState, RenameProjectDialogState, ScpCommandDialogState,
+    ReasoningSelectorState, RemoteSyncDialogState, RenameProjectDialogState, ScpCommandDialogState,
     SessionImportPickerState, SettingsMenuState, SidebarData, SidebarState, SlashMenuState,
     SpecPickerState, SpecifyPickerState, ThemePickerState, WorkspaceDefaultsDialogState,
     WorkspaceProgressDialogState,
@@ -190,6 +190,9 @@ pub struct AppState {
     pub file_picker_dialog_state: FilePickerDialogState,
     pub scp_command_dialog_state: ScpCommandDialogState,
     pub workspace_progress_dialog_state: WorkspaceProgressDialogState,
+    /// Dialog shown during the SyncingRemote phase of workspace creation,
+    /// streaming `git fetch` output until the next phase takes over.
+    pub remote_sync_dialog_state: RemoteSyncDialogState,
     /// Workspace to open when the user closes the creation progress dialog.
     pub pending_created_workspace_id: Option<Uuid>,
     /// Initial message to auto-send when a spec-linked workspace opens for the first time.
@@ -257,6 +260,9 @@ pub struct AppState {
     pub base_dir_dialog_context: BaseDirDialogContext,
     /// Last time the sidebar was checked against the database for external changes
     pub last_sidebar_db_check: Instant,
+    /// Active workspace-creation flow context (sync → issues → specs → naming).
+    /// `None` when no flow is in progress.
+    pub workspace_creation: Option<crate::ui::workspace_creation::WorkspaceCreationSession>,
 }
 
 /// Pending fork request data captured before workspace creation
@@ -398,6 +404,7 @@ impl AppState {
             file_picker_dialog_state: FilePickerDialogState::new(),
             scp_command_dialog_state: ScpCommandDialogState::default(),
             workspace_progress_dialog_state: WorkspaceProgressDialogState::new(),
+            remote_sync_dialog_state: RemoteSyncDialogState::new(),
             pending_created_workspace_id: None,
             pending_created_workspace_initial_message: None,
             issue_picker_state: IssuePickerState::default(),
@@ -442,6 +449,7 @@ impl AppState {
             settings_menu_return: false,
             base_dir_dialog_context: BaseDirDialogContext::ProjectDiscovery,
             last_sidebar_db_check: Instant::now(),
+            workspace_creation: None,
         }
     }
 
