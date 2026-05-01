@@ -1,25 +1,17 @@
-[package]
-name = "conduit-cli"
+[workspace]
+resolver = "2"
+members = ["."]
+# crates/* will be added as crates are extracted (tier-by-tier)
+
+[workspace.package]
 version = "0.5.0"
 edition = "2021"
 rust-version = "1.87"
-description = "Multi-agent TUI for Claude Code and Codex CLI"
 authors = ["Felipe Coury"]
 license = "MIT"
 repository = "https://github.com/Fuzzwah/conduit"
-readme = "README.md"
-keywords = ["tui", "cli", "claude", "ai", "terminal"]
-categories = ["command-line-utilities", "development-tools"]
 
-[lib]
-name = "conduit"
-path = "src/lib.rs"
-
-[[bin]]
-name = "conduit"
-path = "src/main.rs"
-
-[dependencies]
+[workspace.dependencies]
 # Async runtime
 tokio = { version = "1.42", features = ["full", "process", "sync", "macros", "rt-multi-thread"] }
 tokio-util = { version = "0.7", features = ["compat", "io"] }
@@ -92,29 +84,111 @@ mime_guess = "2.0"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
 reqwest-eventsource = "0.6"
 
-[target.'cfg(unix)'.dependencies]
+# Unix
 libc = "0.2"
 
-[dev-dependencies]
-# Snapshot testing for TUI output
+# Dev dependencies
 insta = { version = "1.40", features = ["yaml", "json"] }
-
-# Property-based testing for JSONL parsing
 proptest = "1.5"
-
-# CLI binary testing
 assert_cmd = "2.0"
 predicates = "3.1"
-
-# Async test utilities
 tokio-test = "0.4"
-
-# HTTP body utilities for tests
 http-body-util = "0.1"
-
-# Lazy static for shared fixtures
 once_cell = "1.21"
 
-[build-dependencies]
-which = "7.0"
+[profile.dev]
+split-debuginfo = "unpacked"
+debug = "line-tables-only"
+codegen-units = 256
+incremental = true
 
+[profile.dev.package."*"]
+opt-level = 0
+
+# ============================================================================
+# Root package (temporary — will be removed in tier 14 once all source moved)
+# ============================================================================
+
+[package]
+name = "conduit-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Multi-agent TUI for Claude Code and Codex CLI"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "README.md"
+keywords = ["tui", "cli", "claude", "ai", "terminal"]
+categories = ["command-line-utilities", "development-tools"]
+
+[lib]
+name = "conduit"
+path = "src/lib.rs"
+
+[[bin]]
+name = "conduit"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+futures = { workspace = true }
+agent-client-protocol = { workspace = true }
+ratatui = { workspace = true }
+crossterm = { workspace = true }
+tui-markdown = { workspace = true }
+pulldown-cmark = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+json5 = { workspace = true }
+toml = { workspace = true }
+toml_edit = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+codex-protocol = { workspace = true }
+codex-app-server-protocol = { workspace = true }
+clap = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+which = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+unicode-width = { workspace = true }
+ansi-to-tui = { workspace = true }
+arboard = { workspace = true }
+image = { workspace = true }
+tempfile = { workspace = true }
+regex = { workspace = true }
+syntect = { workspace = true }
+two-face = { workspace = true }
+rusqlite = { workspace = true }
+dirs = { workspace = true }
+rand = { workspace = true }
+sha2 = { workspace = true }
+base64 = { workspace = true }
+parking_lot = { workspace = true }
+axum = { workspace = true }
+axum-extra = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+rust-embed = { workspace = true }
+mime_guess = { workspace = true }
+reqwest = { workspace = true }
+reqwest-eventsource = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+libc = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
+proptest = { workspace = true }
+assert_cmd = { workspace = true }
+predicates = { workspace = true }
+tokio-test = { workspace = true }
+http-body-util = { workspace = true }
+once_cell = { workspace = true }
+
+[build-dependencies]
+which = { workspace = true }
