@@ -220,12 +220,6 @@ impl<'a> GlobalFooter<'a> {
         // Build left side content (spinner + message)
         let mut left_spans: Vec<Span> = Vec::new();
 
-        // Add spinner if present
-        if let Some(spinner) = self.spinner {
-            left_spans.push(Span::raw("  "));
-            left_spans.extend(spinner.render());
-        }
-
         // Add message if present
         if let Some(message) = self.message {
             if !left_spans.is_empty() {

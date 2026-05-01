@@ -57,6 +57,8 @@ impl<'a> FileViewerView<'a> {
     }
 
     fn render_raw(&self, area: Rect, buf: &mut Buffer, visible_height: usize) {
+        const MARGIN: u16 = 2;
+
         // Calculate width needed for line numbers.
         let line_num_width = if self.session.should_show_line_numbers() {
             let max_line = self.session.total_lines;
@@ -70,8 +72,9 @@ impl<'a> FileViewerView<'a> {
             0
         };
 
-        // Reserve 1 column for scrollbar.
-        let content_width = (area.width as usize).saturating_sub(line_num_width + 1);
+        // Reserve left margin and 1 column for scrollbar.
+        let content_width =
+            (area.width as usize).saturating_sub(line_num_width + 1 + MARGIN as usize);
         let lines = self.session.visible_highlighted_raw_lines(visible_height);
 
         for (i, highlighted_line) in lines.iter().enumerate() {
@@ -101,9 +104,9 @@ impl<'a> FileViewerView<'a> {
 
             let line = Line::from(spans);
             let line_area = Rect {
-                x: area.x,
+                x: area.x + MARGIN,
                 y,
-                width: area.width.saturating_sub(1),
+                width: area.width.saturating_sub(MARGIN + 1),
                 height: 1,
             };
             Paragraph::new(line).render(line_area, buf);
@@ -111,7 +114,9 @@ impl<'a> FileViewerView<'a> {
     }
 
     fn render_rendered(&mut self, area: Rect, buf: &mut Buffer, visible_height: usize) {
-        let content_width = area.width.saturating_sub(1) as usize;
+        const MARGIN: u16 = 2;
+
+        let content_width = area.width.saturating_sub(MARGIN + 1) as usize;
         self.session.ensure_render_cache(content_width);
 
         let lines = self.session.visible_rendered_lines(visible_height);
@@ -122,9 +127,9 @@ impl<'a> FileViewerView<'a> {
             }
 
             let line_area = Rect {
-                x: area.x,
+                x: area.x + MARGIN,
                 y,
-                width: area.width.saturating_sub(1),
+                width: area.width.saturating_sub(MARGIN + 1),
                 height: 1,
             };
             Paragraph::new(line.clone()).render(line_area, buf);
