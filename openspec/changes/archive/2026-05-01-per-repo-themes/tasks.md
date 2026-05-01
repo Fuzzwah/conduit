@@ -34,6 +34,6 @@
 - [x] 6.1 Run `cargo fmt --check` and resolve any formatting issues
 - [x] 6.2 Run `cargo clippy -- -D warnings` and fix all warnings
 - [x] 6.3 Run `cargo test` and confirm all tests pass
-- [ ] 6.4 Manual test: assign different themes to two repositories, switch tabs, confirm theme changes on each switch
-- [ ] 6.5 Manual test: open a new-workspace tab (no repository), confirm global theme is used and "This project" scope is disabled in the picker
-- [ ] 6.6 Manual test: restart conduit, confirm project themes are restored for the active tab on launch
+- [x] 6.4 Manual test: assign different themes to two repositories, switch tabs, confirm theme changes on each switch
+- [x] 6.5 Manual test: open a new-workspace tab (no repository), confirm global theme is used and "This project" scope is disabled in the picker
+- [x] 6.6 Manual test: restart conduit, confirm project themes are restored for the active tab on launch
