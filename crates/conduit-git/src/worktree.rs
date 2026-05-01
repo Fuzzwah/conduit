@@ -980,23 +980,158 @@ impl WorktreeManager {
     }
 }
 
-/// Fetch from origin to bring local refs up to date with remote.
-/// Failures are logged as warnings and do not propagate.
+/// Fetch from origin and opportunistically fast-forward the local default branch.
+///
+/// Steps:
+/// 1. `git fetch origin --quiet`
+/// 2. If HEAD is on the default branch, the working tree is clean, and the local
+///    default branch is strictly behind `origin/<default>` and is its ancestor,
+///    run `git merge --ff-only origin/<default>`.
+///
+/// Both steps fail soft: errors are logged as warnings and do not propagate.
 pub fn sync_remote(repo_path: &Path) {
+    sync_remote_with_progress(repo_path, |_| {});
+}
+
+/// Same as `sync_remote`, but forwards each non-empty line of git output to
+/// `progress` so callers can stream it into a TUI dialog.
+pub fn sync_remote_with_progress(repo_path: &Path, progress: impl Fn(&str)) {
     match Command::new("git")
-        .args(["fetch", "origin", "--quiet"])
+        .args(["fetch", "origin"])
         .current_dir(repo_path)
         .output()
     {
-        Ok(output) if !output.status.success() => {
-            tracing::warn!(
-                stderr = %String::from_utf8_lossy(&output.stderr),
-                "git fetch origin failed"
-            );
+        Ok(output) => {
+            // git fetch writes progress to stderr.
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            for line in stderr.lines() {
+                let line = line.trim_end_matches('\r').trim();
+                if !line.is_empty() {
+                    progress(line);
+                }
+            }
+            if !output.status.success() {
+                tracing::warn!(stderr = %stderr, "git fetch origin failed");
+                return;
+            }
         }
-        Ok(_) => {}
         Err(e) => {
             tracing::warn!(error = %e, "Failed to run git fetch origin");
+            return;
+        }
+    }
+
+    if let Some(default_branch) = detect_default_branch(repo_path) {
+        try_fast_forward_with_progress(repo_path, &default_branch, &progress);
+    }
+}
+
+/// Resolve the repository's default branch name (e.g. "master", "main").
+/// Free-function variant of `WorktreeManager::get_main_branch`.
+pub fn detect_default_branch(repo_path: &Path) -> Option<String> {
+    for candidate in ["origin/main", "origin/master", "main", "master"] {
+        let output = Command::new("git")
+            .args(["rev-parse", "--verify", candidate])
+            .current_dir(repo_path)
+            .output()
+            .ok()?;
+        if output.status.success() {
+            let name = candidate.trim_start_matches("origin/").to_string();
+            return Some(name);
+        }
+    }
+    None
+}
+
+fn try_fast_forward_with_progress(repo_path: &Path, default_branch: &str, progress: &dyn Fn(&str)) {
+    let head = match Command::new("git")
+        .args(["symbolic-ref", "--short", "HEAD"])
+        .current_dir(repo_path)
+        .output()
+    {
+        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).trim().to_string(),
+        _ => return,
+    };
+    if head != default_branch {
+        return;
+    }
+
+    match Command::new("git")
+        .args(["status", "--porcelain"])
+        .current_dir(repo_path)
+        .output()
+    {
+        Ok(o) if o.status.success() && o.stdout.is_empty() => {}
+        _ => return,
+    }
+
+    let remote_ref = format!("origin/{}", default_branch);
+    let remote_exists = Command::new("git")
+        .args(["rev-parse", "--verify", &remote_ref])
+        .current_dir(repo_path)
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    if !remote_exists {
+        return;
+    }
+
+    let local_sha = match Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(repo_path)
+        .output()
+    {
+        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).trim().to_string(),
+        _ => return,
+    };
+    let remote_sha = match Command::new("git")
+        .args(["rev-parse", &remote_ref])
+        .current_dir(repo_path)
+        .output()
+    {
+        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).trim().to_string(),
+        _ => return,
+    };
+    if local_sha == remote_sha {
+        return;
+    }
+
+    let is_ancestor = Command::new("git")
+        .args(["merge-base", "--is-ancestor", &local_sha, &remote_sha])
+        .current_dir(repo_path)
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    if !is_ancestor {
+        return;
+    }
+
+    progress(&format!(
+        "Fast-forwarding {} to {}…",
+        default_branch, remote_ref
+    ));
+    match Command::new("git")
+        .args(["merge", "--ff-only", &remote_ref])
+        .current_dir(repo_path)
+        .output()
+    {
+        Ok(o) => {
+            for line in String::from_utf8_lossy(&o.stdout).lines() {
+                let line = line.trim_end_matches('\r').trim();
+                if !line.is_empty() {
+                    progress(line);
+                }
+            }
+            if !o.status.success() {
+                tracing::warn!(
+                    stderr = %String::from_utf8_lossy(&o.stderr),
+                    "git merge --ff-only origin/{} failed",
+                    default_branch
+                );
+            }
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "Failed to run git merge --ff-only");
         }
     }
 }
@@ -1222,5 +1357,127 @@ mod tests {
         assert_eq!(status.commits_ahead, 0);
         assert!(!status.likely_squash_merged);
         assert!(manager.is_branch_merged(&author_clone).unwrap());
+    }
+
+    /// Build a `seed → remote.git → local` topology so the local clone has an
+    /// `origin` remote it can fetch and fast-forward from. Returns
+    /// `(local_path, remote_path, default_branch)`.
+    fn make_local_with_remote(dir: &Path) -> (PathBuf, PathBuf, String) {
+        let seed = dir.join("seed");
+        std::fs::create_dir(&seed).unwrap();
+        init_git_repo(&seed).unwrap();
+        let manager = WorktreeManager::new();
+        let default_branch = manager.get_current_branch(&seed).unwrap();
+
+        let remote = dir.join("remote.git");
+        run_git(
+            dir,
+            &[
+                "clone",
+                "--bare",
+                seed.to_str().unwrap(),
+                remote.to_str().unwrap(),
+            ],
+        );
+        run_git(
+            &seed,
+            &["remote", "add", "origin", remote.to_str().unwrap()],
+        );
+        run_git(&seed, &["push", "-u", "origin", &default_branch]);
+
+        let local = dir.join("local");
+        run_git(
+            dir,
+            &["clone", remote.to_str().unwrap(), local.to_str().unwrap()],
+        );
+        configure_git_user(&local);
+        (local, remote, default_branch)
+    }
+
+    /// Advance the bare remote by one commit (made on the seed and pushed).
+    fn advance_remote(dir: &Path, default_branch: &str) {
+        let seed = dir.join("seed");
+        std::fs::write(seed.join("README.md"), "# Test\n\nadvanced\n").unwrap();
+        run_git(&seed, &["add", "README.md"]);
+        run_git(&seed, &["commit", "-m", "advance"]);
+        run_git(&seed, &["push", "origin", default_branch]);
+    }
+
+    fn head_sha(path: &Path) -> String {
+        let out = Command::new("git")
+            .args(["rev-parse", "HEAD"])
+            .current_dir(path)
+            .output()
+            .unwrap();
+        String::from_utf8_lossy(&out.stdout).trim().to_string()
+    }
+
+    #[test]
+    fn test_sync_remote_fast_forwards_clean_default_branch() {
+        let dir = tempdir().unwrap();
+        let (local, _remote, default_branch) = make_local_with_remote(dir.path());
+
+        let before = head_sha(&local);
+        advance_remote(dir.path(), &default_branch);
+
+        sync_remote(&local);
+
+        let after = head_sha(&local);
+        assert_ne!(before, after, "expected fast-forward to advance HEAD");
+
+        let remote_after = {
+            let out = Command::new("git")
+                .args(["rev-parse", &format!("origin/{}", default_branch)])
+                .current_dir(&local)
+                .output()
+                .unwrap();
+            String::from_utf8_lossy(&out.stdout).trim().to_string()
+        };
+        assert_eq!(after, remote_after);
+    }
+
+    #[test]
+    fn test_sync_remote_skips_dirty_working_tree() {
+        let dir = tempdir().unwrap();
+        let (local, _remote, default_branch) = make_local_with_remote(dir.path());
+
+        let before = head_sha(&local);
+        advance_remote(dir.path(), &default_branch);
+
+        // Dirty the working tree.
+        std::fs::write(local.join("README.md"), "dirty\n").unwrap();
+
+        sync_remote(&local);
+
+        let after = head_sha(&local);
+        assert_eq!(before, after, "expected no fast-forward on dirty tree");
+    }
+
+    #[test]
+    fn test_sync_remote_skips_feature_branch() {
+        let dir = tempdir().unwrap();
+        let (local, _remote, default_branch) = make_local_with_remote(dir.path());
+
+        run_git(&local, &["checkout", "-b", "feature/branch"]);
+        let before = head_sha(&local);
+        advance_remote(dir.path(), &default_branch);
+
+        sync_remote(&local);
+
+        let after = head_sha(&local);
+        assert_eq!(before, after, "expected no fast-forward on feature branch");
+    }
+
+    #[test]
+    fn test_sync_remote_no_remote_no_op() {
+        let dir = tempdir().unwrap();
+        init_git_repo(dir.path()).unwrap();
+        let before = head_sha(dir.path());
+
+        // Should not panic and should not change anything.
+        sync_remote(dir.path());
+
+        let after = head_sha(dir.path());
+        assert_eq!(before, after);
     }
 }

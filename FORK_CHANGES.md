@@ -521,3 +521,21 @@ Pressing `?` now opens the help dialog from both the splash screen and the sideb
 ## 51. Tab/BackTab Pass-Through in Inline Prompts
 
 Tab and BackTab are no longer silently consumed by inline prompt widgets (e.g. plan-mode feedback, single-question `AskUserQuestion`) when there are no question tabs to navigate (#158). Global hotkeys like tab switching and sidebar focus now work while an inline prompt is displayed. Multi-question navigation behaviour is unchanged.
+
+---
+
+## 52. Workspace Creation Sync, Issue/Spec Pickers, and Filtering
+
+The new-workspace flow (Alt+N) now runs as an explicit three-phase prelude: sync with the remote, then offer an issue picker (when issues exist), then offer a spec picker (when incomplete openspec/spec-kit specs exist). Specs are read from the `origin/<default>` ref via `git ls-tree` + `git show`, so changes that have already been merged and archived on the remote no longer appear in the picker — even when the local working tree still contains the stale directories.
+
+The issue source is now pluggable. GitHub continues to use the `gh` CLI; in addition, conduit can fetch issues from Gitea and Forgejo over their REST APIs when the host is listed in config:
+
+```toml
+[issues]
+gitea_hosts = ["gitea.example.com"]
+forgejo_hosts = ["codeberg.org"]
+```
+
+Authentication uses the `GITEA_TOKEN` and `FORGEJO_TOKEN` environment variables. Without a token, the provider returns no issues and the picker is silently skipped.
+
+Both pickers also gained filtering: type to substring-filter the list, `Tab` to toggle a label filter (issue picker), `m` to restrict to your own assigned issues, and `s` to cycle the spec sort order.

@@ -28,6 +28,7 @@ mod provider_selector;
 mod raw_events_types;
 mod raw_events_view;
 mod reasoning_selector;
+mod remote_sync_dialog;
 mod rename_project_dialog;
 mod scrollbar;
 mod searchable_list;
@@ -95,8 +96,9 @@ pub use raw_events_types::{
 };
 pub use raw_events_view::{RawEventsClick, RawEventsScrollbarMetrics, RawEventsView};
 pub use reasoning_selector::{ReasoningOption, ReasoningSelector, ReasoningSelectorState};
+pub use remote_sync_dialog::{RemoteSyncDialog, RemoteSyncDialogState};
 pub use scrollbar::{render_minimal_scrollbar, scrollbar_offset_from_point, ScrollbarMetrics};
-pub use searchable_list::SearchableListState;
+pub use searchable_list::{filter_indices, SearchableListState};
 pub use session_header::SessionHeader;
 pub use session_import_picker::{AgentFilter, SessionImportPicker, SessionImportPickerState};
 pub use settings_menu::{SettingsMenu, SettingsMenuEntry, SettingsMenuEntryId, SettingsMenuState};

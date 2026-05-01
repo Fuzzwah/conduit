@@ -583,6 +583,10 @@ pub async fn auto_create_workspace(
         .map(PathBuf::from)
         .ok_or_else(|| WebError::BadRequest("Repository has no base path".to_string()))?;
 
+    // Sync the base repo's remote-tracking refs first so the workspace branches
+    // from the freshest origin/<default>.
+    conduit_git::sync_remote(&repo_path);
+
     // Create workspace checkout or worktree
     let worktree_manager = core.worktree_manager();
     let worktree_path = worktree_manager
@@ -723,6 +727,8 @@ pub async fn auto_create_workspace_stream(
                         };
                         let _ = tx.blocking_send(event.to_ndjson_line());
                     };
+                    progress("Syncing with remote...");
+                    conduit_git::sync_remote(&repo_path);
                     worktree_manager.create_workspace(
                         mode,
                         &repo_path,

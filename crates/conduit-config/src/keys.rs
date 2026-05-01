@@ -240,6 +240,7 @@ impl KeyContext {
             InputMode::FilePickerSource | InputMode::FilePickerDest | InputMode::ScpCommand => {
                 return KeyContext::Dialog;
             }
+            InputMode::SyncingRemote => return KeyContext::Dialog,
             InputMode::SelectingIssue => return KeyContext::Dialog,
             InputMode::SelectingSpec => return KeyContext::Dialog,
             InputMode::SelectingSpecifySpec => return KeyContext::Dialog,

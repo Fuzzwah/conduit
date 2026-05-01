@@ -46,6 +46,15 @@ impl App {
     ) -> anyhow::Result<Vec<Effect>> {
         let mut key = key;
 
+        // If we're buffering a suspected split mouse sequence and a non-character key
+        // arrives, flush the buffer so the characters aren't lost.
+        if self.state.suspect_mouse_buf.is_some() && !matches!(key.code, KeyCode::Char(_)) {
+            let chars: Vec<char> = self.state.suspect_mouse_buf.take().unwrap_or_default();
+            if !chars.is_empty() {
+                self.flush_suspect_mouse_buf(chars);
+            }
+        }
+
         // Some terminals can emit CR/LF as plain chars instead of KeyCode::Enter.
         // Normalize these for consistent keybinding behavior across environments.
         if key.modifiers.is_empty() && matches!(key.code, KeyCode::Char('\r') | KeyCode::Char('\n'))
@@ -73,6 +82,12 @@ impl App {
             {
                 return Ok(self.close_workspace_progress_dialog());
             }
+            return Ok(Vec::new());
+        }
+
+        if self.state.input_mode == InputMode::SyncingRemote {
+            // The sync dialog is non-interactive; the next phase takes over
+            // automatically when RemoteSynced fires. Swallow all keys.
             return Ok(Vec::new());
         }
 
@@ -397,7 +412,14 @@ impl App {
                 InputMode::Normal | InputMode::Scrolling
             )
         {
+            let was_first_press = self.state.last_esc_press.is_none();
             self.handle_esc_press();
+            // After a first Esc press with no second press following within the timeout,
+            // the next characters might be the tail of a split SGR mouse escape sequence.
+            // Start buffering to detect and discard the pattern.
+            if was_first_press && self.state.last_esc_press.is_some() {
+                self.state.suspect_mouse_buf = Some(Vec::new());
+            }
             return Ok(Vec::new());
         }
 
@@ -633,10 +655,181 @@ impl App {
     }
 
     /// Handle text input for text-input contexts
+    /// Flush accumulated mouse-sequence suspect buffer into the current input target.
+    fn flush_suspect_mouse_buf(&mut self, chars: Vec<char>) {
+        // Insert the characters based on the current input mode.
+        // This mirrors the per-mode insertion in handle_text_input.
+        match self.state.input_mode {
+            InputMode::Normal => {
+                let mut trigger_file_mention = false;
+                if let Some(session) = self.state.tab_manager.active_session_mut() {
+                    for ch in chars {
+                        if ch == '@' && !session.input_box.is_shell_mode() {
+                            session.input_box.insert_char('@');
+                            trigger_file_mention = true;
+                        } else {
+                            session.input_box.insert_char(ch);
+                        }
+                    }
+                }
+                if trigger_file_mention {
+                    self.open_file_mention_menu();
+                }
+            }
+            InputMode::Command => {
+                for ch in chars {
+                    self.state.command_buffer.push(ch);
+                }
+            }
+            InputMode::ShowingHelp => {
+                for ch in chars {
+                    self.state.help_dialog_state.insert_char(ch);
+                }
+            }
+            InputMode::AddingRepository => {
+                for ch in chars {
+                    self.state.add_repo_dialog_state.insert_char(ch);
+                }
+            }
+            InputMode::SettingBaseDir => {
+                for ch in chars {
+                    self.state.base_dir_dialog_state.insert_char(ch);
+                }
+            }
+            InputMode::PickingProject => {
+                for ch in chars {
+                    self.state.project_picker_state.insert_char(ch);
+                }
+            }
+            InputMode::ImportingSession => {
+                for ch in chars {
+                    self.state.session_import_state.insert_char(ch);
+                }
+            }
+            InputMode::CommandPalette => {
+                for ch in chars {
+                    self.state.command_palette_state.insert_char(ch);
+                }
+            }
+            InputMode::SettingsMenu => {
+                for ch in chars {
+                    self.state.settings_menu_state.insert_char(ch);
+                }
+            }
+            InputMode::SlashMenu => {
+                for ch in chars {
+                    self.state.slash_menu_state.insert_char(ch);
+                }
+            }
+            InputMode::FileMention => {
+                if let Some(session) = self.state.tab_manager.active_session_mut() {
+                    for ch in chars {
+                        self.state.file_mention_state.insert_char(ch);
+                        session.input_box.insert_char(ch);
+                    }
+                }
+            }
+            InputMode::MissingTool => {
+                for ch in chars {
+                    self.state.missing_tool_dialog_state.insert_char(ch);
+                }
+            }
+            InputMode::SelectingTheme => {
+                self.state
+                    .theme_picker_state
+                    .insert_str(&chars.into_iter().collect::<String>());
+            }
+            InputMode::SelectingModel => {
+                self.state
+                    .model_selector_state
+                    .insert_str(&chars.into_iter().collect::<String>());
+            }
+            InputMode::SelectingReasoning => {
+                self.state
+                    .reasoning_selector_state
+                    .insert_str(&chars.into_iter().collect::<String>());
+            }
+            InputMode::SelectingProviders => {
+                self.state
+                    .provider_selector_state
+                    .insert_str(&chars.into_iter().collect::<String>());
+            }
+            InputMode::RenamingProject => {
+                for ch in chars {
+                    self.state.rename_project_dialog_state.insert_char(ch);
+                }
+            }
+            InputMode::KeybindingsEditor | InputMode::KeybindingsEditorCapture => {
+                for ch in chars {
+                    self.state.keybindings_editor_state.insert_filter_char(ch);
+                }
+            }
+            _ => {}
+        }
+    }
+
     pub(super) fn handle_text_input(&mut self, key: KeyEvent) {
         let KeyCode::Char(c) = key.code else {
             return;
         };
+
+        // Detect and discard split SGR mouse escape sequences.
+        // When crossterm's EventStream splits `\x1b[<N;X;YM` across reads, the `\x1b`
+        // arrives as an Esc key (handled above), and the remaining characters arrive as
+        // individual text input. We buffer the trailing chars and check if they form
+        // a valid SGR mouse sequence. If so, discard them entirely.
+        if let Some(ref mut buf) = self.state.suspect_mouse_buf {
+            if buf.is_empty() && c == '[' {
+                // First char of a potential mouse sequence — keep buffering
+                buf.push(c);
+                return;
+            } else if buf.is_empty() {
+                // First char is not '[' — not a mouse sequence, stop suspecting
+                self.state.suspect_mouse_buf = None;
+                // Fall through to normal handling
+            } else if buf.len() == 1 && c == '<' {
+                // Second char matches the mouse sequence pattern — keep buffering
+                buf.push(c);
+                return;
+            } else if buf.len() == 1 {
+                // Had '[' but next char isn't '<' — flush and stop suspecting
+                let saved: Vec<char> = std::mem::take(buf);
+                self.state.suspect_mouse_buf = None;
+                self.flush_suspect_mouse_buf(saved);
+                // Fall through for the current char
+            } else {
+                // Third+ characters after `[<`
+                buf.push(c);
+
+                // Check if this completes a valid SGR mouse sequence
+                if (c == 'M' || c == 'm') && buf.len() >= 5 {
+                    let inner = &buf[2..buf.len() - 1]; // between `[<` and `M/m`
+                    let is_valid = !inner.is_empty()
+                        && inner.iter().all(|&ch| ch.is_ascii_digit() || ch == ';')
+                        && inner.contains(&';');
+                    if is_valid {
+                        // Complete match — discard the entire sequence
+                        self.state.suspect_mouse_buf = None;
+                        return;
+                    }
+                }
+
+                // Buffer too long or invalid character for this position
+                let max_len: usize = 20;
+                let invalid_pos =
+                    buf.len() >= 3 && c != 'M' && c != 'm' && !c.is_ascii_digit() && c != ';';
+                if buf.len() > max_len || invalid_pos {
+                    // Doesn't match — flush buffered chars as text
+                    let saved: Vec<char> = std::mem::take(buf);
+                    self.state.suspect_mouse_buf = None;
+                    self.flush_suspect_mouse_buf(saved);
+                    return; // Current char already included in saved
+                }
+
+                // Still looks like it could be a mouse sequence — keep buffering
+                return;
+            }
+        }
 
         match self.state.input_mode {
             InputMode::Normal => {
@@ -1322,37 +1515,108 @@ impl App {
     }
 
     pub(super) fn handle_issue_picker_key(&mut self, key: KeyEvent) -> anyhow::Result<Vec<Effect>> {
-        // Ignore all input while syncing remote or fetching issues.
-        if self.state.issue_picker_state.syncing || self.state.issue_picker_state.loading {
+        // Ignore all input while fetching issues.
+        if self.state.issue_picker_state.loading {
             return Ok(Vec::new());
         }
 
-        let repo_id = self.state.issue_picker_state.repo_id;
+        // Label-multiselect popover takes input precedence when open.
+        if self.state.issue_picker_state.label_popover_open {
+            return Ok(self.handle_label_popover_key(key));
+        }
+
+        let no_mods = key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT;
+
         match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
+            KeyCode::Up => {
                 self.state.issue_picker_state.select_prev();
             }
-            KeyCode::Down | KeyCode::Char('j') => {
+            KeyCode::Down => {
                 self.state.issue_picker_state.select_next();
+            }
+            KeyCode::Tab => {
+                self.state.issue_picker_state.open_label_popover();
+            }
+            KeyCode::Char('m') if no_mods => {
+                let state = &mut self.state.issue_picker_state;
+                let need_lookup = !state.has_attempted_user_lookup();
+                state.toggle_mine();
+                if need_lookup {
+                    let repo_id = state.repo_id;
+                    return Ok(vec![Effect::FetchCurrentUser { repo_id }]);
+                }
+            }
+            KeyCode::Backspace => {
+                self.state.issue_picker_state.list.search.delete_char();
+                self.state.issue_picker_state.recompute_filter();
+            }
+            KeyCode::Left => {
+                self.state.issue_picker_state.list.search.move_left();
+            }
+            KeyCode::Right => {
+                self.state.issue_picker_state.list.search.move_right();
+            }
+            KeyCode::Home => {
+                self.state.issue_picker_state.list.search.move_start();
+            }
+            KeyCode::End => {
+                self.state.issue_picker_state.list.search.move_end();
+            }
+            KeyCode::Char(c) if no_mods => {
+                self.state.issue_picker_state.list.search.insert_char(c);
+                self.state.issue_picker_state.recompute_filter();
             }
             KeyCode::Enter => {
                 let issue = self.state.issue_picker_state.selected_issue().cloned();
                 self.state.issue_picker_state.hide();
-                self.state.input_mode = InputMode::SidebarNavigation;
-                return Ok(vec![Effect::ShowSpecPicker { repo_id, issue }]);
+                if let Some(session) = self.state.workspace_creation.as_mut() {
+                    session.picked_issue = issue;
+                }
+                return Ok(self.dispatch_workspace_creation_event(
+                    crate::workspace_creation::WorkspaceCreationEvent::IssuePicked,
+                ));
             }
             KeyCode::Esc => {
-                // Skip issue selection — proceed to spec picker with no issue
-                self.state.issue_picker_state.hide();
-                self.state.input_mode = InputMode::SidebarNavigation;
-                return Ok(vec![Effect::ShowSpecPicker {
-                    repo_id,
-                    issue: None,
-                }]);
+                // Progressive: clear text → clear labels → clear mine → dismiss.
+                let state = &mut self.state.issue_picker_state;
+                if !state.list.search.is_empty() {
+                    state.list.search.clear();
+                    state.recompute_filter();
+                } else if !state.selected_labels.is_empty() {
+                    state.selected_labels.clear();
+                    state.recompute_filter();
+                } else if state.mine_only {
+                    state.mine_only = false;
+                    state.recompute_filter();
+                } else {
+                    state.hide();
+                    if let Some(session) = self.state.workspace_creation.as_mut() {
+                        session.picked_issue = None;
+                    }
+                    return Ok(self.dispatch_workspace_creation_event(
+                        crate::workspace_creation::WorkspaceCreationEvent::IssuePicked,
+                    ));
+                }
             }
             _ => {}
         }
         Ok(Vec::new())
+    }
+
+    fn handle_label_popover_key(&mut self, key: KeyEvent) -> Vec<Effect> {
+        let state = &mut self.state.issue_picker_state;
+        match key.code {
+            KeyCode::Up => state.label_popover.select_prev(),
+            KeyCode::Down => state.label_popover.select_next(),
+            KeyCode::Char(' ') => {
+                if let Some(label) = state.selected_popover_label().map(str::to_string) {
+                    state.toggle_label(&label);
+                }
+            }
+            KeyCode::Enter | KeyCode::Esc => state.close_label_popover(),
+            _ => {}
+        }
+        Vec::new()
     }
 
     pub(super) fn handle_spec_picker_key(&mut self, key: KeyEvent) -> anyhow::Result<Vec<Effect>> {
@@ -1361,39 +1625,58 @@ impl App {
             return Ok(Vec::new());
         }
 
-        let repo_id = self.state.spec_picker_state.repo_id;
+        let no_mods = key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT;
+
         match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                self.state.spec_picker_state.select_prev();
+            KeyCode::Up => self.state.spec_picker_state.select_prev(),
+            KeyCode::Down => self.state.spec_picker_state.select_next(),
+            KeyCode::Char('s') if no_mods => {
+                // 's' cycles sort. If the user is currently typing a filter, an
+                // 's' character means "include 's' in the filter" instead.
+                if self.state.spec_picker_state.list.search.is_empty() {
+                    self.state.spec_picker_state.cycle_sort();
+                } else {
+                    self.state.spec_picker_state.list.search.insert_char('s');
+                    self.state.spec_picker_state.recompute_filter();
+                }
             }
-            KeyCode::Down | KeyCode::Char('j') => {
-                self.state.spec_picker_state.select_next();
+            KeyCode::Backspace => {
+                self.state.spec_picker_state.list.search.delete_char();
+                self.state.spec_picker_state.recompute_filter();
             }
-            KeyCode::Char('s') => {
-                self.state.spec_picker_state.cycle_sort();
+            KeyCode::Left => self.state.spec_picker_state.list.search.move_left(),
+            KeyCode::Right => self.state.spec_picker_state.list.search.move_right(),
+            KeyCode::Home => self.state.spec_picker_state.list.search.move_start(),
+            KeyCode::End => self.state.spec_picker_state.list.search.move_end(),
+            KeyCode::Char(c) if no_mods => {
+                self.state.spec_picker_state.list.search.insert_char(c);
+                self.state.spec_picker_state.recompute_filter();
             }
             KeyCode::Enter => {
                 let spec = self.state.spec_picker_state.selected_spec().cloned();
-                let issue = self.state.spec_picker_state.issue.clone();
                 self.state.spec_picker_state.hide();
-                self.state.input_mode = InputMode::SidebarNavigation;
-                return Ok(vec![Effect::CreateWorkspace {
-                    repo_id,
-                    issue,
-                    spec,
-                    specify_spec: None,
-                }]);
+                if let Some(session) = self.state.workspace_creation.as_mut() {
+                    session.picked_spec = spec;
+                    session.picked_specify_spec = None;
+                }
+                return Ok(self.dispatch_workspace_creation_event(
+                    crate::workspace_creation::WorkspaceCreationEvent::SpecPicked,
+                ));
             }
             KeyCode::Esc => {
-                let issue = self.state.spec_picker_state.issue.clone();
-                self.state.spec_picker_state.hide();
-                self.state.input_mode = InputMode::SidebarNavigation;
-                return Ok(vec![Effect::CreateWorkspace {
-                    repo_id,
-                    issue,
-                    spec: None,
-                    specify_spec: None,
-                }]);
+                if !self.state.spec_picker_state.list.search.is_empty() {
+                    self.state.spec_picker_state.list.search.clear();
+                    self.state.spec_picker_state.recompute_filter();
+                } else {
+                    self.state.spec_picker_state.hide();
+                    if let Some(session) = self.state.workspace_creation.as_mut() {
+                        session.picked_spec = None;
+                        session.picked_specify_spec = None;
+                    }
+                    return Ok(self.dispatch_workspace_creation_event(
+                        crate::workspace_creation::WorkspaceCreationEvent::SpecPicked,
+                    ));
+                }
             }
             _ => {}
         }
@@ -1408,39 +1691,56 @@ impl App {
             return Ok(Vec::new());
         }
 
-        let repo_id = self.state.specify_picker_state.repo_id;
+        let no_mods = key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT;
+
         match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                self.state.specify_picker_state.select_prev();
+            KeyCode::Up => self.state.specify_picker_state.select_prev(),
+            KeyCode::Down => self.state.specify_picker_state.select_next(),
+            KeyCode::Char('s') if no_mods => {
+                if self.state.specify_picker_state.list.search.is_empty() {
+                    self.state.specify_picker_state.cycle_sort();
+                } else {
+                    self.state.specify_picker_state.list.search.insert_char('s');
+                    self.state.specify_picker_state.recompute_filter();
+                }
             }
-            KeyCode::Down | KeyCode::Char('j') => {
-                self.state.specify_picker_state.select_next();
+            KeyCode::Backspace => {
+                self.state.specify_picker_state.list.search.delete_char();
+                self.state.specify_picker_state.recompute_filter();
             }
-            KeyCode::Char('s') => {
-                self.state.specify_picker_state.cycle_sort();
+            KeyCode::Left => self.state.specify_picker_state.list.search.move_left(),
+            KeyCode::Right => self.state.specify_picker_state.list.search.move_right(),
+            KeyCode::Home => self.state.specify_picker_state.list.search.move_start(),
+            KeyCode::End => self.state.specify_picker_state.list.search.move_end(),
+            KeyCode::Char(c) if no_mods => {
+                self.state.specify_picker_state.list.search.insert_char(c);
+                self.state.specify_picker_state.recompute_filter();
             }
             KeyCode::Enter => {
                 let specify_spec = self.state.specify_picker_state.selected_spec().cloned();
-                let issue = self.state.specify_picker_state.issue.clone();
                 self.state.specify_picker_state.hide();
-                self.state.input_mode = InputMode::SidebarNavigation;
-                return Ok(vec![Effect::CreateWorkspace {
-                    repo_id,
-                    issue,
-                    spec: None,
-                    specify_spec,
-                }]);
+                if let Some(session) = self.state.workspace_creation.as_mut() {
+                    session.picked_spec = None;
+                    session.picked_specify_spec = specify_spec;
+                }
+                return Ok(self.dispatch_workspace_creation_event(
+                    crate::workspace_creation::WorkspaceCreationEvent::SpecPicked,
+                ));
             }
             KeyCode::Esc => {
-                let issue = self.state.specify_picker_state.issue.clone();
-                self.state.specify_picker_state.hide();
-                self.state.input_mode = InputMode::SidebarNavigation;
-                return Ok(vec![Effect::CreateWorkspace {
-                    repo_id,
-                    issue,
-                    spec: None,
-                    specify_spec: None,
-                }]);
+                if !self.state.specify_picker_state.list.search.is_empty() {
+                    self.state.specify_picker_state.list.search.clear();
+                    self.state.specify_picker_state.recompute_filter();
+                } else {
+                    self.state.specify_picker_state.hide();
+                    if let Some(session) = self.state.workspace_creation.as_mut() {
+                        session.picked_spec = None;
+                        session.picked_specify_spec = None;
+                    }
+                    return Ok(self.dispatch_workspace_creation_event(
+                        crate::workspace_creation::WorkspaceCreationEvent::SpecPicked,
+                    ));
+                }
             }
             _ => {}
         }

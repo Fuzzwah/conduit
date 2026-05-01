@@ -120,3 +120,53 @@ impl Default for SearchableListState {
         Self::new(10)
     }
 }
+
+/// Return indices into `items` whose `key(item)` contains `query` (case-insensitive).
+/// An empty query returns every index in original order.
+pub fn filter_indices<T, F>(items: &[T], query: &str, key: F) -> Vec<usize>
+where
+    F: Fn(&T) -> &str,
+{
+    if query.is_empty() {
+        return (0..items.len()).collect();
+    }
+    let needle = query.to_lowercase();
+    items
+        .iter()
+        .enumerate()
+        .filter(|(_, it)| key(it).to_lowercase().contains(&needle))
+        .map(|(i, _)| i)
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::filter_indices;
+
+    #[test]
+    fn empty_query_returns_all_indices_in_order() {
+        let items = vec!["alpha", "beta", "gamma"];
+        assert_eq!(filter_indices(&items, "", |s| s), vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn case_insensitive_substring_match() {
+        let items = vec!["Apple", "Banana", "applet", "PEAR"];
+        assert_eq!(filter_indices(&items, "app", |s| s), vec![0, 2]);
+        assert_eq!(filter_indices(&items, "AN", |s| s), vec![1]);
+        assert_eq!(filter_indices(&items, "ear", |s| s), vec![3]);
+    }
+
+    #[test]
+    fn no_matches_returns_empty() {
+        let items = vec!["alpha", "beta"];
+        assert!(filter_indices(&items, "zzz", |s| s).is_empty());
+    }
+
+    #[test]
+    fn key_extractor_is_used() {
+        let items = vec![("a", "first"), ("b", "second"), ("c", "third")];
+        // Filter on the second tuple element.
+        assert_eq!(filter_indices(&items, "ir", |(_, v)| *v), vec![0, 2]);
+    }
+}

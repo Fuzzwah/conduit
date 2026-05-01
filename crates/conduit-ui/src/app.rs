@@ -1626,6 +1626,9 @@ impl App {
         // Tick workspace creation progress dialog spinner
         self.state.workspace_progress_dialog_state.tick();
 
+        // Tick remote-sync dialog spinner
+        self.state.remote_sync_dialog_state.tick();
+
         // Tick session import spinner (for loading state)
         self.state.session_import_state.tick();
 
@@ -2616,7 +2619,16 @@ impl App {
                             .and_then(|dao| dao.get_by_id(repo_id).ok().flatten())
                             .and_then(|repo| repo.base_path)
                         {
-                            conduit_git::sync_remote(&path);
+                            let progress_tx = event_tx.clone();
+                            conduit_git::sync_remote_with_progress(&path, |line| {
+                                send_app_event(
+                                    &progress_tx,
+                                    AppEvent::RemoteSyncProgress {
+                                        message: line.to_string(),
+                                    },
+                                    "remote_sync_progress",
+                                );
+                            });
                         }
 
                         send_app_event(
@@ -2626,21 +2638,40 @@ impl App {
                         );
                     });
                 }
-                Effect::FetchGithubIssues { repo_id } => {
+                Effect::FetchRemoteIssues { repo_id } => {
                     let repo_dao = self.repo_dao_clone();
                     let event_tx = self.event_tx.clone();
+                    let issues_config = self.config().issues.clone();
 
                     tokio::task::spawn_blocking(move || {
                         let issues = repo_dao
                             .and_then(|dao| dao.get_by_id(repo_id).ok().flatten())
                             .and_then(|repo| repo.base_path)
-                            .map(|path| conduit_git::fetch_open_issues(&path))
+                            .map(|path| conduit_git::fetch_open_issues(&path, &issues_config))
                             .unwrap_or_default();
 
                         send_app_event(
                             &event_tx,
-                            AppEvent::GithubIssuesFetched { repo_id, issues },
-                            "github_issues_fetched",
+                            AppEvent::RemoteIssuesFetched { repo_id, issues },
+                            "remote_issues_fetched",
+                        );
+                    });
+                }
+                Effect::FetchCurrentUser { repo_id } => {
+                    let repo_dao = self.repo_dao_clone();
+                    let event_tx = self.event_tx.clone();
+                    let issues_config = self.config().issues.clone();
+
+                    tokio::task::spawn_blocking(move || {
+                        let user = repo_dao
+                            .and_then(|dao| dao.get_by_id(repo_id).ok().flatten())
+                            .and_then(|repo| repo.base_path)
+                            .and_then(|path| conduit_git::current_user(&path, &issues_config));
+
+                        send_app_event(
+                            &event_tx,
+                            AppEvent::CurrentUserFetched { repo_id, user },
+                            "current_user_fetched",
                         );
                     });
                 }
@@ -2649,13 +2680,35 @@ impl App {
                     let event_tx = self.event_tx.clone();
 
                     tokio::task::spawn_blocking(move || {
-                        let (open_specs, specify_specs) = repo_dao
+                        let (open_specs, specify_specs, source_ref) = repo_dao
                             .and_then(|dao| dao.get_by_id(repo_id).ok().flatten())
                             .and_then(|repo| repo.base_path)
                             .map(|path| {
-                                let open = conduit_git::fetch_open_specs(&path);
-                                let specify = conduit_git::fetch_specify_specs(&path);
-                                (open, specify)
+                                // Prefer reading specs from `origin/<default>` so that
+                                // changes archived/merged on the remote are not seen
+                                // even when the local working tree is stale (e.g. on a
+                                // feature branch). Fall back to the working tree if
+                                // the ref can't be resolved (no origin / no remote).
+                                let default_branch = conduit_git::detect_default_branch(&path)
+                                    .unwrap_or_else(|| "main".to_string());
+                                let git_ref = format!("origin/{}", default_branch);
+                                let ref_resolves = std::process::Command::new("git")
+                                    .args(["rev-parse", "--verify", &git_ref])
+                                    .current_dir(&path)
+                                    .output()
+                                    .map(|o| o.status.success())
+                                    .unwrap_or(false);
+                                if ref_resolves {
+                                    let open =
+                                        conduit_git::fetch_open_specs_from_ref(&path, &git_ref);
+                                    let specify =
+                                        conduit_git::fetch_specify_specs_from_ref(&path, &git_ref);
+                                    (open, specify, Some(git_ref))
+                                } else {
+                                    let open = conduit_git::fetch_open_specs(&path);
+                                    let specify = conduit_git::fetch_specify_specs(&path);
+                                    (open, specify, None)
+                                }
                             })
                             .unwrap_or_default();
 
@@ -2665,66 +2718,11 @@ impl App {
                                 repo_id,
                                 open_specs,
                                 specify_specs,
+                                source_ref,
                             },
                             "all_specs_fetched",
                         );
                     });
-                }
-                Effect::ShowSpecPicker { repo_id, issue } => {
-                    // If specify (spec-kit) is still loading or has specs, defer to it
-                    if self.state.specify_picker_state.loading
-                        || !self.state.specify_picker_state.specs.is_empty()
-                    {
-                        self.state.specify_picker_state.issue = issue;
-                        self.state.specify_picker_state.pending_show = true;
-                        self.state.input_mode = InputMode::SelectingSpecifySpec;
-                    } else if self.state.spec_picker_state.loading {
-                        // Openspec still loading; show spinner and defer show/skip decision
-                        self.state.spec_picker_state.show(issue);
-                        self.state.spec_picker_state.pending_show = true;
-                        self.state.input_mode = InputMode::SelectingSpec;
-                    } else if self.state.spec_picker_state.specs.is_empty() {
-                        // No specs found in either system; skip picker entirely
-                        self.state.spec_picker_state.issue = issue;
-                        self.state.spec_picker_state.pending_show = true;
-                        let event_tx = self.event_tx.clone();
-                        send_app_event(
-                            &event_tx,
-                            AppEvent::AllSpecsFetched {
-                                repo_id,
-                                open_specs: Vec::new(),
-                                specify_specs: Vec::new(),
-                            },
-                            "spec_picker_no_specs",
-                        );
-                    } else {
-                        // Openspec already loaded and non-empty; show picker directly
-                        self.state.spec_picker_state.show(issue);
-                        self.state.input_mode = InputMode::SelectingSpec;
-                    }
-                }
-                Effect::ShowSpecifyPicker { repo_id, issue } => {
-                    if self.state.specify_picker_state.loading {
-                        self.state.specify_picker_state.show(issue);
-                        self.state.specify_picker_state.pending_show = true;
-                        self.state.input_mode = InputMode::SelectingSpecifySpec;
-                    } else if self.state.specify_picker_state.specs.is_empty() {
-                        self.state.specify_picker_state.issue = issue;
-                        self.state.specify_picker_state.pending_show = true;
-                        let event_tx = self.event_tx.clone();
-                        send_app_event(
-                            &event_tx,
-                            AppEvent::AllSpecsFetched {
-                                repo_id,
-                                open_specs: Vec::new(),
-                                specify_specs: Vec::new(),
-                            },
-                            "specify_picker_no_specs",
-                        );
-                    } else {
-                        self.state.specify_picker_state.show(issue);
-                        self.state.input_mode = InputMode::SelectingSpecifySpec;
-                    }
                 }
                 Effect::CreateWorkspace {
                     repo_id,
@@ -4927,9 +4925,109 @@ impl App {
         }
 
         self.mark_repo_action_busy(repo_id);
-        self.state.issue_picker_state = crate::components::IssuePickerState::show_syncing(repo_id);
-        self.state.input_mode = InputMode::SelectingIssue;
-        vec![Effect::SyncRemote { repo_id }]
+        // Show the dedicated remote-sync dialog. The issue picker remains
+        // hidden until RemoteSynced fires and the issue-fetch phase begins.
+        self.state.remote_sync_dialog_state.show();
+        self.state.input_mode = InputMode::SyncingRemote;
+        self.state.workspace_creation = Some(
+            crate::workspace_creation::WorkspaceCreationSession::new(repo_id),
+        );
+        self.dispatch_workspace_creation_event(
+            crate::workspace_creation::WorkspaceCreationEvent::Start,
+        )
+    }
+
+    /// Drive the workspace-creation state machine and translate its abstract
+    /// commands into concrete effects + UI mutations.
+    pub(crate) fn dispatch_workspace_creation_event(
+        &mut self,
+        event: crate::workspace_creation::WorkspaceCreationEvent,
+    ) -> Vec<Effect> {
+        use crate::workspace_creation::{
+            transition, WorkspaceCreationCommand as Cmd, WorkspaceCreationPhase as Phase,
+        };
+
+        let Some((repo_id, phase)) = self
+            .state
+            .workspace_creation
+            .as_ref()
+            .map(|s| (s.repo_id, s.phase))
+        else {
+            tracing::debug!(
+                ?event,
+                "workspace creation event ignored — no active session"
+            );
+            return Vec::new();
+        };
+
+        let (next_phase, commands) = transition(phase, event);
+        if let Some(session) = self.state.workspace_creation.as_mut() {
+            session.phase = next_phase;
+        }
+
+        let mut effects = Vec::new();
+        for cmd in commands {
+            match cmd {
+                Cmd::SyncRemote => effects.push(Effect::SyncRemote { repo_id }),
+                Cmd::FetchRemoteIssues => {
+                    effects.push(Effect::FetchRemoteIssues { repo_id });
+                }
+                Cmd::FetchAllSpecs => {
+                    let issue = self
+                        .state
+                        .workspace_creation
+                        .as_ref()
+                        .and_then(|s| s.picked_issue.clone());
+                    self.state.spec_picker_state =
+                        crate::components::SpecPickerState::show_loading(repo_id, issue.clone());
+                    self.state.spec_picker_state.show(issue.clone());
+                    self.state.specify_picker_state =
+                        crate::components::SpecifyPickerState::show_loading(repo_id, issue);
+                    self.state.input_mode = InputMode::SelectingSpec;
+                    effects.push(Effect::FetchAllSpecs { repo_id });
+                }
+                Cmd::ShowIssuePicker => {
+                    self.state.input_mode = InputMode::SelectingIssue;
+                }
+                Cmd::ShowSpecPicker => {
+                    let issue = self
+                        .state
+                        .workspace_creation
+                        .as_ref()
+                        .and_then(|s| s.picked_issue.clone());
+                    if !self.state.specify_picker_state.specs.is_empty() {
+                        self.state.spec_picker_state.hide();
+                        self.state.specify_picker_state.show(issue);
+                        self.state.input_mode = InputMode::SelectingSpecifySpec;
+                    } else if !self.state.spec_picker_state.specs.is_empty() {
+                        self.state.specify_picker_state.hide();
+                        self.state.spec_picker_state.show(issue);
+                        self.state.input_mode = InputMode::SelectingSpec;
+                    }
+                }
+                Cmd::StartNaming => {
+                    if let Some(session) = self.state.workspace_creation.take() {
+                        debug_assert_eq!(session.phase, Phase::Naming);
+                        // Tear down any picker UI that the loading-spinner phase
+                        // left visible (e.g. when SpecsFetched arrives with no
+                        // specs, the spec picker dialog was already shown for
+                        // its "Fetching..." state and would otherwise linger as
+                        // "No open specs found." with no way to dismiss it).
+                        self.state.issue_picker_state.hide();
+                        self.state.spec_picker_state.hide();
+                        self.state.specify_picker_state.hide();
+                        self.state.input_mode = InputMode::SidebarNavigation;
+                        effects.push(Effect::CreateWorkspace {
+                            repo_id: session.repo_id,
+                            issue: session.picked_issue,
+                            spec: session.picked_spec,
+                            specify_spec: session.picked_specify_spec,
+                        });
+                    }
+                }
+            }
+        }
+        effects
     }
 
     /// Find the visible index of a workspace by its ID
@@ -7025,79 +7123,53 @@ impl App {
                 }
                 self.state.workspace_progress_dialog_state.push(message);
             }
-            AppEvent::RemoteSynced { repo_id } => {
-                self.state.issue_picker_state.start_loading();
-                self.state.spec_picker_state =
-                    crate::components::SpecPickerState::show_loading(repo_id, None);
-                self.state.specify_picker_state =
-                    crate::components::SpecifyPickerState::show_loading(repo_id, None);
-                effects.push(Effect::FetchGithubIssues { repo_id });
-                effects.push(Effect::FetchAllSpecs { repo_id });
+            AppEvent::RemoteSyncProgress { message }
+                if self.state.remote_sync_dialog_state.visible =>
+            {
+                self.state.remote_sync_dialog_state.push(message);
             }
-            AppEvent::GithubIssuesFetched { repo_id, issues } => {
-                if issues.is_empty() {
-                    // No issues (or not a GitHub repo): skip issue picker, go to spec picker
-                    self.state.issue_picker_state.hide();
-                    self.state.input_mode = InputMode::SidebarNavigation;
-                    effects.push(Effect::ShowSpecPicker {
-                        repo_id,
-                        issue: None,
-                    });
-                } else {
+            AppEvent::RemoteSyncProgress { .. } => {}
+            AppEvent::RemoteSynced { repo_id } => {
+                self.state.remote_sync_dialog_state.hide();
+                self.state.issue_picker_state =
+                    crate::components::IssuePickerState::show_loading(repo_id);
+                self.state.input_mode = InputMode::SelectingIssue;
+                effects.append(&mut self.dispatch_workspace_creation_event(
+                    crate::workspace_creation::WorkspaceCreationEvent::RemoteSynced,
+                ));
+            }
+            AppEvent::CurrentUserFetched { repo_id, user }
+                if self.state.issue_picker_state.repo_id == repo_id =>
+            {
+                self.state.issue_picker_state.set_current_user(user);
+            }
+            AppEvent::CurrentUserFetched { .. } => {}
+            AppEvent::RemoteIssuesFetched { repo_id: _, issues } => {
+                let has_issues = !issues.is_empty();
+                if has_issues {
                     self.state.issue_picker_state.load_issues(issues);
+                } else {
+                    self.state.issue_picker_state.hide();
                 }
+                effects.append(&mut self.dispatch_workspace_creation_event(
+                    crate::workspace_creation::WorkspaceCreationEvent::IssuesFetched { has_issues },
+                ));
             }
             AppEvent::AllSpecsFetched {
-                repo_id,
+                repo_id: _,
                 open_specs,
                 specify_specs,
+                source_ref,
             } => {
+                self.state.spec_picker_state.source_ref = source_ref.clone();
+                self.state.specify_picker_state.source_ref = source_ref;
                 self.state.spec_picker_state.load_specs(open_specs);
                 self.state.specify_picker_state.load_specs(specify_specs);
-
-                let spec_pending = self.state.spec_picker_state.pending_show;
-                let specify_pending = self.state.specify_picker_state.pending_show;
-
-                if specify_pending {
-                    self.state.specify_picker_state.pending_show = false;
-                    let issue = self.state.specify_picker_state.issue.clone();
-                    if !self.state.specify_picker_state.specs.is_empty() {
-                        // Spec-kit has specs: show specify picker
-                        self.state.specify_picker_state.show(issue);
-                        self.state.input_mode = InputMode::SelectingSpecifySpec;
-                    } else if !self.state.spec_picker_state.specs.is_empty() {
-                        // Fall back to openspec picker
-                        self.state.specify_picker_state.hide();
-                        self.state.spec_picker_state.show(issue);
-                        self.state.input_mode = InputMode::SelectingSpec;
-                    } else {
-                        // Neither has specs; skip both pickers
-                        self.state.specify_picker_state.hide();
-                        self.state.spec_picker_state.hide();
-                        self.state.input_mode = InputMode::SidebarNavigation;
-                        effects.push(Effect::CreateWorkspace {
-                            repo_id,
-                            issue,
-                            spec: None,
-                            specify_spec: None,
-                        });
-                    }
-                } else if spec_pending {
-                    self.state.spec_picker_state.pending_show = false;
-                    let issue = self.state.spec_picker_state.issue.clone();
-                    if self.state.spec_picker_state.specs.is_empty() {
-                        // No incomplete openspecs; skip picker
-                        self.state.spec_picker_state.hide();
-                        self.state.input_mode = InputMode::SidebarNavigation;
-                        effects.push(Effect::CreateWorkspace {
-                            repo_id,
-                            issue,
-                            spec: None,
-                            specify_spec: None,
-                        });
-                    }
-                    // else: picker is already visible with loaded specs; stay in SelectingSpec
-                }
+                let has_specs = !self.state.spec_picker_state.specs.is_empty()
+                    || !self.state.specify_picker_state.specs.is_empty();
+                effects.append(&mut self.dispatch_workspace_creation_event(
+                    crate::workspace_creation::WorkspaceCreationEvent::SpecsFetched { has_specs },
+                ));
             }
             AppEvent::WorkspaceCreated { repo_id, result } => {
                 self.clear_repo_action_busy(repo_id);
@@ -11906,6 +11978,15 @@ impl App {
             use ratatui::widgets::Widget;
             WorkspaceProgressDialog::new(&self.state.workspace_progress_dialog_state)
                 .render(right_area, f.buffer_mut());
+        }
+
+        // Draw remote-sync dialog (shown during the SyncingRemote phase of
+        // workspace creation, before the issue picker appears).
+        if self.state.remote_sync_dialog_state.visible {
+            use crate::components::RemoteSyncDialog;
+            use ratatui::widgets::Widget;
+            RemoteSyncDialog::new(&self.state.remote_sync_dialog_state)
+                .render(size, f.buffer_mut());
         }
     }
 

@@ -64,6 +64,8 @@ pub enum InputMode {
     QueueEditing,
     /// File mention autocomplete (@filename) is active
     FileMention,
+    /// Syncing the base repo with the remote before showing the issue picker
+    SyncingRemote,
     /// Picking a GitHub issue to link to the new workspace
     SelectingIssue,
     /// Picking an OpenSpec change to link to the new workspace

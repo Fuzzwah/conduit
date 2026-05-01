@@ -123,6 +123,19 @@
 # # archive_remote_prompt = true  # prompt for remote deletion on archive
 # # use_gh_cli_merge_status = false # prefer `gh pr view` for merge status in workspace analysis (GitHub repos only)
 #
+# ============================================================================
+# Remote Issue Providers
+# ============================================================================
+# When creating a new workspace, conduit can fetch open issues from the repo's
+# git host so you can link a workspace to an issue. GitHub is auto-detected
+# from the origin URL (uses the `gh` CLI). Gitea and Forgejo cannot be reliably
+# detected from the URL alone, so list their hosts here. Authentication uses
+# the GITEA_TOKEN / FORGEJO_TOKEN environment variables.
+#
+# [issues]
+# gitea_hosts = ["gitea.example.com"]
+# forgejo_hosts = ["codeberg.org"]
+#
 # Configure paths to external tools if they are not in your PATH or if
 # you want to use a specific version. All paths are optional - by default,
 # tools are auto-detected from your PATH.
