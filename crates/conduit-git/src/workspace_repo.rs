@@ -162,6 +162,11 @@ impl WorkspaceRepoManager {
         self.worktree.get_branch_status(workspace_path)
     }
 
+    /// Returns true if the workspace has no uncommitted changes and no commits ahead of main.
+    pub fn is_clean(&self, workspace_path: &Path) -> bool {
+        self.worktree.is_clean(workspace_path)
+    }
+
     /// Get branch status for a workspace path, optionally preferring GH CLI for merge detection.
     pub fn get_branch_status_with_gh_option(
         &self,

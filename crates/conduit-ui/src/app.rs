@@ -5301,6 +5301,19 @@ impl App {
                     .get_by_id(workspace_id)
                     .map_err(|e| format!("Failed to load workspace: {}", e))?
                     .ok_or_else(|| "Workspace not found".to_string())?;
+
+                if worktree_manager.is_clean(&workspace.path) {
+                    return Ok(ArchiveWorkspaceDialogPreflightResult {
+                        workspace_name: workspace.name,
+                        message: String::new(),
+                        warnings: vec![],
+                        info_items: vec![],
+                        has_dirty: false,
+                        has_unmerged: false,
+                        skip_to_archive: true,
+                    });
+                }
+
                 let repo = repo_dao
                     .get_by_id(workspace.repository_id)
                     .map_err(|e| format!("Failed to load repository: {}", e))?
@@ -5422,6 +5435,7 @@ impl App {
                     info_items,
                     has_dirty,
                     has_unmerged,
+                    skip_to_archive: false,
                 })
             },
             move |result| AppEvent::ArchiveWorkspaceDialogPreflightCompleted {
@@ -7283,6 +7297,11 @@ impl App {
 
                 match result {
                     Ok(preflight) => {
+                        if preflight.skip_to_archive {
+                            effects.push(self.execute_archive_workspace(workspace_id, false));
+                            return Ok(effects);
+                        }
+
                         let confirmation_type = match (preflight.has_dirty, preflight.has_unmerged)
                         {
                             (true, true) => ConfirmationType::Danger,
@@ -13921,6 +13940,7 @@ mod tests {
                 info_items: vec![],
                 has_dirty: true,
                 has_unmerged: false,
+                skip_to_archive: false,
             }),
         };
 

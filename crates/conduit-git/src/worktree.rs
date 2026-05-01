@@ -511,6 +511,43 @@ impl WorktreeManager {
         }
     }
 
+    /// Returns true if the worktree has no uncommitted changes and no commits ahead of
+    /// main. Uses only local refs (no network), so this is fast.
+    pub fn is_clean(&self, worktree_path: &Path) -> bool {
+        match self.is_dirty(worktree_path) {
+            Ok((true, _)) => return false,
+            Ok((false, _)) => {}
+            Err(_) => return false,
+        }
+
+        let main_branch = self
+            .get_main_branch(worktree_path)
+            .unwrap_or_else(|_| "main".to_string());
+        let remote_ref = format!("origin/{main_branch}");
+        for compare_ref in [remote_ref.as_str(), main_branch.as_str()] {
+            let output = Command::new("git")
+                .args([
+                    "rev-list",
+                    "--left-right",
+                    "--count",
+                    &format!("HEAD...{compare_ref}"),
+                ])
+                .current_dir(worktree_path)
+                .output();
+            if let Ok(output) = output {
+                if output.status.success() {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    let parts: Vec<&str> = stdout.split_whitespace().collect();
+                    if parts.len() == 2 {
+                        let ahead: u32 = parts[0].parse().unwrap_or(1);
+                        return ahead == 0;
+                    }
+                }
+            }
+        }
+        false
+    }
+
     /// Get the main branch name for a repository (master or main)
     pub fn get_main_branch(&self, path: &Path) -> Result<String, WorktreeError> {
         // Check for origin/main first

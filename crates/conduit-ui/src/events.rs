@@ -258,6 +258,9 @@ pub struct ArchiveWorkspaceDialogPreflightResult {
     pub info_items: Vec<String>,
     pub has_dirty: bool,
     pub has_unmerged: bool,
+    /// If true, the worktree is clean and the archive should proceed immediately
+    /// without showing the confirmation dialog.
+    pub skip_to_archive: bool,
 }
 
 #[derive(Debug, Clone)]
