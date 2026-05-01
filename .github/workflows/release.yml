@@ -50,7 +50,7 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: crates/conduit-web/web/package-lock.json
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
@@ -60,7 +60,7 @@ jobs:
 
       - name: Pre-build web assets (cross only)
         if: matrix.cross == true
-        run: cd web && npm ci && npm run build
+        run: cd crates/conduit-web/web && npm ci && npm run build
 
       - name: Install cross (arm64 Linux only)
         if: matrix.cross == true

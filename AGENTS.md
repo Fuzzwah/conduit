@@ -34,20 +34,33 @@ cargo test -- --nocapture
 
 # Lint / format
 cargo fmt --all
-cargo clippy -- -D warnings
+cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-The build script automatically runs `npm install && npm run build` in `web/` when web assets are stale.
+The build script (in `crates/conduit-web/build.rs`) automatically runs `npm install && npm run build` in `crates/conduit-web/web/` when web assets are stale.
 
 ## Project Layout
 
+This is a Cargo workspace. All Rust source lives under `crates/`; the root `Cargo.toml` is a virtual manifest.
+
 ```
-src/          TUI, agent runners, workspace logic, web server
-src/web/      Axum API handlers and WebSocket endpoints
-web/          React/TypeScript frontend
-website/      Astro marketing site (getconduit.sh)
-docs/         mdBook documentation
-tests/        Integration and E2E tests
+crates/conduit-bin/      Binary entry point (`[[bin]] conduit`) — depends only on the umbrella
+crates/conduit/          Umbrella library re-exporting the per-tier crates; holds the integration + E2E tests
+crates/conduit-ui/       TUI built on Ratatui
+crates/conduit-web/      Axum HTTP/WebSocket server; embeds the React frontend (web/ subdir + build.rs)
+crates/conduit-core/     Glue between agent + data + git + web (ConduitCore facade)
+crates/conduit-agent/    Agent runners (Claude, Codex, Gemini, OpenCode, Pi, …)
+crates/conduit-data/     SQLite repositories (workspaces, sessions)
+crates/conduit-git/      Worktree + PR management
+crates/conduit-config/   User config + key bindings
+crates/conduit-resolver/ Slash-command and menu-entry resolution
+crates/conduit-session/  External-session discovery
+crates/conduit-theme/    Theme types + parsing (depended on by both ui and web)
+crates/conduit-types/    Shared types (Action, ChatMessage, app_prompt) — leaf, no internal deps
+crates/conduit-util/     Pure utilities (data dirs, naming, git username)
+
+website/                 Astro marketing site (getconduit.sh)
+docs/                    mdBook documentation
 ```
 
 ## Testing Notes
@@ -103,14 +116,14 @@ rm -f "$tmp_body"
 
 ## CI Checks
 
-PRs must pass: `cargo check` → `cargo fmt --check` → `cargo clippy -- -D warnings` → `cargo test`.
+PRs must pass: `cargo check --workspace` → `cargo fmt --check` → `cargo clippy --workspace --all-targets -- -D warnings` → `cargo test --workspace`.
 
 **Before declaring any code change complete, always run all four commands:**
 
 ```bash
 cargo fmt --check
-cargo clippy -- -D warnings
-cargo test
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
 ```
 
 (`cargo clippy` implies `cargo check`, so running all three above covers the full CI gate.)
@@ -126,7 +139,7 @@ Do not substitute `cargo build` for these — it skips format, lint, and test ve
 3. Prefer small, local edits over broad refactors unless the task requires it.
 4. Prefer dedicated tools for reading, editing, searching, and testing.
 5. If multiple reads or searches are independent, run them in parallel.
-6. Before reporting success, run `cargo fmt --check && cargo clippy -- -D warnings && cargo test` and confirm all pass.
+6. Before reporting success, run `cargo fmt --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace` and confirm all pass.
 7. Never claim tests passed unless output confirms it.
 8. Ask before taking destructive or externally visible actions.
 

@@ -1,0 +1,24 @@
+[package]
+name = "conduit-bin"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Conduit binary entry point"
+
+[[bin]]
+name = "conduit"
+path = "src/main.rs"
+
+[dependencies]
+conduit = { workspace = true }
+
+anyhow = { workspace = true }
+clap = { workspace = true }
+crossterm = { workspace = true }
+ratatui = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

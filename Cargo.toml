@@ -1,25 +1,31 @@
-[package]
-name = "conduit-cli"
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
 version = "0.5.0"
 edition = "2021"
 rust-version = "1.87"
-description = "Multi-agent TUI for Claude Code and Codex CLI"
 authors = ["Felipe Coury"]
 license = "MIT"
 repository = "https://github.com/Fuzzwah/conduit"
-readme = "README.md"
-keywords = ["tui", "cli", "claude", "ai", "terminal"]
-categories = ["command-line-utilities", "development-tools"]
 
-[lib]
-name = "conduit"
-path = "src/lib.rs"
+[workspace.dependencies]
+# Internal crates
+conduit = { path = "crates/conduit" }
+conduit-util = { path = "crates/conduit-util" }
+conduit-types = { path = "crates/conduit-types" }
+conduit-git = { path = "crates/conduit-git" }
+conduit-agent = { path = "crates/conduit-agent" }
+conduit-resolver = { path = "crates/conduit-resolver" }
+conduit-session = { path = "crates/conduit-session" }
+conduit-data = { path = "crates/conduit-data" }
+conduit-config = { path = "crates/conduit-config" }
+conduit-theme = { path = "crates/conduit-theme" }
+conduit-core = { path = "crates/conduit-core" }
+conduit-web = { path = "crates/conduit-web" }
+conduit-ui = { path = "crates/conduit-ui" }
 
-[[bin]]
-name = "conduit"
-path = "src/main.rs"
-
-[dependencies]
 # Async runtime
 tokio = { version = "1.42", features = ["full", "process", "sync", "macros", "rt-multi-thread"] }
 tokio-util = { version = "0.7", features = ["compat", "io"] }
@@ -95,29 +101,23 @@ reqwest-eventsource = "0.6"
 # Blocking HTTP client for Gitea/Forgejo issue providers (used inside spawn_blocking)
 ureq = { version = "2.10", default-features = false, features = ["json", "tls"] }
 
-[target.'cfg(unix)'.dependencies]
+# Unix
 libc = "0.2"
 
-[dev-dependencies]
-# Snapshot testing for TUI output
+# Dev dependencies
 insta = { version = "1.40", features = ["yaml", "json"] }
-
-# Property-based testing for JSONL parsing
 proptest = "1.5"
-
-# CLI binary testing
 assert_cmd = "2.0"
 predicates = "3.1"
-
-# Async test utilities
 tokio-test = "0.4"
-
-# HTTP body utilities for tests
 http-body-util = "0.1"
-
-# Lazy static for shared fixtures
 once_cell = "1.21"
 
-[build-dependencies]
-which = "7.0"
+[profile.dev]
+split-debuginfo = "unpacked"
+debug = "line-tables-only"
+codegen-units = 256
+incremental = true
 
+[profile.dev.package."*"]
+opt-level = 0

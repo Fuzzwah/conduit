@@ -1,0 +1,42 @@
+[package]
+name = "conduit-agent"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Conduit agent runners (Claude, Codex, Gemini, OpenCode, etc.)"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+conduit-util = { workspace = true }
+conduit-types = { workspace = true }
+
+agent-client-protocol = { workspace = true }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+chrono = { workspace = true }
+codex-app-server-protocol = { workspace = true }
+codex-protocol = { workspace = true }
+dirs = { workspace = true }
+futures = { workspace = true }
+image = { workspace = true }
+parking_lot = { workspace = true }
+reqwest = { workspace = true }
+reqwest-eventsource = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+which = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+libc = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

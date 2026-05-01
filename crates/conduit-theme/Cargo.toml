@@ -1,0 +1,28 @@
+[package]
+name = "conduit-theme"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Conduit theme registry and color helpers"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+conduit-util = { workspace = true }
+
+dirs = { workspace = true }
+json5 = { workspace = true }
+parking_lot = { workspace = true }
+tokio = { workspace = true }
+ratatui = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+toml_edit = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

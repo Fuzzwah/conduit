@@ -1,0 +1,89 @@
+session:
+  command: ["./target/release/conduit", "--data-dir", "/tmp/conduit-test-arrows-REPLACEME"]
+  cols: 120
+  rows: 40
+  cwd: "/Users/fcoury/code/conduit"
+
+steps:
+  # Wait for initial startup and main screen
+  - waitForIdle: {idleMs: 1000, timeoutMs: 10000}
+  - waitForText: {text: "C-n new project", timeoutMs: 5000}
+
+  # Open the base directory dialog with Ctrl+N
+  - hotkey: {ctrl: true, ch: "n"}
+  - waitForText: {text: "Set Projects Directory", timeoutMs: 5000}
+  - screenshot: {name: "01-initial-dialog"}
+
+  # The default text should be ~/code
+  - expectText: {text: "~/code"}
+
+  # Clear the input and type a test path
+  # First go to end, then delete all
+  - press: {key: End}
+  - waitForIdle: {idleMs: 100}
+
+  # Delete existing content (~/code = 6 chars)
+  - press: {key: Backspace}
+  - press: {key: Backspace}
+  - press: {key: Backspace}
+  - press: {key: Backspace}
+  - press: {key: Backspace}
+  - press: {key: Backspace}
+  - waitForIdle: {idleMs: 100}
+
+  # Type a new test path
+  - type: {text: "~/test"}
+  - waitForIdle: {idleMs: 200}
+  - screenshot: {name: "02-typed-test"}
+
+  # Now test LEFT arrow - move cursor left 2 positions
+  - press: {key: Left}
+  - press: {key: Left}
+  - waitForIdle: {idleMs: 100}
+  - screenshot: {name: "03-after-left-arrows"}
+
+  # Type a character at cursor position (should insert 'X' before 'st')
+  - type: {text: "X"}
+  - waitForIdle: {idleMs: 200}
+  - screenshot: {name: "04-after-insert"}
+
+  # Should now show ~/teXst
+  - expectText: {text: "~/teXst"}
+
+  # Now test RIGHT arrow - move right one position and insert Y
+  - press: {key: Right}
+  - waitForIdle: {idleMs: 100}
+  - type: {text: "Y"}
+  - waitForIdle: {idleMs: 200}
+  - screenshot: {name: "05-after-right-insert"}
+
+  # Should now show ~/teXsYt
+  - expectText: {text: "~/teXsYt"}
+
+  # Test Home key - go to start
+  - press: {key: Home}
+  - waitForIdle: {idleMs: 100}
+  - type: {text: "START"}
+  - waitForIdle: {idleMs: 200}
+  - screenshot: {name: "06-after-home-insert"}
+
+  # Should now show START~/teXsYt
+  - expectText: {text: "START~/teXsYt"}
+
+  # Test End key - go to end
+  - press: {key: End}
+  - waitForIdle: {idleMs: 100}
+  - type: {text: "END"}
+  - waitForIdle: {idleMs: 200}
+  - screenshot: {name: "07-final"}
+
+  # Should now show START~/teXsYtEND
+  - expectText: {text: "START~/teXsYtEND"}
+
+  # Cancel the dialog
+  - press: {key: Escape}
+  - waitForIdle: {idleMs: 500}
+
+artifacts:
+  mode: always
+  dir: ./crates/conduit/tests/e2e/artifacts/base-dir-arrows
