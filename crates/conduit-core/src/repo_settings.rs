@@ -1,6 +1,6 @@
-use crate::config::Config;
-use crate::data::Repository;
-use crate::git::WorkspaceMode;
+use conduit_config::Config;
+use conduit_data::Repository;
+use conduit_git::WorkspaceMode;
 
 #[derive(Debug, Clone, Copy)]
 pub struct RepoWorkspaceSettings {

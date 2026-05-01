@@ -2,10 +2,10 @@ use chrono::Utc;
 use rusqlite::{params, Error as SqliteError, ErrorCode, Result as SqliteResult};
 use uuid::Uuid;
 
-use crate::agent::{AgentMode, AgentType, ModelRegistry};
-use crate::core::services::error::ServiceError;
-use crate::core::ConduitCore;
-use crate::data::{
+use crate::services::error::ServiceError;
+use crate::ConduitCore;
+use conduit_agent::{AgentMode, AgentType, ModelRegistry};
+use conduit_data::{
     QueuedImageAttachment, QueuedMessage, QueuedMessageMode, SessionTab, SessionTabStore,
 };
 
@@ -364,7 +364,7 @@ impl SessionService {
 
     fn ensure_model(
         core: &ConduitCore,
-        store: &crate::data::SessionTabStore,
+        store: &conduit_data::SessionTabStore,
         mut session: SessionTab,
     ) -> Result<SessionTab, ServiceError> {
         if session.model.is_some() || session.model_invalid {

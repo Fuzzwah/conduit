@@ -1,9 +1,9 @@
 pub use conduit_agent as agent;
 pub use conduit_config as config;
-pub use conduit_resolver as command_resolver;
-pub mod core;
+pub use conduit_core as core;
 pub use conduit_data as data;
 pub use conduit_git as git;
+pub use conduit_resolver as command_resolver;
 pub use conduit_session as session;
 pub mod ui;
 pub use conduit_util as util;

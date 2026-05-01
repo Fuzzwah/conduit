@@ -1,5 +1,5 @@
-use crate::agent::{AgentType, ModelRegistry};
-use crate::core::ConduitCore;
+use crate::ConduitCore;
+use conduit_agent::{AgentType, ModelRegistry};
 
 const CONTEXT_WINDOW_KEY_PREFIX: &str = "model_context_window";
 
@@ -154,8 +154,8 @@ impl ContextWindowService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::Config;
-    use crate::util::{self, ToolAvailability};
+    use conduit_config::Config;
+    use conduit_util::{self as util, ToolAvailability};
     use std::path::PathBuf;
     use std::sync::OnceLock;
 

@@ -2,19 +2,19 @@
 
 use std::sync::Arc;
 
-use crate::agent::codex::load_codex_models;
-use crate::agent::gemini::load_gemini_models;
-use crate::agent::pi::load_pi_models;
-use crate::agent::{
+use conduit_agent::codex::load_codex_models;
+use conduit_agent::gemini::load_gemini_models;
+use conduit_agent::pi::load_pi_models;
+use conduit_agent::{
     ClaudeCodeRunner, CodexCliRunner, CopilotRunner, DiracRunner, GeminiCliRunner, ModelRegistry,
     OpencodeRunner, PiRunner,
 };
-use crate::config::Config;
-use crate::data::{
+use conduit_config::Config;
+use conduit_data::{
     AppStateStore, Database, ForkSeedStore, RepositoryStore, SessionTabStore, WorkspaceStore,
 };
-use crate::git::WorkspaceRepoManager;
-use crate::util::{Tool, ToolAvailability};
+use conduit_git::WorkspaceRepoManager;
+use conduit_util::{Tool, ToolAvailability};
 
 /// Core infrastructure for Conduit, shared between TUI and web interfaces.
 ///
@@ -65,7 +65,7 @@ impl ConduitCore {
     }
 
     /// Like `new`, but calls `progress` with a human-readable label at each initialization phase.
-    pub(crate) fn new_with_progress(
+    pub fn new_with_progress(
         config: Config,
         tools: ToolAvailability,
         progress: &mut impl FnMut(&str),
@@ -102,11 +102,11 @@ impl ConduitCore {
         };
 
         // Migrate old worktrees folder to workspaces (one-time migration)
-        crate::util::migrate_worktrees_to_workspaces();
+        conduit_util::migrate_worktrees_to_workspaces();
 
         // Initialize worktree manager with managed directory (~/.conduit/workspaces)
         let worktree_manager =
-            WorkspaceRepoManager::with_managed_dir(crate::util::workspaces_dir());
+            WorkspaceRepoManager::with_managed_dir(conduit_util::workspaces_dir());
 
         // Create runners with configured paths if available, reporting each available agent
         if tools.is_available(Tool::Claude) {
@@ -168,7 +168,7 @@ impl ConduitCore {
         if tools.is_available(Tool::Claude) {
             progress("Discovering Claude Code models");
             let models =
-                crate::agent::claude::load_claude_models(tools.get_path(Tool::Claude).cloned());
+                conduit_agent::claude::load_claude_models(tools.get_path(Tool::Claude).cloned());
             if !models.is_empty() {
                 ModelRegistry::set_claude_models(models);
             }
@@ -178,7 +178,7 @@ impl ConduitCore {
 
         if tools.is_available(Tool::Opencode) {
             progress("Discovering OpenCode models");
-            let models = crate::agent::opencode::load_opencode_models(
+            let models = conduit_agent::opencode::load_opencode_models(
                 tools.get_path(Tool::Opencode).cloned(),
             );
             ModelRegistry::set_opencode_models(models);
@@ -395,7 +395,7 @@ impl ConduitCore {
         };
 
         if self.tools.is_available(Tool::Claude) {
-            let models = crate::agent::claude::load_claude_models(
+            let models = conduit_agent::claude::load_claude_models(
                 self.tools.get_path(Tool::Claude).cloned(),
             );
             if !models.is_empty() {
@@ -406,7 +406,7 @@ impl ConduitCore {
         }
 
         if self.tools.is_available(Tool::Opencode) {
-            let models = crate::agent::opencode::load_opencode_models(
+            let models = conduit_agent::opencode::load_opencode_models(
                 self.tools.get_path(Tool::Opencode).cloned(),
             );
             ModelRegistry::set_opencode_models(models);

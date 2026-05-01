@@ -105,13 +105,15 @@
 - [x] 9.6 Promote `theme_test_lock`/`theme_test_lock_async` from `#[cfg(test)] pub(crate)` to always-`pub` (and pull `tokio` out of dev-deps) so cross-crate tests in `conduit-cli` can serialize global theme state. Trivial overhead — tokio is already in the production dep graph.
 - [x] 9.7 Verify CI gate: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` all pass
 
-## 10. Extract `conduit-core` (tier 8)
+## 10. Extract `conduit-core` (tier 8) ✓
 
-- [ ] 10.1 Create `crates/conduit-core/Cargo.toml` with deps `tokio`, `parking_lot`, `anyhow`, `tracing`, `conduit-util`, `conduit-agent`, `conduit-config`, `conduit-data`, `conduit-git`
-- [ ] 10.2 `git mv src/core crates/conduit-core/src` then rename `mod.rs` → `lib.rs`. Rewrite `crate::*` imports to per-crate paths
-- [ ] 10.3 In root `src/lib.rs`, replace `pub mod core;` with `pub use conduit_core as core;`
-- [ ] 10.4 Add path dep, verify `cargo check --workspace`
-- [ ] 10.5 Commit "refactor: extract conduit-core crate"
+- [x] 10.1 Create `crates/conduit-core/Cargo.toml` with deps `anyhow`, `chrono`, `rusqlite`, `serde`, `serde_json`, `thiserror`, `tokio`, `tracing`, `uuid`, `conduit-agent`, `conduit-config`, `conduit-data`, `conduit-git`, `conduit-util`. Dev-dep: `tempfile`. (`parking_lot` not needed; `rusqlite` is — `session_service.rs` references it.)
+- [x] 10.2 `git mv src/core/{conduit_core,repo_settings}.rs crates/conduit-core/src/`, `git mv src/core/{dto,services} crates/conduit-core/src/`, `git mv src/core/mod.rs crates/conduit-core/src/lib.rs`. Bulk-rewrite `crate::{agent,config,data,git,util}::` → `conduit_*::` then `crate::core::` → `crate::`.
+- [x] 10.3 In root `src/lib.rs`, replace `pub mod core;` with `pub use conduit_core as core;`.
+- [x] 10.4 Promote `pub(crate) fn ConduitCore::new_with_progress` to `pub` so `src/ui/app.rs:390` (now in conduit-cli) can call it across the crate boundary.
+- [x] 10.5 Fix `tests` module in `services/context_window_service.rs`: `use conduit_util::{self, ToolAvailability};` → `use conduit_util::{self as util, ToolAvailability};` so existing `util::init_data_dir(...)` call site keeps resolving.
+- [x] 10.6 Verify CI gate: `cargo check --workspace`, `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` — all pass.
+- [x] 10.7 Commit "refactor: extract conduit-core crate (tier 8)".
 
 ## 11. Extract `conduit-web` (tier 9 — verifies Fix C)
 

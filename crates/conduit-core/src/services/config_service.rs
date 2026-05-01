@@ -1,8 +1,8 @@
-use crate::agent::{AgentType, ModelRegistry};
-use crate::config::{save_default_model, save_enabled_providers, save_workspaces_config};
-use crate::core::services::error::ServiceError;
-use crate::core::ConduitCore;
-use crate::git::WorkspaceMode;
+use crate::services::error::ServiceError;
+use crate::ConduitCore;
+use conduit_agent::{AgentType, ModelRegistry};
+use conduit_config::{save_default_model, save_enabled_providers, save_workspaces_config};
+use conduit_git::WorkspaceMode;
 
 pub struct ConfigService;
 
@@ -72,13 +72,13 @@ impl ConfigService {
             .copied()
             .filter(|provider| {
                 core.tools().is_available(match provider {
-                    AgentType::Claude => crate::util::Tool::Claude,
-                    AgentType::Codex => crate::util::Tool::Codex,
-                    AgentType::Dirac => crate::util::Tool::Dirac,
-                    AgentType::Gemini => crate::util::Tool::Gemini,
-                    AgentType::Opencode => crate::util::Tool::Opencode,
-                    AgentType::Copilot => crate::util::Tool::Copilot,
-                    AgentType::Pi => crate::util::Tool::Pi,
+                    AgentType::Claude => conduit_util::Tool::Claude,
+                    AgentType::Codex => conduit_util::Tool::Codex,
+                    AgentType::Dirac => conduit_util::Tool::Dirac,
+                    AgentType::Gemini => conduit_util::Tool::Gemini,
+                    AgentType::Opencode => conduit_util::Tool::Opencode,
+                    AgentType::Copilot => conduit_util::Tool::Copilot,
+                    AgentType::Pi => conduit_util::Tool::Pi,
                 })
             })
             .count();

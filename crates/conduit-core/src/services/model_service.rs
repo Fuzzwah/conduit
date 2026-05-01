@@ -1,8 +1,8 @@
-use crate::agent::ModelRegistry;
-use crate::core::dto::{ListModelsDto, ModelGroupDto, ModelInfoDto};
-use crate::core::services::config_service::ConfigService;
-use crate::core::services::ContextWindowService;
-use crate::core::ConduitCore;
+use crate::dto::{ListModelsDto, ModelGroupDto, ModelInfoDto};
+use crate::services::config_service::ConfigService;
+use crate::services::ContextWindowService;
+use crate::ConduitCore;
+use conduit_agent::ModelRegistry;
 
 pub struct ModelService;
 
