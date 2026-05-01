@@ -175,6 +175,7 @@ pub use theme::{
     relative_luminance,
     saturate,
     selected_bg,
+    selected_bg_bright,
     selected_bg_dim,
     set_theme,
     shift_hue,
