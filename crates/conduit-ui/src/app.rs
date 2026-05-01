@@ -5405,6 +5405,39 @@ impl App {
                     }
                 }
 
+                let count_incomplete_tasks = |tasks_path: std::path::PathBuf| -> usize {
+                    std::fs::read_to_string(&tasks_path)
+                        .map(|content| content.lines().filter(|l| l.contains("- [ ]")).count())
+                        .unwrap_or(0)
+                };
+
+                let openspec_n = count_incomplete_tasks(
+                    workspace
+                        .path
+                        .join("openspec")
+                        .join("changes")
+                        .join(&workspace.name)
+                        .join("tasks.md"),
+                );
+                if openspec_n > 0 {
+                    warnings.push(format!(
+                        "OpenSpec change has {} incomplete task(s)",
+                        openspec_n
+                    ));
+                }
+
+                let specify_n = count_incomplete_tasks(
+                    workspace
+                        .path
+                        .join(".specify")
+                        .join("specs")
+                        .join(&workspace.name)
+                        .join("tasks.md"),
+                );
+                if specify_n > 0 {
+                    warnings.push(format!("Specify spec has {} incomplete task(s)", specify_n));
+                }
+
                 let mut message = match settings.mode {
                     WorkspaceMode::Worktree => "This will remove the worktree.".to_string(),
                     WorkspaceMode::Checkout => "This will remove the checkout.".to_string(),
