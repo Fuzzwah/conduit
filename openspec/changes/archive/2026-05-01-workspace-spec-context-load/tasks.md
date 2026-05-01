@@ -19,7 +19,7 @@
 ## 5. Verification
 
 - [x] 5.1 Run `cargo fmt --check && cargo clippy -- -D warnings && cargo test` and confirm all pass
-- [ ] 5.2 Manual test: create a workspace from an OpenSpec change, confirm the agent receives and processes the context message on first open
-- [ ] 5.3 Manual test: create a workspace with no spec, confirm no message is auto-sent
-- [ ] 5.4 Manual test: close and reopen a spec-linked workspace, confirm the context message is not re-sent
+- [x] 5.2 Manual test: create a workspace from an OpenSpec change, confirm the agent receives and processes the context message on first open
+- [x] 5.3 Manual test: create a workspace with no spec, confirm no message is auto-sent
+- [x] 5.4 Manual test: close and reopen a spec-linked workspace, confirm the context message is not re-sent
 
