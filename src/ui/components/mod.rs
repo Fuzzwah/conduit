@@ -76,7 +76,8 @@ pub use input_box::InputBox;
 pub use issue_picker::{IssuePicker, IssuePickerState};
 pub use key_hints::{render_key_hints, render_key_hints_responsive, KeyHintBarStyle};
 pub use keybindings_editor::{
-    build_keybinding_items, KeybindingItem, KeybindingsEditor, KeybindingsEditorState,
+    build_keybinding_items, ConflictPending, KeybindingItem, KeybindingsEditor,
+    KeybindingsEditorState,
 };
 pub use knight_rider_spinner::KnightRiderSpinner;
 pub use logo_shine::{draw_startup_splash_animated, LogoShineAnimation};
