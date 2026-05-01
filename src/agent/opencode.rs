@@ -1807,6 +1807,7 @@ impl AgentRunner for OpencodeRunner {
 
     async fn start(&self, config: AgentStartConfig) -> Result<AgentHandle, AgentError> {
         let mut cmd = self.build_command(&config)?;
+        crate::util::process::configure_command_process_group(&mut cmd);
         let mut child = cmd.spawn().map_err(|_| AgentError::ProcessSpawnFailed)?;
         let pid = child.id().ok_or(AgentError::ProcessSpawnFailed)?;
 
@@ -2245,12 +2246,10 @@ impl AgentRunner for OpencodeRunner {
     async fn stop(&self, handle: &AgentHandle) -> Result<(), AgentError> {
         #[cfg(unix)]
         {
-            let result = unsafe { libc::kill(handle.pid as i32, libc::SIGTERM) };
-            if result == -1 {
-                let err = std::io::Error::last_os_error();
+            crate::util::process::signal_process_tree(handle.pid, libc::SIGTERM).map_err(|err| {
                 tracing::error!(pid = handle.pid, error = %err, "OpenCode SIGTERM failed");
-                return Err(AgentError::Io(err));
-            }
+                AgentError::Io(err)
+            })?;
         }
         #[cfg(not(unix))]
         {
@@ -2265,12 +2264,10 @@ impl AgentRunner for OpencodeRunner {
     async fn kill(&self, handle: &AgentHandle) -> Result<(), AgentError> {
         #[cfg(unix)]
         {
-            let result = unsafe { libc::kill(handle.pid as i32, libc::SIGKILL) };
-            if result == -1 {
-                let err = std::io::Error::last_os_error();
+            crate::util::process::signal_process_tree(handle.pid, libc::SIGKILL).map_err(|err| {
                 tracing::error!(pid = handle.pid, error = %err, "OpenCode SIGKILL failed");
-                return Err(AgentError::Io(err));
-            }
+                AgentError::Io(err)
+            })?;
         }
         #[cfg(not(unix))]
         {

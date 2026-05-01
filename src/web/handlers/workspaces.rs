@@ -431,6 +431,10 @@ pub async fn archive_workspace(
     let mut warnings = Vec::new();
     let mut archived_commit_sha = None;
 
+    if let Err(err) = state.session_manager().stop_workspace_sessions(id).await {
+        warnings.push(format!("Failed to stop active sessions: {}", err));
+    }
+
     if let Some(base_path) = repo.base_path {
         match worktree_manager.get_branch_sha(
             settings.mode,

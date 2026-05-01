@@ -362,10 +362,9 @@ impl AgentRunner for PiRunner {
     }
 
     async fn start(&self, config: AgentStartConfig) -> Result<AgentHandle, AgentError> {
-        let mut child = self
-            .build_command(&config)
-            .spawn()
-            .map_err(|_| AgentError::ProcessSpawnFailed)?;
+        let mut cmd = self.build_command(&config);
+        crate::util::process::configure_command_process_group(&mut cmd);
+        let mut child = cmd.spawn().map_err(|_| AgentError::ProcessSpawnFailed)?;
         let pid = child.id().ok_or(AgentError::ProcessSpawnFailed)?;
         let stdin = child.stdin.take().ok_or(AgentError::ProcessSpawnFailed)?;
         let stdout = child.stdout.take().ok_or(AgentError::StdoutCaptureFailed)?;
@@ -577,10 +576,8 @@ impl AgentRunner for PiRunner {
     async fn stop(&self, handle: &AgentHandle) -> Result<(), AgentError> {
         #[cfg(unix)]
         {
-            let result = unsafe { libc::kill(handle.pid as i32, libc::SIGTERM) };
-            if result == -1 {
-                return Err(AgentError::Io(std::io::Error::last_os_error()));
-            }
+            crate::util::process::signal_process_tree(handle.pid, libc::SIGTERM)
+                .map_err(AgentError::Io)?;
         }
         #[cfg(not(unix))]
         {
@@ -595,10 +592,8 @@ impl AgentRunner for PiRunner {
     async fn kill(&self, handle: &AgentHandle) -> Result<(), AgentError> {
         #[cfg(unix)]
         {
-            let result = unsafe { libc::kill(handle.pid as i32, libc::SIGKILL) };
-            if result == -1 {
-                return Err(AgentError::Io(std::io::Error::last_os_error()));
-            }
+            crate::util::process::signal_process_tree(handle.pid, libc::SIGKILL)
+                .map_err(AgentError::Io)?;
         }
         #[cfg(not(unix))]
         {

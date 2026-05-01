@@ -981,6 +981,7 @@ impl CodexCliRunner {
     async fn spawn_app_server(&self, cwd: &Path) -> Result<tokio::process::Child, AgentError> {
         if self.binary_path.exists() {
             let mut cmd = self.build_codex_command(cwd);
+            crate::util::process::configure_command_process_group(&mut cmd);
             match cmd.spawn() {
                 Ok(child) => return Ok(child),
                 Err(err) => {
@@ -990,6 +991,7 @@ impl CodexCliRunner {
         }
 
         let mut cmd = self.build_npx_command(cwd);
+        crate::util::process::configure_command_process_group(&mut cmd);
         let child = cmd.spawn()?;
         Ok(child)
     }
@@ -1462,10 +1464,8 @@ impl AgentRunner for CodexCliRunner {
     async fn stop(&self, handle: &AgentHandle) -> Result<(), AgentError> {
         #[cfg(unix)]
         {
-            let result = unsafe { libc::kill(handle.pid as i32, libc::SIGTERM) };
-            if result == -1 {
-                return Err(AgentError::Io(std::io::Error::last_os_error()));
-            }
+            crate::util::process::signal_process_tree(handle.pid, libc::SIGTERM)
+                .map_err(AgentError::Io)?;
         }
         #[cfg(not(unix))]
         {
@@ -1480,10 +1480,8 @@ impl AgentRunner for CodexCliRunner {
     async fn kill(&self, handle: &AgentHandle) -> Result<(), AgentError> {
         #[cfg(unix)]
         {
-            let result = unsafe { libc::kill(handle.pid as i32, libc::SIGKILL) };
-            if result == -1 {
-                return Err(AgentError::Io(std::io::Error::last_os_error()));
-            }
+            crate::util::process::signal_process_tree(handle.pid, libc::SIGKILL)
+                .map_err(AgentError::Io)?;
         }
         #[cfg(not(unix))]
         {

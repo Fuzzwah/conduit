@@ -397,6 +397,13 @@ pub async fn remove_repository(
     for ws in &workspaces {
         let mut archived_commit_sha = None;
 
+        if let Err(err) = state.session_manager().stop_workspace_sessions(ws.id).await {
+            errors.push(format!(
+                "Failed to stop active sessions for workspace '{}': {}",
+                ws.name, err
+            ));
+        }
+
         if let Some(ref base_path) = repo.base_path {
             // Get branch SHA
             match worktree_manager.get_branch_sha(settings.mode, base_path, &ws.path, &ws.branch) {
