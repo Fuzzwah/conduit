@@ -46,6 +46,15 @@ impl App {
     ) -> anyhow::Result<Vec<Effect>> {
         let mut key = key;
 
+        // If we're buffering a suspected split mouse sequence and a non-character key
+        // arrives, flush the buffer so the characters aren't lost.
+        if self.state.suspect_mouse_buf.is_some() && !matches!(key.code, KeyCode::Char(_)) {
+            let chars: Vec<char> = self.state.suspect_mouse_buf.take().unwrap_or_default();
+            if !chars.is_empty() {
+                self.flush_suspect_mouse_buf(chars);
+            }
+        }
+
         // Some terminals can emit CR/LF as plain chars instead of KeyCode::Enter.
         // Normalize these for consistent keybinding behavior across environments.
         if key.modifiers.is_empty() && matches!(key.code, KeyCode::Char('\r') | KeyCode::Char('\n'))
@@ -403,7 +412,14 @@ impl App {
                 InputMode::Normal | InputMode::Scrolling
             )
         {
+            let was_first_press = self.state.last_esc_press.is_none();
             self.handle_esc_press();
+            // After a first Esc press with no second press following within the timeout,
+            // the next characters might be the tail of a split SGR mouse escape sequence.
+            // Start buffering to detect and discard the pattern.
+            if was_first_press && self.state.last_esc_press.is_some() {
+                self.state.suspect_mouse_buf = Some(Vec::new());
+            }
             return Ok(Vec::new());
         }
 
@@ -639,10 +655,181 @@ impl App {
     }
 
     /// Handle text input for text-input contexts
+    /// Flush accumulated mouse-sequence suspect buffer into the current input target.
+    fn flush_suspect_mouse_buf(&mut self, chars: Vec<char>) {
+        // Insert the characters based on the current input mode.
+        // This mirrors the per-mode insertion in handle_text_input.
+        match self.state.input_mode {
+            InputMode::Normal => {
+                let mut trigger_file_mention = false;
+                if let Some(session) = self.state.tab_manager.active_session_mut() {
+                    for ch in chars {
+                        if ch == '@' && !session.input_box.is_shell_mode() {
+                            session.input_box.insert_char('@');
+                            trigger_file_mention = true;
+                        } else {
+                            session.input_box.insert_char(ch);
+                        }
+                    }
+                }
+                if trigger_file_mention {
+                    self.open_file_mention_menu();
+                }
+            }
+            InputMode::Command => {
+                for ch in chars {
+                    self.state.command_buffer.push(ch);
+                }
+            }
+            InputMode::ShowingHelp => {
+                for ch in chars {
+                    self.state.help_dialog_state.insert_char(ch);
+                }
+            }
+            InputMode::AddingRepository => {
+                for ch in chars {
+                    self.state.add_repo_dialog_state.insert_char(ch);
+                }
+            }
+            InputMode::SettingBaseDir => {
+                for ch in chars {
+                    self.state.base_dir_dialog_state.insert_char(ch);
+                }
+            }
+            InputMode::PickingProject => {
+                for ch in chars {
+                    self.state.project_picker_state.insert_char(ch);
+                }
+            }
+            InputMode::ImportingSession => {
+                for ch in chars {
+                    self.state.session_import_state.insert_char(ch);
+                }
+            }
+            InputMode::CommandPalette => {
+                for ch in chars {
+                    self.state.command_palette_state.insert_char(ch);
+                }
+            }
+            InputMode::SettingsMenu => {
+                for ch in chars {
+                    self.state.settings_menu_state.insert_char(ch);
+                }
+            }
+            InputMode::SlashMenu => {
+                for ch in chars {
+                    self.state.slash_menu_state.insert_char(ch);
+                }
+            }
+            InputMode::FileMention => {
+                if let Some(session) = self.state.tab_manager.active_session_mut() {
+                    for ch in chars {
+                        self.state.file_mention_state.insert_char(ch);
+                        session.input_box.insert_char(ch);
+                    }
+                }
+            }
+            InputMode::MissingTool => {
+                for ch in chars {
+                    self.state.missing_tool_dialog_state.insert_char(ch);
+                }
+            }
+            InputMode::SelectingTheme => {
+                self.state
+                    .theme_picker_state
+                    .insert_str(&chars.into_iter().collect::<String>());
+            }
+            InputMode::SelectingModel => {
+                self.state
+                    .model_selector_state
+                    .insert_str(&chars.into_iter().collect::<String>());
+            }
+            InputMode::SelectingReasoning => {
+                self.state
+                    .reasoning_selector_state
+                    .insert_str(&chars.into_iter().collect::<String>());
+            }
+            InputMode::SelectingProviders => {
+                self.state
+                    .provider_selector_state
+                    .insert_str(&chars.into_iter().collect::<String>());
+            }
+            InputMode::RenamingProject => {
+                for ch in chars {
+                    self.state.rename_project_dialog_state.insert_char(ch);
+                }
+            }
+            InputMode::KeybindingsEditor | InputMode::KeybindingsEditorCapture => {
+                for ch in chars {
+                    self.state.keybindings_editor_state.insert_filter_char(ch);
+                }
+            }
+            _ => {}
+        }
+    }
+
     pub(super) fn handle_text_input(&mut self, key: KeyEvent) {
         let KeyCode::Char(c) = key.code else {
             return;
         };
+
+        // Detect and discard split SGR mouse escape sequences.
+        // When crossterm's EventStream splits `\x1b[<N;X;YM` across reads, the `\x1b`
+        // arrives as an Esc key (handled above), and the remaining characters arrive as
+        // individual text input. We buffer the trailing chars and check if they form
+        // a valid SGR mouse sequence. If so, discard them entirely.
+        if let Some(ref mut buf) = self.state.suspect_mouse_buf {
+            if buf.is_empty() && c == '[' {
+                // First char of a potential mouse sequence — keep buffering
+                buf.push(c);
+                return;
+            } else if buf.is_empty() {
+                // First char is not '[' — not a mouse sequence, stop suspecting
+                self.state.suspect_mouse_buf = None;
+                // Fall through to normal handling
+            } else if buf.len() == 1 && c == '<' {
+                // Second char matches the mouse sequence pattern — keep buffering
+                buf.push(c);
+                return;
+            } else if buf.len() == 1 {
+                // Had '[' but next char isn't '<' — flush and stop suspecting
+                let saved: Vec<char> = std::mem::take(buf);
+                self.state.suspect_mouse_buf = None;
+                self.flush_suspect_mouse_buf(saved);
+                // Fall through for the current char
+            } else {
+                // Third+ characters after `[<`
+                buf.push(c);
+
+                // Check if this completes a valid SGR mouse sequence
+                if (c == 'M' || c == 'm') && buf.len() >= 5 {
+                    let inner = &buf[2..buf.len() - 1]; // between `[<` and `M/m`
+                    let is_valid = !inner.is_empty()
+                        && inner.iter().all(|&ch| ch.is_ascii_digit() || ch == ';')
+                        && inner.contains(&';');
+                    if is_valid {
+                        // Complete match — discard the entire sequence
+                        self.state.suspect_mouse_buf = None;
+                        return;
+                    }
+                }
+
+                // Buffer too long or invalid character for this position
+                let max_len: usize = 20;
+                let invalid_pos =
+                    buf.len() >= 3 && c != 'M' && c != 'm' && !c.is_ascii_digit() && c != ';';
+                if buf.len() > max_len || invalid_pos {
+                    // Doesn't match — flush buffered chars as text
+                    let saved: Vec<char> = std::mem::take(buf);
+                    self.state.suspect_mouse_buf = None;
+                    self.flush_suspect_mouse_buf(saved);
+                    return; // Current char already included in saved
+                }
+
+                // Still looks like it could be a mouse sequence — keep buffering
+                return;
+            }
+        }
 
         match self.state.input_mode {
             InputMode::Normal => {

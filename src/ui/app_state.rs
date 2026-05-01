@@ -263,6 +263,14 @@ pub struct AppState {
     /// Active workspace-creation flow context (sync → issues → specs → naming).
     /// `None` when no flow is in progress.
     pub workspace_creation: Option<crate::ui::workspace_creation::WorkspaceCreationSession>,
+
+    /// Buffer for detecting malformed SGR mouse escape sequences (crossterm race condition).
+    ///
+    /// When crossterm's async EventStream reads bytes from stdin, an SGR mouse sequence
+    /// (`\x1b[<N;X;YM`) can sometimes be split across reads, causing `\x1b` to be parsed
+    /// as Esc and the remaining characters as individual text input. This buffer captures
+    /// those trailing characters so we can detect the pattern and discard them.
+    pub suspect_mouse_buf: Option<Vec<char>>,
 }
 
 /// Pending fork request data captured before workspace creation
@@ -451,6 +459,7 @@ impl AppState {
             base_dir_dialog_context: BaseDirDialogContext::ProjectDiscovery,
             last_sidebar_db_check: Instant::now(),
             workspace_creation: None,
+            suspect_mouse_buf: None,
         }
     }
 
