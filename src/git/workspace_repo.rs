@@ -36,6 +36,10 @@ impl WorkspaceRepoManager {
     ///
     /// `progress` is called with each stage message and each line of git output.
     /// Pass `|_| {}` when progress reporting is not needed.
+    ///
+    /// The caller is responsible for ensuring the base repo's remote-tracking
+    /// refs are fresh (e.g. via `crate::git::sync_remote`); this function does
+    /// not call `git fetch`.
     pub fn create_workspace(
         &self,
         mode: WorkspaceMode,
@@ -44,13 +48,9 @@ impl WorkspaceRepoManager {
         name: &str,
         progress: impl Fn(&str),
     ) -> Result<PathBuf, WorktreeError> {
-        progress("Fetching from remote...");
-        self.worktree
-            .fetch_origin_with_progress(repo_path, &progress);
-
         // When the target branch doesn't exist yet (new workspace), branch from
         // origin/<default> rather than the current local HEAD, so the workspace
-        // always starts from the freshly-fetched remote state even if local main
+        // always starts from the latest fetched remote state even if local main
         // is behind origin.
         let branch_is_new = !self.worktree.ref_exists(repo_path, branch).unwrap_or(true);
 
@@ -90,6 +90,10 @@ impl WorkspaceRepoManager {
     ///
     /// `progress` is called with each stage message and each line of git output.
     /// Pass `|_| {}` when progress reporting is not needed.
+    ///
+    /// The caller is responsible for ensuring the base repo's remote-tracking
+    /// refs are fresh (e.g. via `crate::git::sync_remote`); this function does
+    /// not call `git fetch`.
     pub fn create_workspace_from_branch(
         &self,
         mode: WorkspaceMode,
@@ -99,11 +103,8 @@ impl WorkspaceRepoManager {
         name: &str,
         progress: impl Fn(&str),
     ) -> Result<PathBuf, WorktreeError> {
-        progress("Fetching from remote...");
-        self.worktree
-            .fetch_origin_with_progress(repo_path, &progress);
-        // Prefer origin/<base_branch> so the new workspace starts from the freshly fetched
-        // remote state rather than a potentially stale local branch.
+        // Prefer origin/<base_branch> so the new workspace starts from the latest
+        // remote-tracking ref rather than a potentially stale local branch.
         let origin_ref = format!("origin/{}", base_branch);
         let start_point = if self
             .worktree
@@ -606,8 +607,8 @@ mod tests {
     }
 
     /// Verify that a new workspace starts from `origin/main` even when local `main`
-    /// is behind origin. This exercises the fetch-then-use-origin-ref path added to
-    /// `create_workspace`.
+    /// is behind origin. The caller is responsible for fetching first; this test
+    /// runs `git fetch` explicitly before `create_workspace` to mirror that contract.
     #[test]
     fn test_create_workspace_uses_origin_main_when_local_main_is_stale() {
         let dir = tempdir().unwrap();
@@ -648,7 +649,10 @@ mod tests {
             "test setup: local main should be behind origin before workspace creation"
         );
 
-        // create_workspace must fetch and branch from origin/main (remote_head).
+        // The caller is now responsible for fetching before create_workspace runs.
+        run_git(&local_path, &["fetch", "origin", "--quiet"]);
+
+        // create_workspace must branch from origin/main (remote_head).
         let manager = WorkspaceRepoManager::with_managed_dir(dir.path().join("workspaces"));
         let wt_path = manager
             .create_workspace(

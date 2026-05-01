@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use crate::agent::{AgentStartConfig, AgentType};
-use crate::git::{GithubIssue, OpenSpec, SpecifySpec};
+use crate::git::{OpenSpec, RemoteIssue, SpecifySpec};
 use crate::session::ExternalSession;
 use uuid::Uuid;
 
@@ -25,23 +25,20 @@ pub enum Effect {
     SyncRemote {
         repo_id: Uuid,
     },
-    FetchGithubIssues {
+    FetchRemoteIssues {
+        repo_id: Uuid,
+    },
+    /// Resolve the current user login for the repo's remote provider (lazy, on
+    /// first toggle of the "mine only" filter).
+    FetchCurrentUser {
         repo_id: Uuid,
     },
     FetchAllSpecs {
         repo_id: Uuid,
     },
-    ShowSpecPicker {
-        repo_id: Uuid,
-        issue: Option<GithubIssue>,
-    },
-    ShowSpecifyPicker {
-        repo_id: Uuid,
-        issue: Option<GithubIssue>,
-    },
     CreateWorkspace {
         repo_id: Uuid,
-        issue: Option<GithubIssue>,
+        issue: Option<RemoteIssue>,
         spec: Option<OpenSpec>,
         specify_spec: Option<SpecifySpec>,
     },

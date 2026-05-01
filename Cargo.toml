@@ -92,6 +92,9 @@ mime_guess = "2.0"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
 reqwest-eventsource = "0.6"
 
+# Blocking HTTP client for Gitea/Forgejo issue providers (used inside spawn_blocking)
+ureq = { version = "2.10", default-features = false, features = ["json", "tls"] }
+
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 

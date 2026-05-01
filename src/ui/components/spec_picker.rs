@@ -1,4 +1,4 @@
-//! OpenSpec change picker dialog for selecting a spec when creating a new workspace
+//! OpenSpec change picker dialog for selecting a spec when creating a new workspace.
 
 use ratatui::{
     buffer::Buffer,
@@ -11,9 +11,9 @@ use uuid::Uuid;
 
 use super::{
     accent_primary, bg_highlight, dialog_bg, ensure_contrast_bg, ensure_contrast_fg,
-    render_minimal_scrollbar, text_muted, text_primary, DialogFrame,
+    render_minimal_scrollbar, text_muted, text_primary, DialogFrame, SearchableListState,
 };
-use crate::git::{GithubIssue, OpenSpec};
+use crate::git::{OpenSpec, RemoteIssue};
 
 const MAX_VISIBLE: usize = 10;
 const DIALOG_WIDTH: u16 = 72;
@@ -45,21 +45,24 @@ impl SpecSortOrder {
     }
 }
 
-/// State for the OpenSpec change picker dialog
+/// State for the OpenSpec change picker dialog.
 #[derive(Debug, Clone)]
 pub struct SpecPickerState {
     pub visible: bool,
-    /// The repository for which a workspace is being created
+    /// The repository for which a workspace is being created.
     pub repo_id: Uuid,
-    /// The GitHub issue selected in the previous step (carried through)
-    pub issue: Option<GithubIssue>,
+    /// The remote issue selected in the previous step (carried through).
+    pub issue: Option<RemoteIssue>,
     pub specs: Vec<OpenSpec>,
-    pub selected: usize,
-    pub scroll_offset: usize,
+    /// Search/filter input + selection/scroll state (over `specs`).
+    pub list: SearchableListState,
     pub loading: bool,
     pub spinner_frame: usize,
     pub sort_order: SpecSortOrder,
-    /// Waiting for specs to load before deciding whether to show or skip
+    /// Optional source-ref label (e.g. `origin/master`) shown in the footer when
+    /// specs are being read from a git ref instead of the working tree.
+    pub source_ref: Option<String>,
+    /// Waiting for specs to load before deciding whether to show or skip.
     pub pending_show: bool,
 }
 
@@ -70,40 +73,36 @@ impl Default for SpecPickerState {
             repo_id: Uuid::nil(),
             issue: None,
             specs: Vec::new(),
-            selected: 0,
-            scroll_offset: 0,
+            list: SearchableListState::new(MAX_VISIBLE),
             loading: false,
             spinner_frame: 0,
             sort_order: SpecSortOrder::default(),
+            source_ref: None,
             pending_show: false,
         }
     }
 }
 
 impl SpecPickerState {
-    pub fn show_loading(repo_id: Uuid, issue: Option<GithubIssue>) -> Self {
+    pub fn show_loading(repo_id: Uuid, issue: Option<RemoteIssue>) -> Self {
         Self {
             visible: false, // not shown yet; shown when issue picker resolves
             repo_id,
             issue,
-            specs: Vec::new(),
-            selected: 0,
-            scroll_offset: 0,
             loading: true,
-            spinner_frame: 0,
-            sort_order: SpecSortOrder::default(),
-            pending_show: false,
+            ..Self::default()
         }
     }
 
     pub fn load_specs(&mut self, specs: Vec<OpenSpec>) {
         self.specs = specs;
         self.loading = false;
-        self.selected = 0;
-        self.scroll_offset = 0;
+        self.list.reset();
+        self.apply_sort();
+        self.recompute_filter();
     }
 
-    pub fn show(&mut self, issue: Option<GithubIssue>) {
+    pub fn show(&mut self, issue: Option<RemoteIssue>) {
         self.issue = issue;
         self.visible = true;
     }
@@ -113,6 +112,7 @@ impl SpecPickerState {
         self.loading = false;
         self.pending_show = false;
         self.specs.clear();
+        self.list.reset();
     }
 
     pub fn tick(&mut self) {
@@ -122,33 +122,37 @@ impl SpecPickerState {
     }
 
     pub fn select_prev(&mut self) {
-        if self.selected > 0 {
-            self.selected -= 1;
-            if self.selected < self.scroll_offset {
-                self.scroll_offset = self.selected;
-            }
-        }
+        self.list.select_prev();
     }
 
     pub fn select_next(&mut self) {
-        let max = self.specs.len().saturating_sub(1);
-        if self.selected < max {
-            self.selected += 1;
-            if self.selected >= self.scroll_offset + MAX_VISIBLE {
-                self.scroll_offset = self.selected - MAX_VISIBLE + 1;
-            }
-        }
+        self.list.select_next();
     }
 
     pub fn selected_spec(&self) -> Option<&OpenSpec> {
-        self.specs.get(self.selected)
+        self.list
+            .filtered
+            .get(self.list.selected)
+            .and_then(|&i| self.specs.get(i))
     }
 
     pub fn cycle_sort(&mut self) {
         self.sort_order = self.sort_order.cycle();
         self.apply_sort();
-        self.selected = 0;
-        self.scroll_offset = 0;
+        self.recompute_filter();
+    }
+
+    /// Recompute the filtered indices from the search input.
+    pub fn recompute_filter(&mut self) {
+        let needle = self.list.search.value().to_lowercase();
+        let filtered: Vec<usize> = self
+            .specs
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| needle.is_empty() || s.change_id.to_lowercase().contains(&needle))
+            .map(|(i, _)| i)
+            .collect();
+        self.list.set_filtered(filtered);
     }
 
     fn apply_sort(&mut self) {
@@ -167,7 +171,7 @@ impl SpecPickerState {
     }
 }
 
-/// OpenSpec change picker dialog widget
+/// OpenSpec change picker dialog widget.
 #[derive(Default)]
 pub struct SpecPicker;
 
@@ -184,51 +188,105 @@ impl SpecPicker {
         let list_height = if state.loading {
             3u16
         } else {
-            MAX_VISIBLE.min(state.specs.len()).max(1) as u16
+            MAX_VISIBLE.min(state.list.filtered.len()).max(1) as u16
         };
-        // border(2) + padding(1) + list + sort-footer(1) + padding(1)
-        let dialog_height = 5 + list_height;
+        let show_chrome = !state.loading;
+        let search_height: u16 = if show_chrome { 1 } else { 0 };
+        // border(2) + padding(1) + search + list + footer(1) + padding(1)
+        let dialog_height = 5 + search_height + list_height;
 
         let frame = DialogFrame::new("Select OpenSpec Change", DIALOG_WIDTH, dialog_height)
-            .instructions(vec![
-                ("↑↓", "Navigate"),
-                ("s", "Sort"),
-                ("Enter", "Select"),
-                ("Esc", "Skip"),
-            ]);
+            .instructions(if show_chrome {
+                vec![
+                    ("type", "Filter"),
+                    ("s", "Sort"),
+                    ("Enter", "Select"),
+                    ("Esc", "Skip"),
+                ]
+            } else {
+                vec![("Esc", "Cancel")]
+            });
         let inner = frame.render(area, buf);
 
         let chunks = Layout::vertical([
-            Constraint::Min(1),    // list area
-            Constraint::Length(1), // sort indicator
+            Constraint::Length(search_height),
+            Constraint::Min(1),
+            Constraint::Length(1), // footer
             Constraint::Length(1), // bottom padding
         ])
         .split(inner);
 
-        let list_area = chunks[0];
-        let footer_area = chunks[1];
+        let mut idx = 0;
+        let search_area = chunks[idx];
+        idx += 1;
+        let list_area = chunks[idx];
+        idx += 1;
+        let footer_area = chunks[idx];
+
+        if show_chrome {
+            self.render_search(search_area, buf, state);
+        }
 
         if state.loading {
             let spinner = SPINNER_FRAMES[state.spinner_frame % SPINNER_FRAMES.len()];
-            let loading = Paragraph::new(format!("{} Fetching open specs...", spinner))
+            Paragraph::new(format!("{} Fetching open specs...", spinner))
                 .style(Style::default().fg(accent_primary()))
-                .alignment(Alignment::Center);
-            loading.render(list_area, buf);
+                .alignment(Alignment::Center)
+                .render(list_area, buf);
         } else if state.specs.is_empty() {
-            let msg = Paragraph::new("No open specs found.")
+            Paragraph::new("No open specs found.")
                 .style(Style::default().fg(text_muted()))
-                .alignment(Alignment::Center);
-            msg.render(list_area, buf);
+                .alignment(Alignment::Center)
+                .render(list_area, buf);
+        } else if state.list.filtered.is_empty() {
+            Paragraph::new("No specs match the current filter.")
+                .style(Style::default().fg(text_muted()))
+                .alignment(Alignment::Center)
+                .render(list_area, buf);
         } else {
             self.render_list(list_area, buf, state);
         }
 
-        // Sort indicator footer
-        let sort_label = format!("sorted by: {}", state.sort_order.label());
-        let footer = Paragraph::new(sort_label)
+        // Footer: counts + sort + optional source ref hint.
+        let mut footer = format!(
+            "{}/{} specs · sorted by {}",
+            state.list.filtered.len(),
+            state.specs.len(),
+            state.sort_order.label()
+        );
+        if let Some(src) = state.source_ref.as_deref() {
+            footer.push_str(" · reading from ");
+            footer.push_str(src);
+        }
+        Paragraph::new(footer)
             .style(Style::default().fg(text_muted()))
-            .alignment(Alignment::Right);
-        footer.render(footer_area, buf);
+            .alignment(Alignment::Right)
+            .render(footer_area, buf);
+    }
+
+    fn render_search(&self, area: Rect, buf: &mut Buffer, state: &SpecPickerState) {
+        let prefix = "filter: ";
+        Paragraph::new(Line::from(vec![Span::styled(
+            prefix,
+            Style::default().fg(text_muted()),
+        )]))
+        .render(area, buf);
+        let prefix_w = prefix.len() as u16;
+        if area.width > prefix_w {
+            let input_area = Rect {
+                x: area.x + prefix_w,
+                y: area.y,
+                width: area.width - prefix_w,
+                height: 1,
+            };
+            state.list.search.render_with_placeholder(
+                input_area,
+                buf,
+                Style::default().fg(text_primary()),
+                "type to filter",
+                Style::default().fg(text_muted()),
+            );
+        }
     }
 
     fn render_list(&self, list_area: Rect, buf: &mut Buffer, state: &SpecPickerState) {
@@ -236,16 +294,17 @@ impl SpecPicker {
         let selected_fg_color = ensure_contrast_fg(text_primary(), selected_bg_color, 4.5);
 
         let visible_count = list_area.height as usize;
-        let total = state.specs.len();
+        let total = state.list.filtered.len();
 
         for row in 0..visible_count {
-            let idx = state.scroll_offset + row;
-            if idx >= total {
+            let f_idx = state.list.scroll_offset + row;
+            if f_idx >= total {
                 break;
             }
-            let spec = &state.specs[idx];
+            let spec_idx = state.list.filtered[f_idx];
+            let spec = &state.specs[spec_idx];
             let y = list_area.y + row as u16;
-            let is_selected = state.selected == idx;
+            let is_selected = state.list.selected == f_idx;
 
             let prefix = if is_selected { "> " } else { "  " };
             let count_str = format!("[{}/{}]", spec.remaining_tasks, spec.total_tasks);
@@ -306,7 +365,7 @@ impl SpecPicker {
                 buf,
                 total,
                 visible_count,
-                state.scroll_offset,
+                state.list.scroll_offset,
             );
         }
     }

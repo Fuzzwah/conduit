@@ -85,6 +85,12 @@ impl App {
             return Ok(Vec::new());
         }
 
+        if self.state.input_mode == InputMode::SyncingRemote {
+            // The sync dialog is non-interactive; the next phase takes over
+            // automatically when RemoteSynced fires. Swallow all keys.
+            return Ok(Vec::new());
+        }
+
         // Defensive normalization: when an overlay is visible, force the matching
         // input mode so key context lookup targets the active modal.
         if self.state.model_selector_state.is_visible() {
@@ -1509,37 +1515,108 @@ impl App {
     }
 
     pub(super) fn handle_issue_picker_key(&mut self, key: KeyEvent) -> anyhow::Result<Vec<Effect>> {
-        // Ignore all input while syncing remote or fetching issues.
-        if self.state.issue_picker_state.syncing || self.state.issue_picker_state.loading {
+        // Ignore all input while fetching issues.
+        if self.state.issue_picker_state.loading {
             return Ok(Vec::new());
         }
 
-        let repo_id = self.state.issue_picker_state.repo_id;
+        // Label-multiselect popover takes input precedence when open.
+        if self.state.issue_picker_state.label_popover_open {
+            return Ok(self.handle_label_popover_key(key));
+        }
+
+        let no_mods = key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT;
+
         match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
+            KeyCode::Up => {
                 self.state.issue_picker_state.select_prev();
             }
-            KeyCode::Down | KeyCode::Char('j') => {
+            KeyCode::Down => {
                 self.state.issue_picker_state.select_next();
+            }
+            KeyCode::Tab => {
+                self.state.issue_picker_state.open_label_popover();
+            }
+            KeyCode::Char('m') if no_mods => {
+                let state = &mut self.state.issue_picker_state;
+                let need_lookup = !state.has_attempted_user_lookup();
+                state.toggle_mine();
+                if need_lookup {
+                    let repo_id = state.repo_id;
+                    return Ok(vec![Effect::FetchCurrentUser { repo_id }]);
+                }
+            }
+            KeyCode::Backspace => {
+                self.state.issue_picker_state.list.search.delete_char();
+                self.state.issue_picker_state.recompute_filter();
+            }
+            KeyCode::Left => {
+                self.state.issue_picker_state.list.search.move_left();
+            }
+            KeyCode::Right => {
+                self.state.issue_picker_state.list.search.move_right();
+            }
+            KeyCode::Home => {
+                self.state.issue_picker_state.list.search.move_start();
+            }
+            KeyCode::End => {
+                self.state.issue_picker_state.list.search.move_end();
+            }
+            KeyCode::Char(c) if no_mods => {
+                self.state.issue_picker_state.list.search.insert_char(c);
+                self.state.issue_picker_state.recompute_filter();
             }
             KeyCode::Enter => {
                 let issue = self.state.issue_picker_state.selected_issue().cloned();
                 self.state.issue_picker_state.hide();
-                self.state.input_mode = InputMode::SidebarNavigation;
-                return Ok(vec![Effect::ShowSpecPicker { repo_id, issue }]);
+                if let Some(session) = self.state.workspace_creation.as_mut() {
+                    session.picked_issue = issue;
+                }
+                return Ok(self.dispatch_workspace_creation_event(
+                    crate::ui::workspace_creation::WorkspaceCreationEvent::IssuePicked,
+                ));
             }
             KeyCode::Esc => {
-                // Skip issue selection — proceed to spec picker with no issue
-                self.state.issue_picker_state.hide();
-                self.state.input_mode = InputMode::SidebarNavigation;
-                return Ok(vec![Effect::ShowSpecPicker {
-                    repo_id,
-                    issue: None,
-                }]);
+                // Progressive: clear text → clear labels → clear mine → dismiss.
+                let state = &mut self.state.issue_picker_state;
+                if !state.list.search.is_empty() {
+                    state.list.search.clear();
+                    state.recompute_filter();
+                } else if !state.selected_labels.is_empty() {
+                    state.selected_labels.clear();
+                    state.recompute_filter();
+                } else if state.mine_only {
+                    state.mine_only = false;
+                    state.recompute_filter();
+                } else {
+                    state.hide();
+                    if let Some(session) = self.state.workspace_creation.as_mut() {
+                        session.picked_issue = None;
+                    }
+                    return Ok(self.dispatch_workspace_creation_event(
+                        crate::ui::workspace_creation::WorkspaceCreationEvent::IssuePicked,
+                    ));
+                }
             }
             _ => {}
         }
         Ok(Vec::new())
+    }
+
+    fn handle_label_popover_key(&mut self, key: KeyEvent) -> Vec<Effect> {
+        let state = &mut self.state.issue_picker_state;
+        match key.code {
+            KeyCode::Up => state.label_popover.select_prev(),
+            KeyCode::Down => state.label_popover.select_next(),
+            KeyCode::Char(' ') => {
+                if let Some(label) = state.selected_popover_label().map(str::to_string) {
+                    state.toggle_label(&label);
+                }
+            }
+            KeyCode::Enter | KeyCode::Esc => state.close_label_popover(),
+            _ => {}
+        }
+        Vec::new()
     }
 
     pub(super) fn handle_spec_picker_key(&mut self, key: KeyEvent) -> anyhow::Result<Vec<Effect>> {
@@ -1548,39 +1625,58 @@ impl App {
             return Ok(Vec::new());
         }
 
-        let repo_id = self.state.spec_picker_state.repo_id;
+        let no_mods = key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT;
+
         match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                self.state.spec_picker_state.select_prev();
+            KeyCode::Up => self.state.spec_picker_state.select_prev(),
+            KeyCode::Down => self.state.spec_picker_state.select_next(),
+            KeyCode::Char('s') if no_mods => {
+                // 's' cycles sort. If the user is currently typing a filter, an
+                // 's' character means "include 's' in the filter" instead.
+                if self.state.spec_picker_state.list.search.is_empty() {
+                    self.state.spec_picker_state.cycle_sort();
+                } else {
+                    self.state.spec_picker_state.list.search.insert_char('s');
+                    self.state.spec_picker_state.recompute_filter();
+                }
             }
-            KeyCode::Down | KeyCode::Char('j') => {
-                self.state.spec_picker_state.select_next();
+            KeyCode::Backspace => {
+                self.state.spec_picker_state.list.search.delete_char();
+                self.state.spec_picker_state.recompute_filter();
             }
-            KeyCode::Char('s') => {
-                self.state.spec_picker_state.cycle_sort();
+            KeyCode::Left => self.state.spec_picker_state.list.search.move_left(),
+            KeyCode::Right => self.state.spec_picker_state.list.search.move_right(),
+            KeyCode::Home => self.state.spec_picker_state.list.search.move_start(),
+            KeyCode::End => self.state.spec_picker_state.list.search.move_end(),
+            KeyCode::Char(c) if no_mods => {
+                self.state.spec_picker_state.list.search.insert_char(c);
+                self.state.spec_picker_state.recompute_filter();
             }
             KeyCode::Enter => {
                 let spec = self.state.spec_picker_state.selected_spec().cloned();
-                let issue = self.state.spec_picker_state.issue.clone();
                 self.state.spec_picker_state.hide();
-                self.state.input_mode = InputMode::SidebarNavigation;
-                return Ok(vec![Effect::CreateWorkspace {
-                    repo_id,
-                    issue,
-                    spec,
-                    specify_spec: None,
-                }]);
+                if let Some(session) = self.state.workspace_creation.as_mut() {
+                    session.picked_spec = spec;
+                    session.picked_specify_spec = None;
+                }
+                return Ok(self.dispatch_workspace_creation_event(
+                    crate::ui::workspace_creation::WorkspaceCreationEvent::SpecPicked,
+                ));
             }
             KeyCode::Esc => {
-                let issue = self.state.spec_picker_state.issue.clone();
-                self.state.spec_picker_state.hide();
-                self.state.input_mode = InputMode::SidebarNavigation;
-                return Ok(vec![Effect::CreateWorkspace {
-                    repo_id,
-                    issue,
-                    spec: None,
-                    specify_spec: None,
-                }]);
+                if !self.state.spec_picker_state.list.search.is_empty() {
+                    self.state.spec_picker_state.list.search.clear();
+                    self.state.spec_picker_state.recompute_filter();
+                } else {
+                    self.state.spec_picker_state.hide();
+                    if let Some(session) = self.state.workspace_creation.as_mut() {
+                        session.picked_spec = None;
+                        session.picked_specify_spec = None;
+                    }
+                    return Ok(self.dispatch_workspace_creation_event(
+                        crate::ui::workspace_creation::WorkspaceCreationEvent::SpecPicked,
+                    ));
+                }
             }
             _ => {}
         }
@@ -1595,39 +1691,56 @@ impl App {
             return Ok(Vec::new());
         }
 
-        let repo_id = self.state.specify_picker_state.repo_id;
+        let no_mods = key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT;
+
         match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                self.state.specify_picker_state.select_prev();
+            KeyCode::Up => self.state.specify_picker_state.select_prev(),
+            KeyCode::Down => self.state.specify_picker_state.select_next(),
+            KeyCode::Char('s') if no_mods => {
+                if self.state.specify_picker_state.list.search.is_empty() {
+                    self.state.specify_picker_state.cycle_sort();
+                } else {
+                    self.state.specify_picker_state.list.search.insert_char('s');
+                    self.state.specify_picker_state.recompute_filter();
+                }
             }
-            KeyCode::Down | KeyCode::Char('j') => {
-                self.state.specify_picker_state.select_next();
+            KeyCode::Backspace => {
+                self.state.specify_picker_state.list.search.delete_char();
+                self.state.specify_picker_state.recompute_filter();
             }
-            KeyCode::Char('s') => {
-                self.state.specify_picker_state.cycle_sort();
+            KeyCode::Left => self.state.specify_picker_state.list.search.move_left(),
+            KeyCode::Right => self.state.specify_picker_state.list.search.move_right(),
+            KeyCode::Home => self.state.specify_picker_state.list.search.move_start(),
+            KeyCode::End => self.state.specify_picker_state.list.search.move_end(),
+            KeyCode::Char(c) if no_mods => {
+                self.state.specify_picker_state.list.search.insert_char(c);
+                self.state.specify_picker_state.recompute_filter();
             }
             KeyCode::Enter => {
                 let specify_spec = self.state.specify_picker_state.selected_spec().cloned();
-                let issue = self.state.specify_picker_state.issue.clone();
                 self.state.specify_picker_state.hide();
-                self.state.input_mode = InputMode::SidebarNavigation;
-                return Ok(vec![Effect::CreateWorkspace {
-                    repo_id,
-                    issue,
-                    spec: None,
-                    specify_spec,
-                }]);
+                if let Some(session) = self.state.workspace_creation.as_mut() {
+                    session.picked_spec = None;
+                    session.picked_specify_spec = specify_spec;
+                }
+                return Ok(self.dispatch_workspace_creation_event(
+                    crate::ui::workspace_creation::WorkspaceCreationEvent::SpecPicked,
+                ));
             }
             KeyCode::Esc => {
-                let issue = self.state.specify_picker_state.issue.clone();
-                self.state.specify_picker_state.hide();
-                self.state.input_mode = InputMode::SidebarNavigation;
-                return Ok(vec![Effect::CreateWorkspace {
-                    repo_id,
-                    issue,
-                    spec: None,
-                    specify_spec: None,
-                }]);
+                if !self.state.specify_picker_state.list.search.is_empty() {
+                    self.state.specify_picker_state.list.search.clear();
+                    self.state.specify_picker_state.recompute_filter();
+                } else {
+                    self.state.specify_picker_state.hide();
+                    if let Some(session) = self.state.workspace_creation.as_mut() {
+                        session.picked_spec = None;
+                        session.picked_specify_spec = None;
+                    }
+                    return Ok(self.dispatch_workspace_creation_event(
+                        crate::ui::workspace_creation::WorkspaceCreationEvent::SpecPicked,
+                    ));
+                }
             }
             _ => {}
         }

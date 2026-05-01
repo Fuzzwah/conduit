@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use crate::agent::{AgentEvent, AgentInput, AgentType};
-use crate::git::{GithubIssue, OpenSpec, PrPreflightResult, SpecifySpec};
+use crate::git::{OpenSpec, PrPreflightResult, RemoteIssue, SpecifySpec};
 use crate::ui::git_tracker::GitTrackerUpdate;
 use tokio::sync::mpsc;
 use uuid::Uuid;
@@ -89,20 +89,29 @@ pub enum AppEvent {
     /// Progress update during workspace creation (git fetch output, stage labels)
     WorkspaceCreationProgress { message: String },
 
+    /// Streaming line of `git fetch` output during the SyncingRemote phase.
+    RemoteSyncProgress { message: String },
+
     /// Remote sync completed; issue and spec fetches can now begin
     RemoteSynced { repo_id: Uuid },
 
     /// GitHub issues fetched for workspace creation issue picker
-    GithubIssuesFetched {
+    RemoteIssuesFetched {
         repo_id: Uuid,
-        issues: Vec<GithubIssue>,
+        issues: Vec<RemoteIssue>,
     },
+
+    /// Current user resolved for the repo (None = lookup failed/unavailable)
+    CurrentUserFetched { repo_id: Uuid, user: Option<String> },
 
     /// All specs fetched for workspace creation (openspec + specify, combined pass)
     AllSpecsFetched {
         repo_id: Uuid,
         open_specs: Vec<OpenSpec>,
         specify_specs: Vec<SpecifySpec>,
+        /// Source ref used to read specs (e.g. `origin/master`); `None` when the
+        /// fallback working-tree scan was used instead.
+        source_ref: Option<String>,
     },
 
     /// Workspace creation completed
@@ -350,6 +359,8 @@ pub enum InputMode {
     QueueEditing,
     /// File mention autocomplete (@filename) is active
     FileMention,
+    /// Syncing the base repo with the remote before showing the issue picker
+    SyncingRemote,
     /// Picking a GitHub issue to link to the new workspace
     SelectingIssue,
     /// Picking an OpenSpec change to link to the new workspace
