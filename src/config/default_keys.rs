@@ -74,9 +74,11 @@ pub fn default_keybindings() -> KeybindingConfig {
         KeyCombo::new(KeyCode::Tab, KeyModifiers::ALT | KeyModifiers::SHIFT),
         Action::PrevTab,
     );
-    // Move active tab left/right in the tab bar (Alt+Shift+< / Alt+Shift+>)
-    bind(&mut config.global, "M-S-,", Action::MoveTabLeft);
-    bind(&mut config.global, "M-S-.", Action::MoveTabRight);
+    // Move active tab left/right in the tab bar
+    // Bound to Alt+< and Alt+> because iTerm2 sends Char('<'/'>')  with Alt
+    // (not Char(','/'.')  with Alt+Shift) when the user presses Alt+Shift+,/.
+    bind(&mut config.global, "M-<", Action::MoveTabLeft);
+    bind(&mut config.global, "M->", Action::MoveTabRight);
 
     // Alt key shortcuts
     bind(&mut config.global, "M-b", Action::MoveWordLeft);
