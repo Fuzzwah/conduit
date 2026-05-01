@@ -12,7 +12,7 @@ use ratatui::{
     widgets::Widget,
 };
 
-use super::{bg_elevated, text_muted, text_secondary};
+use super::{bg_elevated, text_bright, text_muted};
 
 /// Session header component
 pub struct SessionHeader<'a> {
@@ -43,25 +43,32 @@ impl Widget for SessionHeader<'_> {
 
         // Display text
         let text = self.title.unwrap_or("New session");
-        // Reserve 2 chars for leading padding + 1 for ellipsis safety
+        // Reserve 2 chars for side padding + 1 for ellipsis safety
         let max_display_chars = area.width.saturating_sub(4) as usize;
 
         // UTF-8 safe truncation: count by characters, not bytes
         let display = truncate_utf8(text, max_display_chars);
 
-        // Style: secondary color if we have a title, muted if placeholder
+        // Style: bright color if we have a title, muted if placeholder
         let text_color = if self.title.is_some() {
-            text_secondary()
+            text_bright()
         } else {
             text_muted()
         };
 
-        let line = Line::from(vec![
-            Span::styled("  ", bg_style),
-            Span::styled(display, bg_style.fg(text_color)),
-        ]);
+        // Center the title within the available width
+        let display_width = display.chars().count() as u16;
+        let x_offset = area.x + area.width.saturating_sub(display_width) / 2;
 
-        buf.set_line(area.x, area.y, &line, area.width);
+        let span = Span::styled(display, bg_style.fg(text_color));
+        let line = Line::from(vec![span]);
+
+        buf.set_line(
+            x_offset,
+            area.y,
+            &line,
+            area.width.saturating_sub(x_offset - area.x),
+        );
     }
 }
 
