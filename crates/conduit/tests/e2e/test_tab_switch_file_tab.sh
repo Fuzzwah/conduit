@@ -176,7 +176,7 @@ trap 'cleanup_local "$sock"' EXIT
 sock=$(start_conduit "$DATA_DIR" 200 40)
 wait_idle "$sock" 500 5000 > /dev/null
 
-assert_contains "$sock" "(kind-mist)" "Initial workspace tab visible"
+assert_contains "$sock" "[kind-mist]" "Initial workspace tab visible"
 
 # Open file viewer tab
 press "$sock" ":"
