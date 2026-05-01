@@ -1,5 +1,3 @@
-#[cfg(unix)]
-use std::os::unix::process::CommandExt;
 use std::time::{Duration, Instant};
 
 #[cfg(unix)]
@@ -159,7 +157,7 @@ fn pid_identity_matches(pid: u32, pid_start_time: Option<u64>, context: &str) ->
         return false;
     };
 
-    match pid_start_time(pid) {
+    match crate::util::process::pid_start_time(pid) {
         Some(current_start_time) => {
             if current_start_time != expected_start_time {
                 tracing::warn!(
@@ -237,7 +235,8 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn signal_process_tree_terminates_background_children() {
-        let marker = std::env::temp_dir().join(format!("conduit-process-test-{}", std::process::id()));
+        let marker =
+            std::env::temp_dir().join(format!("conduit-process-test-{}", std::process::id()));
         let script = format!("sleep 300 & echo $! > '{}' && wait", marker.display());
 
         let mut child = Command::new("sh");
@@ -268,6 +267,9 @@ mod tests {
         }
 
         let _ = fs::remove_file(&marker);
-        assert!(!pid_exists(child_pid), "background child should be terminated");
+        assert!(
+            !pid_exists(child_pid),
+            "background child should be terminated"
+        );
     }
 }

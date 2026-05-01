@@ -428,7 +428,12 @@ impl SessionManager {
 
             store
                 .get_all()
-                .map_err(|e| format!("Failed to list sessions for workspace {}: {}", workspace_id, e))?
+                .map_err(|e| {
+                    format!(
+                        "Failed to list sessions for workspace {}: {}",
+                        workspace_id, e
+                    )
+                })?
                 .into_iter()
                 .filter(|tab| tab.workspace_id == Some(workspace_id))
                 .map(|tab| tab.id)

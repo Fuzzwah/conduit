@@ -2246,10 +2246,12 @@ impl AgentRunner for OpencodeRunner {
     async fn stop(&self, handle: &AgentHandle) -> Result<(), AgentError> {
         #[cfg(unix)]
         {
-            crate::util::process::signal_process_tree(handle.pid, libc::SIGTERM).map_err(|err| {
-                tracing::error!(pid = handle.pid, error = %err, "OpenCode SIGTERM failed");
-                AgentError::Io(err)
-            })?;
+            crate::util::process::signal_process_tree(handle.pid, libc::SIGTERM).map_err(
+                |err| {
+                    tracing::error!(pid = handle.pid, error = %err, "OpenCode SIGTERM failed");
+                    AgentError::Io(err)
+                },
+            )?;
         }
         #[cfg(not(unix))]
         {
@@ -2264,10 +2266,12 @@ impl AgentRunner for OpencodeRunner {
     async fn kill(&self, handle: &AgentHandle) -> Result<(), AgentError> {
         #[cfg(unix)]
         {
-            crate::util::process::signal_process_tree(handle.pid, libc::SIGKILL).map_err(|err| {
-                tracing::error!(pid = handle.pid, error = %err, "OpenCode SIGKILL failed");
-                AgentError::Io(err)
-            })?;
+            crate::util::process::signal_process_tree(handle.pid, libc::SIGKILL).map_err(
+                |err| {
+                    tracing::error!(pid = handle.pid, error = %err, "OpenCode SIGKILL failed");
+                    AgentError::Io(err)
+                },
+            )?;
         }
         #[cfg(not(unix))]
         {
