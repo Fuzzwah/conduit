@@ -74,15 +74,9 @@ pub fn default_keybindings() -> KeybindingConfig {
         KeyCombo::new(KeyCode::Tab, KeyModifiers::ALT | KeyModifiers::SHIFT),
         Action::PrevTab,
     );
-    // Move active tab left/right in the tab bar
-    config.global.insert(
-        KeyCombo::new(KeyCode::Left, KeyModifiers::ALT | KeyModifiers::SHIFT),
-        Action::MoveTabLeft,
-    );
-    config.global.insert(
-        KeyCombo::new(KeyCode::Right, KeyModifiers::ALT | KeyModifiers::SHIFT),
-        Action::MoveTabRight,
-    );
+    // Move active tab left/right in the tab bar (Alt+Shift+< / Alt+Shift+>)
+    bind(&mut config.global, "M-S-,", Action::MoveTabLeft);
+    bind(&mut config.global, "M-S-.", Action::MoveTabRight);
 
     // Alt key shortcuts
     bind(&mut config.global, "M-b", Action::MoveWordLeft);
