@@ -12,15 +12,15 @@ use serde_json::json;
 use tokio::process::Command;
 use tokio::sync::mpsc;
 
-use crate::agent::error::AgentError;
-use crate::agent::events::{
+use crate::error::AgentError;
+use crate::events::{
     AgentEvent, AssistantMessageEvent, ControlRequestEvent, ErrorEvent, SessionInitEvent,
     TokenUsage, TokenUsageEvent, ToolCompletedEvent, ToolStartedEvent, TurnCompletedEvent,
     TurnFailedEvent,
 };
-use crate::agent::runner::{AgentHandle, AgentInput, AgentRunner, AgentStartConfig, AgentType};
-use crate::agent::session::SessionId;
-use crate::agent::stream::{ClaudeRawEvent, JsonlStreamParser};
+use crate::runner::{AgentHandle, AgentInput, AgentRunner, AgentStartConfig, AgentType};
+use crate::session::SessionId;
+use crate::stream::{ClaudeRawEvent, JsonlStreamParser};
 
 pub struct ClaudeCodeRunner {
     binary_path: PathBuf,
@@ -373,7 +373,7 @@ impl AgentRunner for ClaudeCodeRunner {
 
     async fn start(&self, config: AgentStartConfig) -> Result<AgentHandle, AgentError> {
         let mut cmd = self.build_command(&config);
-        crate::util::process::configure_command_process_group(&mut cmd);
+        conduit_util::process::configure_command_process_group(&mut cmd);
         let mut child = cmd.spawn()?;
 
         let use_stream_input = config
@@ -488,7 +488,7 @@ impl AgentRunner for ClaudeCodeRunner {
             'outer: while let Some(raw_event) = raw_rx.recv().await {
                 if let ClaudeRawEvent::ControlRequest(request) = &raw_event {
                     match &request.request {
-                        crate::agent::stream::ClaudeControlRequestType::CanUseTool {
+                        crate::stream::ClaudeControlRequestType::CanUseTool {
                             tool_name,
                             input,
                             tool_use_id,
@@ -532,7 +532,7 @@ impl AgentRunner for ClaudeCodeRunner {
                                 }
                             }
                         }
-                        crate::agent::stream::ClaudeControlRequestType::HookCallback { .. } => {
+                        crate::stream::ClaudeControlRequestType::HookCallback { .. } => {
                             if let Some(ref tx) = control_tx {
                                 if let Ok(response) = Self::build_control_response_jsonl(
                                     &request.request_id,
@@ -647,7 +647,7 @@ impl AgentRunner for ClaudeCodeRunner {
     async fn stop(&self, handle: &AgentHandle) -> Result<(), AgentError> {
         #[cfg(unix)]
         {
-            crate::util::process::signal_process_tree(handle.pid, libc::SIGTERM)
+            conduit_util::process::signal_process_tree(handle.pid, libc::SIGTERM)
                 .map_err(AgentError::Io)?;
         }
         #[cfg(not(unix))]
@@ -663,7 +663,7 @@ impl AgentRunner for ClaudeCodeRunner {
     async fn kill(&self, handle: &AgentHandle) -> Result<(), AgentError> {
         #[cfg(unix)]
         {
-            crate::util::process::signal_process_tree(handle.pid, libc::SIGKILL)
+            conduit_util::process::signal_process_tree(handle.pid, libc::SIGKILL)
                 .map_err(AgentError::Io)?;
         }
         #[cfg(not(unix))]
@@ -929,7 +929,7 @@ pub fn load_claude_models(binary_path: Option<PathBuf>) -> Vec<ClaudeModelEntry>
                         tracing::debug!(error = %err, "Failed to save Claude model cache");
                     }
                 }
-                crate::agent::ModelRegistry::set_claude_models(entries);
+                crate::ModelRegistry::set_claude_models(entries);
             }
         });
     }
@@ -940,7 +940,7 @@ pub fn load_claude_models(binary_path: Option<PathBuf>) -> Vec<ClaudeModelEntry>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agent::stream::{
+    use crate::stream::{
         ClaudeAssistantEvent, ClaudeContentBlock, ClaudeMessageObject, ClaudeRawEvent,
         ClaudeResultEvent, ClaudeSystemEvent, ClaudeUsage,
     };
@@ -1405,7 +1405,7 @@ mod tests {
             binary_path: PathBuf::from("/usr/bin/claude"),
         };
         let config = AgentStartConfig::new("hello", PathBuf::from("/tmp"))
-            .with_reasoning_effort(crate::agent::ReasoningEffort::High);
+            .with_reasoning_effort(crate::ReasoningEffort::High);
 
         let cmd = runner.build_command(&config);
         let args = get_command_args(&cmd);

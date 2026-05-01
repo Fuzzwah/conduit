@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [".", "crates/conduit-util", "crates/conduit-types", "crates/conduit-git"]
+members = [".", "crates/conduit-util", "crates/conduit-types", "crates/conduit-git", "crates/conduit-agent"]
 
 [workspace.package]
 version = "0.5.0"
@@ -11,6 +11,12 @@ license = "MIT"
 repository = "https://github.com/Fuzzwah/conduit"
 
 [workspace.dependencies]
+# Internal crates
+conduit-util = { path = "crates/conduit-util" }
+conduit-types = { path = "crates/conduit-types" }
+conduit-git = { path = "crates/conduit-git" }
+conduit-agent = { path = "crates/conduit-agent" }
+
 # Async runtime
 tokio = { version = "1.42", features = ["full", "process", "sync", "macros", "rt-multi-thread"] }
 tokio-util = { version = "0.7", features = ["compat", "io"] }
@@ -130,9 +136,10 @@ name = "conduit"
 path = "src/main.rs"
 
 [dependencies]
-conduit-util = { path = "crates/conduit-util" }
-conduit-types = { path = "crates/conduit-types" }
-conduit-git = { path = "crates/conduit-git" }
+conduit-util = { workspace = true }
+conduit-types = { workspace = true }
+conduit-git = { workspace = true }
+conduit-agent = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 futures = { workspace = true }

@@ -6,11 +6,11 @@ use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::mpsc;
 
-use crate::agent::error::AgentError;
-use crate::agent::events::{
+use crate::error::AgentError;
+use crate::events::{
     AgentEvent, AssistantMessageEvent, ErrorEvent, TokenUsage, TurnCompletedEvent, TurnFailedEvent,
 };
-use crate::agent::runner::{AgentHandle, AgentInput, AgentRunner, AgentStartConfig, AgentType};
+use crate::runner::{AgentHandle, AgentInput, AgentRunner, AgentStartConfig, AgentType};
 
 pub struct CopilotRunner {
     binary_path: PathBuf,
@@ -56,7 +56,7 @@ impl AgentRunner for CopilotRunner {
         cmd.stdin(Stdio::null());
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
-        crate::util::process::configure_command_process_group(&mut cmd);
+        conduit_util::process::configure_command_process_group(&mut cmd);
 
         let mut child = cmd.spawn().map_err(|_| AgentError::ProcessSpawnFailed)?;
         let pid = child.id().ok_or(AgentError::ProcessSpawnFailed)?;
@@ -159,7 +159,7 @@ impl AgentRunner for CopilotRunner {
     async fn stop(&self, handle: &AgentHandle) -> Result<(), AgentError> {
         #[cfg(unix)]
         {
-            crate::util::process::signal_process_tree(handle.pid, libc::SIGTERM)
+            conduit_util::process::signal_process_tree(handle.pid, libc::SIGTERM)
                 .map_err(AgentError::Io)?;
         }
         #[cfg(not(unix))]
@@ -175,7 +175,7 @@ impl AgentRunner for CopilotRunner {
     async fn kill(&self, handle: &AgentHandle) -> Result<(), AgentError> {
         #[cfg(unix)]
         {
-            crate::util::process::signal_process_tree(handle.pid, libc::SIGKILL)
+            conduit_util::process::signal_process_tree(handle.pid, libc::SIGKILL)
                 .map_err(AgentError::Io)?;
         }
         #[cfg(not(unix))]

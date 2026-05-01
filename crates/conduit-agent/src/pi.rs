@@ -10,14 +10,14 @@ use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::{mpsc, oneshot, Mutex};
 
-use crate::agent::error::AgentError;
-use crate::agent::events::{
+use crate::error::AgentError;
+use crate::events::{
     AgentEvent, AssistantMessageEvent, CommandOutputEvent, ContextCompactionEvent, ErrorEvent,
     ReasoningEvent, SessionInitEvent, TokenUsage, ToolCompletedEvent, ToolStartedEvent,
     TurnCompletedEvent, TurnFailedEvent,
 };
-use crate::agent::runner::{AgentHandle, AgentInput, AgentRunner, AgentStartConfig, AgentType};
-use crate::agent::session::SessionId;
+use crate::runner::{AgentHandle, AgentInput, AgentRunner, AgentStartConfig, AgentType};
+use crate::session::SessionId;
 
 const PI_RPC_TIMEOUT: Duration = Duration::from_secs(15);
 
@@ -363,7 +363,7 @@ impl AgentRunner for PiRunner {
 
     async fn start(&self, config: AgentStartConfig) -> Result<AgentHandle, AgentError> {
         let mut cmd = self.build_command(&config);
-        crate::util::process::configure_command_process_group(&mut cmd);
+        conduit_util::process::configure_command_process_group(&mut cmd);
         let mut child = cmd.spawn().map_err(|_| AgentError::ProcessSpawnFailed)?;
         let pid = child.id().ok_or(AgentError::ProcessSpawnFailed)?;
         let stdin = child.stdin.take().ok_or(AgentError::ProcessSpawnFailed)?;
@@ -576,7 +576,7 @@ impl AgentRunner for PiRunner {
     async fn stop(&self, handle: &AgentHandle) -> Result<(), AgentError> {
         #[cfg(unix)]
         {
-            crate::util::process::signal_process_tree(handle.pid, libc::SIGTERM)
+            conduit_util::process::signal_process_tree(handle.pid, libc::SIGTERM)
                 .map_err(AgentError::Io)?;
         }
         #[cfg(not(unix))]
@@ -592,7 +592,7 @@ impl AgentRunner for PiRunner {
     async fn kill(&self, handle: &AgentHandle) -> Result<(), AgentError> {
         #[cfg(unix)]
         {
-            crate::util::process::signal_process_tree(handle.pid, libc::SIGKILL)
+            conduit_util::process::signal_process_tree(handle.pid, libc::SIGKILL)
                 .map_err(AgentError::Io)?;
         }
         #[cfg(not(unix))]
@@ -741,7 +741,7 @@ pub fn load_pi_models(binary_path: Option<PathBuf>) -> Vec<PiModelEntry> {
                             tracing::debug!(error = %err, "Failed to save Pi model cache");
                         }
                     }
-                    crate::agent::ModelRegistry::set_pi_models(entries);
+                    crate::ModelRegistry::set_pi_models(entries);
                 }
             });
         }

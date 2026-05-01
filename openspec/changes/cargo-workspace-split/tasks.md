@@ -57,15 +57,15 @@
 - [x] 5.5 Add `conduit-git = { path = "crates/conduit-git" }` to root `[dependencies]` and to workspace `members`
 - [x] 5.6 Verify CI gate: `cargo check`, `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test` all pass
 
-## 6. Extract `conduit-agent` (tier 4 — completes Fix A path)
+## 6. Extract `conduit-agent` (tier 4 — completes Fix A path) ✓
 
-- [ ] 6.1 Create `crates/conduit-agent/Cargo.toml` with `[dependencies]` for: `tokio`, `tokio-util`, `futures`, `async-trait`, `serde`, `serde_json`, `agent-client-protocol`, `codex-protocol`, `codex-app-server-protocol`, `chrono`, `uuid`, `anyhow`, `thiserror`, `tracing`, `reqwest`, `reqwest-eventsource` plus `conduit-util`, `conduit-types`
-- [ ] 6.2 `git mv src/agent crates/conduit-agent/src` then rename `mod.rs` → `lib.rs`
-- [ ] 6.3 Replace `crate::agent::X` with `crate::X`, `crate::util::X` with `conduit_util::X`, `crate::ui::components::{ChatMessage,...}` (already done in 4.8) — verify no `crate::ui::` remains in this crate
-- [ ] 6.4 In root `src/lib.rs`, replace `pub mod agent;` with `pub use conduit_agent as agent;` (and ensure all current `pub use agent::{...}` lines still resolve)
-- [ ] 6.5 Add `conduit-agent = { path = "crates/conduit-agent" }` to temporary root `[dependencies]`
-- [ ] 6.6 Verify `cargo check --workspace` and `cargo tree -p conduit-agent` shows `codex-protocol`, `codex-app-server-protocol`, `agent-client-protocol`
-- [ ] 6.7 Commit "refactor: extract conduit-agent crate"
+- [x] 6.1 Create `crates/conduit-agent/Cargo.toml` with `[dependencies]`: `tokio`, `tokio-util`, `futures`, `async-trait`, `serde`, `serde_json`, `agent-client-protocol`, `codex-protocol`, `codex-app-server-protocol`, `chrono`, `uuid`, `anyhow`, `thiserror`, `tracing`, `reqwest`, `reqwest-eventsource`, `dirs`, `image`, `parking_lot`, `which`, `libc` cfg(unix), plus `conduit-util`, `conduit-types`. Dev-dep: `tempfile`
+- [x] 6.2 `git mv src/agent crates/conduit-agent/src` then rename `mod.rs` → `lib.rs`
+- [x] 6.3 Replace `crate::agent::X` with `crate::X`, `crate::util::X` with `conduit_util::X`, `crate::command_resolver::SkillReference` with `conduit_types::SkillReference` (extracted to break agent ↔ resolver cycle) — no `crate::ui::` remains
+- [x] 6.4 In root `src/lib.rs`, replace `pub mod agent;` with `pub use conduit_agent as agent;` (and ensure all current `pub use agent::{...}` lines still resolve)
+- [x] 6.5 Add `conduit-agent = { path = "crates/conduit-agent" }` to temporary root `[dependencies]`
+- [x] 6.6 Fix doctest paths in `mock.rs` to use `conduit_agent::*` instead of `conduit::agent::*`
+- [x] 6.7 Verify CI gate: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` all pass
 
 ## 7. Extract `conduit-resolver`, `conduit-session`, `conduit-data` (tier 5, parallel-safe)
 

@@ -751,6 +751,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "conduit-agent"
+version = "0.5.0"
+dependencies = [
+ "agent-client-protocol",
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "codex-app-server-protocol",
+ "codex-protocol",
+ "conduit-types",
+ "conduit-util",
+ "dirs",
+ "futures",
+ "image",
+ "libc",
+ "parking_lot",
+ "reqwest",
+ "reqwest-eventsource",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "uuid",
+ "which",
+]
+
+[[package]]
 name = "conduit-cli"
 version = "0.5.0"
 dependencies = [
@@ -767,6 +797,7 @@ dependencies = [
  "clap",
  "codex-app-server-protocol",
  "codex-protocol",
+ "conduit-agent",
  "conduit-git",
  "conduit-types",
  "conduit-util",

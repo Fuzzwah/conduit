@@ -26,14 +26,14 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{ChildStdin, Command};
 use tokio::sync::{mpsc, oneshot, Mutex};
 
-use crate::agent::error::AgentError;
-use crate::agent::events::{
+use crate::error::AgentError;
+use crate::events::{
     AgentEvent, AssistantMessageEvent, CommandOutputEvent, ContextCompactionEvent, ErrorEvent,
     FileChangedEvent, FileOperation, ReasoningEvent, SessionInitEvent, TokenUsage, TokenUsageEvent,
     ToolCompletedEvent, ToolStartedEvent, TurnCompletedEvent, TurnFailedEvent,
 };
-use crate::agent::runner::{AgentHandle, AgentInput, AgentRunner, AgentStartConfig, AgentType};
-use crate::agent::session::SessionId;
+use crate::runner::{AgentHandle, AgentInput, AgentRunner, AgentStartConfig, AgentType};
+use crate::session::SessionId;
 
 const CODEX_NPX_PACKAGE: &str = "@openai/codex";
 const CODEX_NPX_VERSION_ENV: &str = "CODEX_NPX_VERSION";
@@ -244,7 +244,7 @@ impl CodexCliRunner {
     fn build_user_inputs(
         prompt: &str,
         images: &[PathBuf],
-        skill: Option<&crate::command_resolver::SkillReference>,
+        skill: Option<&conduit_types::SkillReference>,
     ) -> Vec<UserInput> {
         let mut items = Vec::new();
         if let Some(skill) = skill {
@@ -936,7 +936,7 @@ impl CodexCliRunner {
         thread_id: &str,
         prompt: &str,
         images: &[PathBuf],
-        skill: Option<&crate::command_resolver::SkillReference>,
+        skill: Option<&conduit_types::SkillReference>,
     ) -> io::Result<()> {
         let items = Self::build_user_inputs(prompt, images, skill);
         if items.is_empty() {
@@ -981,7 +981,7 @@ impl CodexCliRunner {
     async fn spawn_app_server(&self, cwd: &Path) -> Result<tokio::process::Child, AgentError> {
         if self.binary_path.exists() {
             let mut cmd = self.build_codex_command(cwd);
-            crate::util::process::configure_command_process_group(&mut cmd);
+            conduit_util::process::configure_command_process_group(&mut cmd);
             match cmd.spawn() {
                 Ok(child) => return Ok(child),
                 Err(err) => {
@@ -991,7 +991,7 @@ impl CodexCliRunner {
         }
 
         let mut cmd = self.build_npx_command(cwd);
-        crate::util::process::configure_command_process_group(&mut cmd);
+        conduit_util::process::configure_command_process_group(&mut cmd);
         let child = cmd.spawn()?;
         Ok(child)
     }
@@ -1464,7 +1464,7 @@ impl AgentRunner for CodexCliRunner {
     async fn stop(&self, handle: &AgentHandle) -> Result<(), AgentError> {
         #[cfg(unix)]
         {
-            crate::util::process::signal_process_tree(handle.pid, libc::SIGTERM)
+            conduit_util::process::signal_process_tree(handle.pid, libc::SIGTERM)
                 .map_err(AgentError::Io)?;
         }
         #[cfg(not(unix))]
@@ -1480,7 +1480,7 @@ impl AgentRunner for CodexCliRunner {
     async fn kill(&self, handle: &AgentHandle) -> Result<(), AgentError> {
         #[cfg(unix)]
         {
-            crate::util::process::signal_process_tree(handle.pid, libc::SIGKILL)
+            conduit_util::process::signal_process_tree(handle.pid, libc::SIGKILL)
                 .map_err(AgentError::Io)?;
         }
         #[cfg(not(unix))]
@@ -1565,7 +1565,7 @@ mod tests {
     #[test]
     fn test_conversation_config_includes_reasoning_effort() {
         let config = AgentStartConfig::new("hello", PathBuf::from("/tmp"))
-            .with_reasoning_effort(crate::agent::ReasoningEffort::XHigh);
+            .with_reasoning_effort(crate::ReasoningEffort::XHigh);
 
         let values = CodexCliRunner::conversation_config(&config).expect("expected config");
         assert_eq!(
@@ -1835,7 +1835,7 @@ pub fn load_codex_models(_binary_path: Option<PathBuf>) -> Vec<CodexModelEntry> 
                         tracing::debug!(error = %err, "Failed to save Codex model cache");
                     }
                 }
-                crate::agent::ModelRegistry::set_codex_models(entries);
+                crate::ModelRegistry::set_codex_models(entries);
             }
         });
     }

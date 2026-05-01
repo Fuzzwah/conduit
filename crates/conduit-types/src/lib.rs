@@ -8,9 +8,11 @@ pub mod action;
 pub mod app_prompt;
 pub mod chat_message;
 pub mod input_mode;
+pub mod skill;
 pub mod turn_summary;
 
 pub use action::Action;
 pub use chat_message::{ChatMessage, MessageRole};
 pub use input_mode::{InputMode, ViewMode};
+pub use skill::SkillReference;
 pub use turn_summary::{FileChange, TurnSummary};

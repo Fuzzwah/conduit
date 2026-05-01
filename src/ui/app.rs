@@ -13210,8 +13210,11 @@ mod tests {
         temp_file.write_all(&png_data).unwrap();
         let temp_path = temp_file.path().to_path_buf();
 
-        let result =
-            App::build_user_prompt_jsonl("What is in this image?", &[temp_path.clone()]).unwrap();
+        let result = App::build_user_prompt_jsonl(
+            "What is in this image?",
+            std::slice::from_ref(&temp_path),
+        )
+        .unwrap();
         let parsed: serde_json::Value = serde_json::from_str(result.trim()).unwrap();
 
         assert_eq!(parsed["type"], "user");

@@ -18,16 +18,16 @@ use tokio::process::Command;
 use tokio::sync::{mpsc, oneshot, Mutex};
 use tokio::time::timeout;
 
-use crate::agent::display::MessageDisplay;
-use crate::agent::error::AgentError;
-use crate::agent::events::{
+use crate::display::MessageDisplay;
+use crate::error::AgentError;
+use crate::events::{
     AgentEvent, AssistantMessageEvent, ErrorEvent, QuestionOption, ReasoningEvent,
     SessionInitEvent, ToolCompletedEvent, ToolStartedEvent, TurnCompletedEvent, TurnFailedEvent,
     UserQuestion,
 };
-use crate::agent::runner::{AgentHandle, AgentInput, AgentRunner, AgentStartConfig, AgentType};
-use crate::agent::session::SessionId;
-use crate::agent::ModelRegistry;
+use crate::runner::{AgentHandle, AgentInput, AgentRunner, AgentStartConfig, AgentType};
+use crate::session::SessionId;
+use crate::ModelRegistry;
 
 const OPENCODE_READY_TIMEOUT: Duration = Duration::from_secs(10);
 const OPENCODE_SESSION_TIMEOUT: Duration = Duration::from_secs(10);
@@ -1807,7 +1807,7 @@ impl AgentRunner for OpencodeRunner {
 
     async fn start(&self, config: AgentStartConfig) -> Result<AgentHandle, AgentError> {
         let mut cmd = self.build_command(&config)?;
-        crate::util::process::configure_command_process_group(&mut cmd);
+        conduit_util::process::configure_command_process_group(&mut cmd);
         let mut child = cmd.spawn().map_err(|_| AgentError::ProcessSpawnFailed)?;
         let pid = child.id().ok_or(AgentError::ProcessSpawnFailed)?;
 
@@ -2246,7 +2246,7 @@ impl AgentRunner for OpencodeRunner {
     async fn stop(&self, handle: &AgentHandle) -> Result<(), AgentError> {
         #[cfg(unix)]
         {
-            crate::util::process::signal_process_tree(handle.pid, libc::SIGTERM).map_err(
+            conduit_util::process::signal_process_tree(handle.pid, libc::SIGTERM).map_err(
                 |err| {
                     tracing::error!(pid = handle.pid, error = %err, "OpenCode SIGTERM failed");
                     AgentError::Io(err)
@@ -2266,7 +2266,7 @@ impl AgentRunner for OpencodeRunner {
     async fn kill(&self, handle: &AgentHandle) -> Result<(), AgentError> {
         #[cfg(unix)]
         {
-            crate::util::process::signal_process_tree(handle.pid, libc::SIGKILL).map_err(
+            conduit_util::process::signal_process_tree(handle.pid, libc::SIGKILL).map_err(
                 |err| {
                     tracing::error!(pid = handle.pid, error = %err, "OpenCode SIGKILL failed");
                     AgentError::Io(err)
@@ -2460,7 +2460,7 @@ mod tests {
         compute_text_delta, MessagePart, OpencodeEventState, OpencodeRunner, OpencodeSharedState,
         ToolState,
     };
-    use crate::agent::events::AgentEvent;
+    use crate::events::AgentEvent;
     use std::sync::Arc;
     use std::time::Duration;
     use tokio::sync::mpsc;

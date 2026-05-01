@@ -647,14 +647,11 @@ mod tests {
     fn run_git(path: &Path, args: &[&str]) -> io::Result<String> {
         let output = Command::new("git").args(args).current_dir(path).output()?;
         if !output.status.success() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "git {} failed: {}",
-                    args.join(" "),
-                    String::from_utf8_lossy(&output.stderr)
-                ),
-            ));
+            return Err(io::Error::other(format!(
+                "git {} failed: {}",
+                args.join(" "),
+                String::from_utf8_lossy(&output.stderr)
+            )));
         }
 
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())

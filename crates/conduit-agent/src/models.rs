@@ -4,12 +4,12 @@ use std::sync::{OnceLock, RwLock};
 
 use tracing::error;
 
-use crate::agent::claude::{load_claude_models, ClaudeModelEntry};
-use crate::agent::codex::CodexModelEntry;
-use crate::agent::gemini::GeminiModelEntry;
-use crate::agent::opencode::load_opencode_models;
-use crate::agent::pi::PiModelEntry;
-use crate::agent::AgentType;
+use crate::claude::{load_claude_models, ClaudeModelEntry};
+use crate::codex::CodexModelEntry;
+use crate::gemini::GeminiModelEntry;
+use crate::opencode::load_opencode_models;
+use crate::pi::PiModelEntry;
+use crate::AgentType;
 
 /// Information about a model
 #[derive(Debug, Clone)]

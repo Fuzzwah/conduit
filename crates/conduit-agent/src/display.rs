@@ -3,7 +3,7 @@
 //! Provides a common intermediate format for all message types,
 //! used by both live events and history restoration.
 
-use crate::ui::components::ChatMessage;
+use conduit_types::ChatMessage;
 
 /// Normalized message for display (used by both live events and history)
 #[derive(Debug, Clone)]

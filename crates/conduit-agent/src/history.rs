@@ -15,7 +15,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use super::display::MessageDisplay;
-use crate::ui::components::{ChatMessage, MessageRole, TurnSummary};
+use conduit_types::{ChatMessage, MessageRole, TurnSummary};
 
 /// Info extracted from a function_call entry for later lookup
 struct FunctionCallInfo {

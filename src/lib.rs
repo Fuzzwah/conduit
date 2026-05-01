@@ -1,4 +1,4 @@
-pub mod agent;
+pub use conduit_agent as agent;
 pub mod command_resolver;
 pub mod config;
 pub mod core;

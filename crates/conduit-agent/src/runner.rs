@@ -3,10 +3,10 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::sync::mpsc;
 
-use crate::agent::error::AgentError;
-use crate::agent::events::AgentEvent;
-use crate::agent::session::SessionId;
-use crate::command_resolver::SkillReference;
+use crate::error::AgentError;
+use crate::events::AgentEvent;
+use crate::session::SessionId;
+use conduit_types::SkillReference;
 
 /// Agent type identifier
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

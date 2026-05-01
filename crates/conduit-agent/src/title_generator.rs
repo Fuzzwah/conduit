@@ -10,8 +10,8 @@ use std::time::Duration;
 use thiserror::Error;
 use tokio::process::Command;
 
-use crate::agent::{AgentEvent, AgentRunner, AgentStartConfig, CodexCliRunner};
-use crate::util::{Tool, ToolAvailability};
+use crate::{AgentEvent, AgentRunner, AgentStartConfig, CodexCliRunner};
+use conduit_util::{Tool, ToolAvailability};
 
 /// Timeout for AI title generation calls
 const AI_CALL_TIMEOUT_SECS: u64 = 20;

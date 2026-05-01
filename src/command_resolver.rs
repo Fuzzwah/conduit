@@ -108,11 +108,7 @@ impl ProviderArtifactSource {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SkillReference {
-    pub name: String,
-    pub path: PathBuf,
-}
+pub use conduit_types::SkillReference;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProviderInvocation {

@@ -511,10 +511,10 @@ mod tests {
             }
             let stdout = String::from_utf8_lossy(&output.stdout);
             let stderr = String::from_utf8_lossy(&output.stderr);
-            Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("git {:?} failed: {}{}", args, stdout, stderr),
-            ))
+            Err(std::io::Error::other(format!(
+                "git {:?} failed: {}{}",
+                args, stdout, stderr
+            )))
         }
 
         run_git_checked(path, &["init"])?;

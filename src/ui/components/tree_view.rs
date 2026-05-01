@@ -1618,10 +1618,7 @@ mod tests {
     /// This test will fail CI if someone accidentally commits with the flag enabled.
     #[test]
     fn test_mock_sidebar_pr_display_is_disabled() {
-        assert!(
-            !MOCK_SIDEBAR_PR_DISPLAY,
-            "MOCK_SIDEBAR_PR_DISPLAY must be false in committed code"
-        );
+        const { assert!(!MOCK_SIDEBAR_PR_DISPLAY) };
     }
 
     #[test]

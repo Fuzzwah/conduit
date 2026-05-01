@@ -232,16 +232,14 @@ async fn test_codex_user_message_includes_images() {
                 JSONRPCMessage::Error(err) if err.id == send_id => {
                     return Err(io::Error::other(err.error.message));
                 }
-                JSONRPCMessage::Notification(note) => {
-                    if note.method.starts_with("codex/event/") {
-                        if let Some(params) = note.params {
-                            let parsed: Result<CodexNotificationParams, _> =
-                                serde_json::from_value(params);
-                            if let Ok(parsed) = parsed {
-                                if let EventMsg::UserMessage(event) = parsed.msg {
-                                    user_message = Some(event);
-                                    break;
-                                }
+                JSONRPCMessage::Notification(note) if note.method.starts_with("codex/event/") => {
+                    if let Some(params) = note.params {
+                        let parsed: Result<CodexNotificationParams, _> =
+                            serde_json::from_value(params);
+                        if let Ok(parsed) = parsed {
+                            if let EventMsg::UserMessage(event) = parsed.msg {
+                                user_message = Some(event);
+                                break;
                             }
                         }
                     }

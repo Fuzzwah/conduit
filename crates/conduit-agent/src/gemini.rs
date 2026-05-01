@@ -17,13 +17,13 @@ use tokio::sync::mpsc;
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 use tokio_util::io::ReaderStream;
 
-use crate::agent::error::AgentError;
-use crate::agent::events::{
+use crate::error::AgentError;
+use crate::events::{
     AgentEvent, AssistantMessageEvent, ErrorEvent, ReasoningEvent, SessionInitEvent,
     ToolCompletedEvent, ToolStartedEvent, TurnCompletedEvent,
 };
-use crate::agent::runner::{AgentHandle, AgentInput, AgentRunner, AgentStartConfig, AgentType};
-use crate::agent::session::SessionId;
+use crate::runner::{AgentHandle, AgentInput, AgentRunner, AgentStartConfig, AgentType};
+use crate::session::SessionId;
 
 const CACHE_TTL_SECS: u64 = 60 * 60 * 24 * 7;
 const INIT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -475,7 +475,7 @@ impl AgentRunner for GeminiCliRunner {
         .await;
 
         let mut cmd = self.build_command(&config, &resolved);
-        crate::util::process::configure_command_process_group(&mut cmd);
+        conduit_util::process::configure_command_process_group(&mut cmd);
         let mut child = cmd.spawn()?;
 
         let pid = child.id().ok_or(AgentError::ProcessSpawnFailed)?;
@@ -789,7 +789,7 @@ impl AgentRunner for GeminiCliRunner {
     async fn stop(&self, handle: &AgentHandle) -> Result<(), AgentError> {
         #[cfg(unix)]
         {
-            crate::util::process::signal_process_tree(handle.pid, libc::SIGTERM)
+            conduit_util::process::signal_process_tree(handle.pid, libc::SIGTERM)
                 .map_err(AgentError::Io)?;
         }
         #[cfg(not(unix))]
@@ -805,7 +805,7 @@ impl AgentRunner for GeminiCliRunner {
     async fn kill(&self, handle: &AgentHandle) -> Result<(), AgentError> {
         #[cfg(unix)]
         {
-            crate::util::process::signal_process_tree(handle.pid, libc::SIGKILL)
+            conduit_util::process::signal_process_tree(handle.pid, libc::SIGKILL)
                 .map_err(AgentError::Io)?;
         }
         #[cfg(not(unix))]
@@ -975,7 +975,7 @@ pub fn load_gemini_models() -> Vec<GeminiModelEntry> {
                         tracing::debug!(error = %err, "Failed to save Gemini model cache");
                     }
                 }
-                crate::agent::ModelRegistry::set_gemini_models(entries);
+                crate::ModelRegistry::set_gemini_models(entries);
             }
         });
     }

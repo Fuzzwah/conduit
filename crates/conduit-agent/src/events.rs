@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::agent::session::SessionId;
+use crate::session::SessionId;
 
 /// Unified event type emitted by all agents
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -6,9 +6,9 @@
 //!
 //! # Example
 //! ```no_run
-//! use conduit::agent::mock::{MockAgentRunner, MockConfig};
-//! use conduit::agent::{AgentType, AgentEvent, SessionInitEvent, AgentStartConfig};
-//! use conduit::agent::session::SessionId;
+//! use conduit_agent::mock::{MockAgentRunner, MockConfig};
+//! use conduit_agent::{AgentType, AgentEvent, SessionInitEvent, AgentStartConfig};
+//! use conduit_agent::session::SessionId;
 //!
 //! #[tokio::test]
 //! async fn test_agent_flow() {
@@ -34,9 +34,9 @@ use async_trait::async_trait;
 use parking_lot::Mutex;
 use tokio::sync::mpsc;
 
-use crate::agent::error::AgentError;
-use crate::agent::events::AgentEvent;
-use crate::agent::runner::{AgentHandle, AgentInput, AgentRunner, AgentStartConfig, AgentType};
+use crate::error::AgentError;
+use crate::events::AgentEvent;
+use crate::runner::{AgentHandle, AgentInput, AgentRunner, AgentStartConfig, AgentType};
 
 /// Type of error to simulate on start failure
 #[derive(Clone, Debug)]
@@ -260,8 +260,8 @@ impl MockEventBuilder {
 
     /// Add a session init event
     pub fn session_init(mut self, model: Option<&str>) -> Self {
-        use crate::agent::events::SessionInitEvent;
-        use crate::agent::session::SessionId;
+        use crate::events::SessionInitEvent;
+        use crate::session::SessionId;
 
         self.events.push(AgentEvent::SessionInit(SessionInitEvent {
             session_id: SessionId::from_string(self.session_id.clone()),
@@ -278,7 +278,7 @@ impl MockEventBuilder {
 
     /// Add an assistant message
     pub fn assistant_message(mut self, text: &str, is_final: bool) -> Self {
-        use crate::agent::events::AssistantMessageEvent;
+        use crate::events::AssistantMessageEvent;
 
         self.events
             .push(AgentEvent::AssistantMessage(AssistantMessageEvent {
@@ -290,7 +290,7 @@ impl MockEventBuilder {
 
     /// Add a tool started event
     pub fn tool_started(mut self, tool_name: &str, tool_id: &str, args: serde_json::Value) -> Self {
-        use crate::agent::events::ToolStartedEvent;
+        use crate::events::ToolStartedEvent;
 
         self.events.push(AgentEvent::ToolStarted(ToolStartedEvent {
             tool_name: tool_name.to_string(),
@@ -308,7 +308,7 @@ impl MockEventBuilder {
         result: Option<&str>,
         error: Option<&str>,
     ) -> Self {
-        use crate::agent::events::ToolCompletedEvent;
+        use crate::events::ToolCompletedEvent;
 
         self.events
             .push(AgentEvent::ToolCompleted(ToolCompletedEvent {
@@ -322,7 +322,7 @@ impl MockEventBuilder {
 
     /// Add a turn completed event
     pub fn turn_completed(mut self, input_tokens: i64, output_tokens: i64) -> Self {
-        use crate::agent::events::{TokenUsage, TurnCompletedEvent};
+        use crate::events::{TokenUsage, TurnCompletedEvent};
 
         self.events
             .push(AgentEvent::TurnCompleted(TurnCompletedEvent {
@@ -338,7 +338,7 @@ impl MockEventBuilder {
 
     /// Add an error event
     pub fn error(mut self, message: &str, is_fatal: bool) -> Self {
-        use crate::agent::events::ErrorEvent;
+        use crate::events::ErrorEvent;
 
         self.events.push(AgentEvent::Error(ErrorEvent {
             message: message.to_string(),
@@ -358,8 +358,8 @@ impl MockEventBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agent::events::{AssistantMessageEvent, SessionInitEvent};
-    use crate::agent::session::SessionId;
+    use crate::events::{AssistantMessageEvent, SessionInitEvent};
+    use crate::session::SessionId;
 
     #[tokio::test]
     async fn test_mock_emits_configured_events() {

@@ -3,7 +3,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::ChildStdout;
 use tokio::sync::mpsc;
 
-use crate::agent::error::AgentError;
+use crate::error::AgentError;
 
 /// Generic JSONL stream parser
 pub struct JsonlStreamParser;
