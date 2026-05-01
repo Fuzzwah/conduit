@@ -11395,42 +11395,66 @@ impl App {
                         // Render dialogs over empty state
                         if self.state.base_dir_dialog_state.is_visible() {
                             let dialog = BaseDirDialog::new();
-                            dialog.render(size, f.buffer_mut(), &self.state.base_dir_dialog_state);
+                            dialog.render(
+                                right_area,
+                                f.buffer_mut(),
+                                &self.state.base_dir_dialog_state,
+                            );
                         } else if self.state.provider_selector_state.is_visible() {
                             let selector = ProviderSelector::new();
                             selector.render(
-                                size,
+                                right_area,
                                 f.buffer_mut(),
                                 &self.state.provider_selector_state.dialog,
                             );
                         } else if self.state.project_picker_state.is_visible() {
                             let picker = ProjectPicker::new();
-                            picker.render(size, f.buffer_mut(), &self.state.project_picker_state);
+                            picker.render(
+                                right_area,
+                                f.buffer_mut(),
+                                &self.state.project_picker_state,
+                            );
                         } else if self.state.add_repo_dialog_state.is_visible() {
                             let dialog = AddRepoDialog::new();
-                            dialog.render(size, f.buffer_mut(), &self.state.add_repo_dialog_state);
+                            dialog.render(
+                                right_area,
+                                f.buffer_mut(),
+                                &self.state.add_repo_dialog_state,
+                            );
                         } else if self.state.session_import_state.is_visible() {
                             let picker = SessionImportPicker::new();
-                            picker.render(size, f.buffer_mut(), &self.state.session_import_state);
+                            picker.render(
+                                right_area,
+                                f.buffer_mut(),
+                                &self.state.session_import_state,
+                            );
                         } else if self.state.model_selector_state.is_visible() {
-                            self.state.model_selector_state.update_viewport(size);
+                            self.state.model_selector_state.update_viewport(right_area);
                             let selector = ModelSelector::new();
-                            selector.render(size, f.buffer_mut(), &self.state.model_selector_state);
+                            selector.render(
+                                right_area,
+                                f.buffer_mut(),
+                                &self.state.model_selector_state,
+                            );
                         } else if self.state.reasoning_selector_state.is_visible() {
                             let selector = ReasoningSelector::new();
                             selector.render(
-                                size,
+                                right_area,
                                 f.buffer_mut(),
                                 &self.state.reasoning_selector_state,
                             );
                         } else if self.state.theme_picker_state.is_visible() {
-                            self.render_theme_picker(size, f.buffer_mut());
+                            self.render_theme_picker(right_area, f.buffer_mut());
                         }
 
                         // Draw agent selector dialog if needed
                         if self.state.agent_selector_state.is_visible() {
                             let selector = AgentSelector::new();
-                            selector.render(size, f.buffer_mut(), &self.state.agent_selector_state);
+                            selector.render(
+                                right_area,
+                                f.buffer_mut(),
+                                &self.state.agent_selector_state,
+                            );
                         }
 
                         // Draw confirmation dialog if open
@@ -11438,14 +11462,14 @@ impl App {
                             use ratatui::widgets::Widget;
                             let dialog =
                                 ConfirmationDialog::new(&self.state.confirmation_dialog_state);
-                            dialog.render(size, f.buffer_mut());
+                            dialog.render(right_area, f.buffer_mut());
                         }
 
                         // Draw error dialog if open
                         if self.state.error_dialog_state.visible {
                             use ratatui::widgets::Widget;
                             let dialog = ErrorDialog::new(&self.state.error_dialog_state);
-                            dialog.render(size, f.buffer_mut());
+                            dialog.render(right_area, f.buffer_mut());
                         }
 
                         // Draw missing tool dialog if open
@@ -11453,13 +11477,13 @@ impl App {
                             use ratatui::widgets::Widget;
                             let dialog =
                                 MissingToolDialog::new(&self.state.missing_tool_dialog_state);
-                            dialog.render(size, f.buffer_mut());
+                            dialog.render(right_area, f.buffer_mut());
                         }
 
                         // Draw help dialog if open
                         if self.state.help_dialog_state.is_visible() {
                             HelpDialog::new().render(
-                                size,
+                                right_area,
                                 f.buffer_mut(),
                                 &mut self.state.help_dialog_state,
                             );
@@ -11469,7 +11493,7 @@ impl App {
                             || self.state.settings_menu_state.is_visible()
                         {
                             SettingsMenu::new().render(
-                                size,
+                                right_area,
                                 f.buffer_mut(),
                                 &self.state.settings_menu_state,
                             );
@@ -11478,7 +11502,7 @@ impl App {
                         // Draw command palette (on top of everything)
                         if self.state.command_palette_state.is_visible() {
                             CommandPalette::new().render(
-                                size,
+                                right_area,
                                 f.buffer_mut(),
                                 &self.state.command_palette_state,
                             );
@@ -11488,7 +11512,7 @@ impl App {
                             || self.state.workspace_defaults_dialog_state.is_visible()
                         {
                             WorkspaceDefaultsDialog::new().render(
-                                size,
+                                right_area,
                                 f.buffer_mut(),
                                 &self.state.workspace_defaults_dialog_state,
                             );
@@ -11498,7 +11522,7 @@ impl App {
                             || self.state.rename_project_dialog_state.is_visible()
                         {
                             RenameProjectDialog::new().render(
-                                size,
+                                right_area,
                                 f.buffer_mut(),
                                 &self.state.rename_project_dialog_state,
                             );
@@ -11866,13 +11890,13 @@ impl App {
         // Draw agent selector dialog if needed
         if self.state.agent_selector_state.is_visible() {
             let selector = AgentSelector::new();
-            selector.render(size, f.buffer_mut(), &self.state.agent_selector_state);
+            selector.render(right_area, f.buffer_mut(), &self.state.agent_selector_state);
         }
 
         if self.state.provider_selector_state.is_visible() {
             let selector = ProviderSelector::new();
             selector.render(
-                size,
+                right_area,
                 f.buffer_mut(),
                 &self.state.provider_selector_state.dialog,
             );
@@ -11881,77 +11905,93 @@ impl App {
         // Draw add repository dialog if open
         if self.state.add_repo_dialog_state.is_visible() {
             let dialog = AddRepoDialog::new();
-            dialog.render(size, f.buffer_mut(), &self.state.add_repo_dialog_state);
+            dialog.render(
+                right_area,
+                f.buffer_mut(),
+                &self.state.add_repo_dialog_state,
+            );
         }
 
         // Draw model selector dialog if open
         if self.state.model_selector_state.is_visible() {
-            self.state.model_selector_state.update_viewport(size);
+            self.state.model_selector_state.update_viewport(right_area);
             let model_selector = ModelSelector::new();
-            model_selector.render(size, f.buffer_mut(), &self.state.model_selector_state);
+            model_selector.render(right_area, f.buffer_mut(), &self.state.model_selector_state);
         }
 
         if self.state.reasoning_selector_state.is_visible() {
             let selector = ReasoningSelector::new();
-            selector.render(size, f.buffer_mut(), &self.state.reasoning_selector_state);
+            selector.render(
+                right_area,
+                f.buffer_mut(),
+                &self.state.reasoning_selector_state,
+            );
         }
 
         // Draw theme picker dialog if open
-        self.render_theme_picker(size, f.buffer_mut());
+        self.render_theme_picker(right_area, f.buffer_mut());
 
         // Draw base directory dialog if open
         if self.state.base_dir_dialog_state.is_visible() {
             let dialog = BaseDirDialog::new();
-            dialog.render(size, f.buffer_mut(), &self.state.base_dir_dialog_state);
+            dialog.render(
+                right_area,
+                f.buffer_mut(),
+                &self.state.base_dir_dialog_state,
+            );
         }
 
         // Draw project picker if open
         if self.state.project_picker_state.is_visible() {
             let picker = ProjectPicker::new();
-            picker.render(size, f.buffer_mut(), &self.state.project_picker_state);
+            picker.render(right_area, f.buffer_mut(), &self.state.project_picker_state);
         }
 
         // Draw session import picker if open
         if self.state.session_import_state.is_visible() {
             let picker = SessionImportPicker::new();
-            picker.render(size, f.buffer_mut(), &self.state.session_import_state);
+            picker.render(right_area, f.buffer_mut(), &self.state.session_import_state);
         }
 
         // Draw confirmation dialog if open
         if self.state.confirmation_dialog_state.visible {
             use ratatui::widgets::Widget;
             let dialog = ConfirmationDialog::new(&self.state.confirmation_dialog_state);
-            dialog.render(size, f.buffer_mut());
+            dialog.render(right_area, f.buffer_mut());
         }
 
         // Draw error dialog (on top of everything except spinner)
         if self.state.error_dialog_state.visible {
             use ratatui::widgets::Widget;
             let dialog = ErrorDialog::new(&self.state.error_dialog_state);
-            dialog.render(size, f.buffer_mut());
+            dialog.render(right_area, f.buffer_mut());
         }
 
         // Draw missing tool dialog (on top of everything except spinner)
         if self.state.missing_tool_dialog_state.is_visible() {
             use ratatui::widgets::Widget;
             let dialog = MissingToolDialog::new(&self.state.missing_tool_dialog_state);
-            dialog.render(size, f.buffer_mut());
+            dialog.render(right_area, f.buffer_mut());
         }
 
         // Draw help dialog (on top of everything)
         if self.state.help_dialog_state.is_visible() {
-            HelpDialog::new().render(size, f.buffer_mut(), &mut self.state.help_dialog_state);
+            HelpDialog::new().render(
+                right_area,
+                f.buffer_mut(),
+                &mut self.state.help_dialog_state,
+            );
         }
 
         if self.state.input_mode == InputMode::SettingsMenu
             || self.state.settings_menu_state.is_visible()
         {
-            SettingsMenu::new().render(size, f.buffer_mut(), &self.state.settings_menu_state);
+            SettingsMenu::new().render(right_area, f.buffer_mut(), &self.state.settings_menu_state);
         }
 
         if self.state.keybindings_editor_state.is_visible() {
             KeybindingsEditor::new().render(
-                size,
+                right_area,
                 f.buffer_mut(),
                 &self.state.keybindings_editor_state,
             );
@@ -11959,14 +11999,18 @@ impl App {
 
         // Draw command palette (on top of everything)
         if self.state.command_palette_state.is_visible() {
-            CommandPalette::new().render(size, f.buffer_mut(), &self.state.command_palette_state);
+            CommandPalette::new().render(
+                right_area,
+                f.buffer_mut(),
+                &self.state.command_palette_state,
+            );
         }
 
         if self.state.input_mode == InputMode::WorkspaceDefaults
             || self.state.workspace_defaults_dialog_state.is_visible()
         {
             WorkspaceDefaultsDialog::new().render(
-                size,
+                right_area,
                 f.buffer_mut(),
                 &self.state.workspace_defaults_dialog_state,
             );
@@ -11976,7 +12020,7 @@ impl App {
             || self.state.rename_project_dialog_state.is_visible()
         {
             RenameProjectDialog::new().render(
-                size,
+                right_area,
                 f.buffer_mut(),
                 &self.state.rename_project_dialog_state,
             );
@@ -11985,7 +12029,7 @@ impl App {
         if self.state.file_picker_dialog_state.is_visible() {
             use crate::ui::components::FilePickerDialog;
             FilePickerDialog::new().render(
-                size,
+                right_area,
                 f.buffer_mut(),
                 &self.state.file_picker_dialog_state,
             );
@@ -11994,7 +12038,7 @@ impl App {
         if self.state.scp_command_dialog_state.visible {
             use crate::ui::components::ScpCommandDialog;
             ScpCommandDialog::new().render(
-                size,
+                right_area,
                 f.buffer_mut(),
                 &self.state.scp_command_dialog_state,
             );
@@ -12002,17 +12046,21 @@ impl App {
 
         if self.state.issue_picker_state.visible {
             use crate::ui::components::IssuePicker;
-            IssuePicker::new().render(size, f.buffer_mut(), &self.state.issue_picker_state);
+            IssuePicker::new().render(right_area, f.buffer_mut(), &self.state.issue_picker_state);
         }
 
         if self.state.spec_picker_state.visible {
             use crate::ui::components::SpecPicker;
-            SpecPicker::new().render(size, f.buffer_mut(), &self.state.spec_picker_state);
+            SpecPicker::new().render(right_area, f.buffer_mut(), &self.state.spec_picker_state);
         }
 
         if self.state.specify_picker_state.visible {
             use crate::ui::components::SpecifyPicker;
-            SpecifyPicker::new().render(size, f.buffer_mut(), &self.state.specify_picker_state);
+            SpecifyPicker::new().render(
+                right_area,
+                f.buffer_mut(),
+                &self.state.specify_picker_state,
+            );
         }
 
         // Draw cloning repository spinner overlay
@@ -12023,7 +12071,7 @@ impl App {
             use ratatui::widgets::{Paragraph, Widget};
 
             let content_area =
-                DialogFrame::new("Cloning Repository", 38, 4).render(size, f.buffer_mut());
+                DialogFrame::new("Cloning Repository", 38, 4).render(right_area, f.buffer_mut());
 
             let spinner = Spinner::dots();
             let line = Line::from(vec![
@@ -12044,7 +12092,7 @@ impl App {
             use ratatui::widgets::{Paragraph, Widget};
 
             let content_area =
-                DialogFrame::new("Removing Project", 36, 4).render(size, f.buffer_mut());
+                DialogFrame::new("Removing Project", 36, 4).render(right_area, f.buffer_mut());
 
             let spinner = Spinner::dots();
             let line = Line::from(vec![
@@ -12062,7 +12110,7 @@ impl App {
             use crate::ui::components::WorkspaceProgressDialog;
             use ratatui::widgets::Widget;
             WorkspaceProgressDialog::new(&self.state.workspace_progress_dialog_state)
-                .render(size, f.buffer_mut());
+                .render(right_area, f.buffer_mut());
         }
     }
 

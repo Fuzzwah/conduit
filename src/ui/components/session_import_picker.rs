@@ -96,8 +96,8 @@ fn calculate_picker_layout(area: Rect) -> Option<PickerLayout> {
         .clamp(DIALOG_MIN_HEIGHT, DIALOG_MAX_HEIGHT)
         .min(area.height.saturating_sub(2));
 
-    let dialog_x = area.width.saturating_sub(dialog_width) / 2;
-    let dialog_y = area.height.saturating_sub(dialog_height) / 2;
+    let dialog_x = area.x + area.width.saturating_sub(dialog_width) / 2;
+    let dialog_y = area.y + area.height.saturating_sub(dialog_height) / 2;
 
     let dialog_area = Rect {
         x: dialog_x,
