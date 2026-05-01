@@ -3,7 +3,7 @@ pub mod command_resolver;
 pub mod config;
 pub mod core;
 pub mod data;
-pub mod git;
+pub use conduit_git as git;
 pub mod session;
 pub mod ui;
 pub use conduit_util as util;

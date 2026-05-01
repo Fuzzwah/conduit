@@ -48,15 +48,14 @@
 - [x] 4.13 Fix A and partial Fix B/C: existing `crate::ui::components::{ChatMessage,...}` and `crate::ui::action::Action` imports still resolve via the shims; full direct rewrites happen when their containing modules become crates
 - [x] 4.14 Verify: `cargo check`, `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test` all pass
 
-## 5. Extract `conduit-git` (tier 3)
+## 5. Extract `conduit-git` (tier 3) ✓
 
-- [ ] 5.1 Create `crates/conduit-git/Cargo.toml` with `[dependencies]` for the git module's third-party deps (`tokio`, `serde`, `serde_json`, `regex`, `tempfile`, `anyhow`, `chrono`) plus `conduit-util = { path = "../conduit-util" }`
-- [ ] 5.2 `git mv src/git crates/conduit-git/src` then rename `mod.rs` → `lib.rs`
-- [ ] 5.3 Replace `crate::git::X` in moved files with `crate::X`; replace `crate::util::X` with `conduit_util::X`
-- [ ] 5.4 In root `src/lib.rs`, replace `pub mod git;` with `pub use conduit_git as git;`
-- [ ] 5.5 Add `conduit-git = { path = "crates/conduit-git" }` to temporary root `[dependencies]`
-- [ ] 5.6 Verify `cargo check --workspace`
-- [ ] 5.7 Commit "refactor: extract conduit-git crate"
+- [x] 5.1 Create `crates/conduit-git/Cargo.toml` with `[dependencies]` `serde`, `serde_json`, `thiserror`, `tracing` (no `tokio`/`anyhow`/`chrono` needed — git uses sync `std::process::Command`); `tempfile` as dev-dep. No `conduit-util` dep — git is a true leaf
+- [x] 5.2 `git mv src/git crates/conduit-git/src` then `mv mod.rs → lib.rs`
+- [x] 5.3 Rewrite `crate::git::worktree::*` → `crate::worktree::*` and `crate::git::{...}` → `crate::{...}` in `workspace_repo.rs` (only file with internal cross-module refs)
+- [x] 5.4 In root `src/lib.rs`, replace `pub mod git;` with `pub use conduit_git as git;`
+- [x] 5.5 Add `conduit-git = { path = "crates/conduit-git" }` to root `[dependencies]` and to workspace `members`
+- [x] 5.6 Verify CI gate: `cargo check`, `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test` all pass
 
 ## 6. Extract `conduit-agent` (tier 4 — completes Fix A path)
 

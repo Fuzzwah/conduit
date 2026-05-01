@@ -3,8 +3,8 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::git::worktree::{BranchStatus, BranchStatusOptions, WorktreeError};
-use crate::git::{WorkspaceMode, WorktreeManager};
+use crate::worktree::{BranchStatus, BranchStatusOptions, WorktreeError};
+use crate::{WorkspaceMode, WorktreeManager};
 
 /// Manager that can create/remove either worktrees or full checkouts.
 #[derive(Debug, Clone)]

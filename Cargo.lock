@@ -767,6 +767,7 @@ dependencies = [
  "clap",
  "codex-app-server-protocol",
  "codex-protocol",
+ "conduit-git",
  "conduit-types",
  "conduit-util",
  "crossterm 0.28.1",
@@ -810,6 +811,17 @@ dependencies = [
  "unicode-width",
  "uuid",
  "which",
+]
+
+[[package]]
+name = "conduit-git"
+version = "0.5.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tracing",
 ]
 
 [[package]]
