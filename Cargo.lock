@@ -767,6 +767,7 @@ dependencies = [
  "clap",
  "codex-app-server-protocol",
  "codex-protocol",
+ "conduit-types",
  "conduit-util",
  "crossterm 0.28.1",
  "dirs",
@@ -812,6 +813,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "conduit-types"
+version = "0.5.0"
+dependencies = [
+ "serde",
+ "sha2",
+]
+
+[[package]]
 name = "conduit-util"
 version = "0.5.0"
 dependencies = [
@@ -819,6 +828,7 @@ dependencies = [
  "libc",
  "rand 0.9.4",
  "serde",
+ "tempfile",
  "tokio",
  "tracing",
  "uuid",

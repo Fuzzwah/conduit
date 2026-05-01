@@ -1,6 +1,6 @@
 //! Chat message types and helpers.
 
-use super::TurnSummary;
+use crate::TurnSummary;
 
 /// Role of a chat message
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

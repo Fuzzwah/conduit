@@ -20,31 +20,33 @@
 - [ ] 2.7 Verify `cargo check --workspace` succeeds with the skeleton in place (no source moves yet)
 - [ ] 2.8 Commit "chore: convert root to virtual cargo workspace skeleton"
 
-## 3. Extract `conduit-util` (leaf, tier 1)
+## 3. Extract `conduit-util` (leaf, tier 1) ✓
 
-- [ ] 3.1 Create `crates/conduit-util/Cargo.toml` with `name = "conduit-util"`, inherited workspace package metadata, and `[dependencies]` listing only the third-party deps actually used by `src/util/` (likely: `dirs`, `chrono`, `tracing`, `which`, `parking_lot`, `regex`, `uuid`, `anyhow`, `thiserror`) via `<dep> = { workspace = true }`
-- [ ] 3.2 `git mv src/util crates/conduit-util/src` then rename `crates/conduit-util/src/mod.rs` → `crates/conduit-util/src/lib.rs`
-- [ ] 3.3 Inside the moved files, replace any `crate::util::X` self-imports with `crate::X` (util is a leaf — should be zero or minimal)
-- [ ] 3.4 In root `src/lib.rs`, replace `pub mod util;` with `pub use conduit_util as util;`
-- [ ] 3.5 Add `conduit-util = { path = "crates/conduit-util" }` to the temporary root `[dependencies]`
-- [ ] 3.6 Verify `cargo check -p conduit-util && cargo check --workspace`
-- [ ] 3.7 Commit "refactor: extract conduit-util crate"
+- [x] 3.1 Create `crates/conduit-util/Cargo.toml` with `name = "conduit-util"`, inherited workspace package metadata, and `[dependencies]` (actual: `dirs`, `rand`, `serde`, `tokio`, `tracing`, `uuid`, `which`, plus cfg-unix `libc`)
+- [x] 3.2 `git mv src/util crates/conduit-util/src` then rename `mod.rs` → `lib.rs`
+- [x] 3.3 PRE-FIX: `src/util/title_generator.rs` depended on `crate::agent::*`, breaking util's leaf status. Moved to `src/agent/title_generator.rs` instead and updated 2 callers (`src/ui/app.rs`, `src/web/ws/handler.rs`)
+- [x] 3.4 Replace `crate::util::process::pid_start_time` → `crate::process::pid_start_time` inside the moved process.rs
+- [x] 3.5 In root `src/lib.rs`, replaced `pub mod util;` with `pub use conduit_util as util;`
+- [x] 3.6 Added `conduit-util = { path = "crates/conduit-util" }` to root `[dependencies]`
+- [x] 3.7 `cargo check --workspace` ✓
+- [x] 3.8 Committed "refactor: extract conduit-util crate (tier 1)"
 
-## 4. Extract `conduit-types` (NEW, tier 2 — performs Fix A + B + part of C)
+## 4. Extract `conduit-types` (NEW, tier 2 — performs Fix A + part of Fix B + part of Fix C)
 
-- [ ] 4.1 Create `crates/conduit-types/Cargo.toml` with `[dependencies]` for `serde`, `serde_json`, `chrono`, `crossterm` (only KeyEvent/KeyCode/KeyModifiers needed), `sha2`, `regex`, plus `conduit-util = { path = "../conduit-util" }`
-- [ ] 4.2 NOTE: `conduit-types` will need `conduit-agent` and `conduit-git` as deps once `Action` (which references `AgentEvent`, `GithubIssue`, `OpenSpec`, `PrPreflightResult`, `SpecifySpec`) moves in. Defer adding them until Tier 5 (`conduit-agent`) and Tier 4 (`conduit-git`) are extracted; until then, leave `Action`/`events` in `conduit-ui` and only move the smaller types in this tier
-- [ ] 4.3 Move `src/ui/components/chat_message.rs` and `src/ui/components/turn_summary.rs` into `crates/conduit-types/src/`. Adjust their `mod`/imports (`super::TurnSummary` etc. → `crate::turn_summary::TurnSummary`)
-- [ ] 4.4 Move `src/ui/app_prompt.rs` into `crates/conduit-types/src/app_prompt.rs`. Update its `use` of `ChatMessage` to point at the same crate
-- [ ] 4.5 Add `pub mod chat_message; pub mod turn_summary; pub mod app_prompt;` (or appropriate flat re-exports) to `crates/conduit-types/src/lib.rs`
-- [ ] 4.6 In `src/ui/components/mod.rs`, add re-export shims: `pub use conduit_types::{ChatMessage, MessageRole, TurnSummary, FileChange};` so all in-tree `ui::components::ChatMessage` callers stay green
-- [ ] 4.7 In `src/ui/mod.rs` (or wherever `app_prompt` is currently re-exported), add `pub use conduit_types::app_prompt;`
-- [ ] 4.8 Update `src/agent/history.rs:18` and `src/agent/display.rs:6` to `use conduit_types::{ChatMessage, MessageRole, TurnSummary};` (Fix A)
-- [ ] 4.9 Update `src/web/ws/handler.rs:21` to `use conduit_types::app_prompt;` and `src/web/handlers/sessions.rs:22-23` to `use conduit_types::app_prompt;` + `use conduit_types::{ChatMessage, MessageRole};` (partial Fix C)
-- [ ] 4.10 In root `src/lib.rs`, add `pub use conduit_types as types;` if anyone needs the namespace (otherwise skip)
-- [ ] 4.11 Add `conduit-types = { path = "crates/conduit-types" }` to temporary root `[dependencies]`
-- [ ] 4.12 Verify `cargo check --workspace`
-- [ ] 4.13 Commit "refactor: extract conduit-types crate (Fix A + partial Fix C)"
+- [x] 4.1 Create `crates/conduit-types/Cargo.toml` with `[dependencies]` `serde`, `sha2` (PathBuf is in std; no chrono/crossterm/regex needed for this tier — moved types are pure data)
+- [x] 4.2 Strip dead `TurnSummary::render()` and `shorten_filename()` (with their ratatui imports) from `turn_summary.rs` so the type can move into a ratatui-free crate
+- [x] 4.3 Move `chat_message.rs`, `turn_summary.rs` into `crates/conduit-types/src/`; rewrite `super::TurnSummary` → `crate::TurnSummary`
+- [x] 4.4 Move `app_prompt.rs` into `crates/conduit-types/src/`; rewrite `crate::ui::components::{ChatMessage, MessageRole, TurnSummary}` → `crate::{ChatMessage, MessageRole, TurnSummary}`
+- [x] 4.5 Move `src/ui/action.rs` into `crates/conduit-types/src/action.rs` (clean — only `PathBuf`, `serde` deps)
+- [x] 4.6 Extract `InputMode` and `ViewMode` enums from `src/ui/events.rs` into `crates/conduit-types/src/input_mode.rs`; leave `AppEvent` and its result structs behind in `src/ui/events.rs` (they reference agent/git types and move with later tiers)
+- [x] 4.7 Create `crates/conduit-types/src/lib.rs` with module decls and flat re-exports (`Action`, `ChatMessage`, `MessageRole`, `InputMode`, `ViewMode`, `FileChange`, `TurnSummary`)
+- [x] 4.8 Replace `src/ui/action.rs` and `src/ui/app_prompt.rs` with re-export shims (`pub use conduit_types::action::*;` etc.)
+- [x] 4.9 Replace InputMode/ViewMode definitions in `src/ui/events.rs` with `pub use conduit_types::{InputMode, ViewMode};`
+- [x] 4.10 In `src/ui/components/mod.rs`, drop `mod chat_message;` / `mod turn_summary;` and re-export from conduit-types: `pub use conduit_types::{ChatMessage, MessageRole};` and `pub use conduit_types::{FileChange, TurnSummary};`
+- [x] 4.11 Add `conduit-types` to workspace `members` and `[workspace.dependencies]`; add `conduit-types = { path = "crates/conduit-types" }` to root `[dependencies]`
+- [x] 4.12 Add `tempfile` as a dev-dependency for `conduit-util` (test in `project_folders.rs` needs it now that the test target is per-crate)
+- [x] 4.13 Fix A and partial Fix B/C: existing `crate::ui::components::{ChatMessage,...}` and `crate::ui::action::Action` imports still resolve via the shims; full direct rewrites happen when their containing modules become crates
+- [x] 4.14 Verify: `cargo check`, `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test` all pass
 
 ## 5. Extract `conduit-git` (tier 3)
 

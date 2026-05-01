@@ -1,7 +1,6 @@
 mod add_repo_dialog;
 mod agent_selector;
 mod base_dir_dialog;
-mod chat_message;
 mod chat_view;
 mod command_palette;
 mod confirmation_dialog;
@@ -48,16 +47,15 @@ pub mod theme;
 mod theme_picker;
 mod thinking_indicator;
 mod tree_view;
-mod turn_summary;
 mod workspace_defaults_dialog;
 mod workspace_progress_dialog;
 
 pub use add_repo_dialog::{AddRepoDialog, AddRepoDialogState, RepoInputKind};
 pub use agent_selector::{AgentSelector, AgentSelectorState};
 pub use base_dir_dialog::{BaseDirDialog, BaseDirDialogState};
-pub use chat_message::{ChatMessage, MessageRole};
 pub use chat_view::{ChatView, HoveredFilePath};
 pub use command_palette::{CommandPalette, CommandPaletteEntry, CommandPaletteState};
+pub use conduit_types::{ChatMessage, MessageRole};
 pub use confirmation_dialog::{
     ConfirmationContext, ConfirmationDialog, ConfirmationDialogState, ConfirmationType,
 };
@@ -213,6 +211,7 @@ pub use theme::{
     ThemeSource,
 };
 
+pub use conduit_types::{FileChange, TurnSummary};
 pub use file_picker_dialog::{
     FilePickerDialog, FilePickerDialogState, FilePickerEntry, FilePickerMode, ScpCommandDialog,
     ScpCommandDialogState, ScpCommandPhase,
@@ -223,7 +222,6 @@ pub use tree_view::{
     ActionType, NodeType, SidebarData, SidebarGitDisplay, TreeNode, TreeView, TreeViewState,
     SIDEBAR_GIT_DISPLAY,
 };
-pub use turn_summary::{FileChange, TurnSummary};
 pub use workspace_defaults_dialog::{
     WorkspaceDefaultsDialog, WorkspaceDefaultsDialogState, WorkspaceDefaultsDraft,
 };

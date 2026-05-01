@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [".", "crates/conduit-util"]
+members = [".", "crates/conduit-util", "crates/conduit-types"]
 
 [workspace.package]
 version = "0.5.0"
@@ -131,6 +131,7 @@ path = "src/main.rs"
 
 [dependencies]
 conduit-util = { path = "crates/conduit-util" }
+conduit-types = { path = "crates/conduit-types" }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 futures = { workspace = true }
