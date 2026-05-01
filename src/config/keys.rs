@@ -82,6 +82,29 @@ impl fmt::Display for KeyCombo {
             _ => format!("{:?}", self.code),
         };
 
+        // BackTab IS Shift+Tab, so fold SHIFT into the key representation.
+        // Display as S-<Tab> (e.g., M-S-<Tab> for Alt+Shift+Tab)
+        // so users immediately see that it involves Shift+Tab.
+        if self.code == KeyCode::BackTab {
+            let mut bt_parts = Vec::new();
+            if self.modifiers.contains(KeyModifiers::SUPER) {
+                bt_parts.push("D");
+            }
+            if self.modifiers.contains(KeyModifiers::CONTROL) {
+                bt_parts.push("C");
+            }
+            if self.modifiers.contains(KeyModifiers::ALT) {
+                bt_parts.push("M");
+            }
+            // SHIFT is intentionally not added — BackTab already encodes it
+            if bt_parts.is_empty() {
+                return write!(f, "S-<Tab>");
+            } else {
+                bt_parts.push("S-<Tab>");
+                return write!(f, "{}", bt_parts.join("-"));
+            }
+        }
+
         if parts.is_empty() {
             write!(f, "{}", key_str)
         } else {
@@ -312,6 +335,8 @@ impl KeybindingConfig {
 /// - `<PageUp>`, `<PageDown>` for page navigation
 /// - `<Home>`, `<End>` for line navigation
 /// - `<Space>` for space
+/// - `<BackTab>` for Shift+Tab (BackTab)
+/// - `S-<Tab>` for Shift+Tab (alternative to `<BackTab>`, e.g. `M-S-<Tab>`)
 /// - `<F1>` through `<F12>` for function keys
 pub fn parse_key_notation(s: &str) -> Result<KeyCombo, KeyParseError> {
     let s = s.trim();
@@ -358,11 +383,19 @@ pub fn parse_key_notation(s: &str) -> Result<KeyCombo, KeyParseError> {
     }
 
     let key_str = key_part.ok_or(KeyParseError::NoKey)?;
-    let (code, needs_shift) = parse_key_code(key_str)?;
+    let (mut code, needs_shift) = parse_key_code(key_str)?;
 
     // Add SHIFT modifier if the key was uppercase (e.g., "G" -> lowercase g + SHIFT)
     if needs_shift {
         modifiers |= KeyModifiers::SHIFT;
+    }
+
+    // Normalize S-<Tab> (Shift+Tab) to BackTab so the Display → save → parse
+    // round-trip preserves the BackTab keycode. BackTab IS Shift+Tab, and
+    // displaying it as S-<Tab> is clearer for users.
+    if code == KeyCode::Tab && modifiers.contains(KeyModifiers::SHIFT) {
+        modifiers.remove(KeyModifiers::SHIFT);
+        code = KeyCode::BackTab;
     }
 
     Ok(KeyCombo::new(code, modifiers))
@@ -398,6 +431,7 @@ fn parse_special_key(s: &str) -> Result<KeyCombo, KeyParseError> {
         "ESC" | "ESCAPE" => KeyCode::Esc,
         "TAB" => KeyCode::Tab,
         "BS" | "BACKSPACE" => KeyCode::Backspace,
+        "BACKTAB" => KeyCode::BackTab,
         "DEL" | "DELETE" => KeyCode::Delete,
         "UP" => KeyCode::Up,
         "DOWN" => KeyCode::Down,
@@ -446,6 +480,7 @@ fn parse_key_code(s: &str) -> Result<(KeyCode, bool), KeyParseError> {
             "ENTER" | "CR" | "RETURN" => Ok((KeyCode::Enter, false)),
             "ESC" | "ESCAPE" => Ok((KeyCode::Esc, false)),
             "BS" | "BACKSPACE" => Ok((KeyCode::Backspace, false)),
+            "BACKTAB" => Ok((KeyCode::BackTab, false)),
             _ => Err(KeyParseError::InvalidKey(s.to_string())),
         }
     }
@@ -524,6 +559,61 @@ mod tests {
         assert_eq!(
             parse_key_notation("<Space>").unwrap().code,
             KeyCode::Char(' ')
+        );
+        assert_eq!(
+            parse_key_notation("<BackTab>").unwrap().code,
+            KeyCode::BackTab
+        );
+    }
+
+    #[test]
+    fn test_backtab_display_as_shift_tab() {
+        // BackTab IS Shift+Tab, so display as S-<Tab> for clarity
+        let combo = KeyCombo::new(KeyCode::BackTab, KeyModifiers::NONE);
+        assert_eq!(combo.to_string(), "S-<Tab>");
+
+        // Alt+BackTab → M-S-<Tab> (Alt + Shift+Tab)
+        let combo = KeyCombo::new(KeyCode::BackTab, KeyModifiers::ALT);
+        assert_eq!(combo.to_string(), "M-S-<Tab>");
+
+        // SHIFT modifier is folded into BackTab's S-<Tab> representation
+        let combo = KeyCombo::new(KeyCode::BackTab, KeyModifiers::ALT | KeyModifiers::SHIFT);
+        assert_eq!(combo.to_string(), "M-S-<Tab>");
+    }
+
+    #[test]
+    fn test_backtab_parse_s_tab_syntax() {
+        // S-<Tab> → BackTab (Shift+Tab normalized to BackTab)
+        let parsed: KeyCombo = "S-<Tab>".parse().unwrap();
+        assert_eq!(parsed, KeyCombo::new(KeyCode::BackTab, KeyModifiers::NONE));
+
+        // M-S-<Tab> → BackTab + ALT
+        let parsed: KeyCombo = "M-S-<Tab>".parse().unwrap();
+        assert_eq!(parsed, KeyCombo::new(KeyCode::BackTab, KeyModifiers::ALT));
+
+        // C-S-<Tab> → BackTab + CONTROL
+        let parsed: KeyCombo = "C-S-<Tab>".parse().unwrap();
+        assert_eq!(
+            parsed,
+            KeyCombo::new(KeyCode::BackTab, KeyModifiers::CONTROL)
+        );
+    }
+
+    #[test]
+    fn test_backtab_parse_backward_compat() {
+        // <BackTab> (backward compat with earlier Display format)
+        let parsed: KeyCombo = "<BackTab>".parse().unwrap();
+        assert_eq!(parsed, KeyCombo::new(KeyCode::BackTab, KeyModifiers::NONE));
+
+        // M-<BackTab>
+        let parsed: KeyCombo = "M-<BackTab>".parse().unwrap();
+        assert_eq!(parsed, KeyCombo::new(KeyCode::BackTab, KeyModifiers::ALT));
+
+        // M-S-<BackTab>
+        let parsed: KeyCombo = "M-S-<BackTab>".parse().unwrap();
+        assert_eq!(
+            parsed,
+            KeyCombo::new(KeyCode::BackTab, KeyModifiers::ALT | KeyModifiers::SHIFT)
         );
     }
 
