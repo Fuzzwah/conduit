@@ -73,8 +73,6 @@ Sleep 16s
 Type "do the needful"
 Enter
 Sleep 27s
-Type "mark tasks as complete, archive the spec"
-Sleep 20s
 
 # ─── Step 5: Archive the workspace ─────────────────────────────────────────────
 Ctrl+p
@@ -83,7 +81,7 @@ Sleep 1.5s
 Type "archive"
 Sleep 1s
 Enter
-Sleep 5s
+Sleep 6s
 
 Enter
 Sleep 5s
