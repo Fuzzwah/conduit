@@ -69,10 +69,12 @@ Enter
 
 # ─── Step 4: Let the agent work ────────────────────────────────────────────────
 # Claude reads the spec and updates README.md — wait for it to finish
-Sleep 20s
+Sleep 16s
 Type "do the needful"
 Enter
-Sleep 30s
+Sleep 27s
+Type "mark tasks as complete, archive the spec"
+Sleep 20s
 
 # ─── Step 5: Archive the workspace ─────────────────────────────────────────────
 Ctrl+p
