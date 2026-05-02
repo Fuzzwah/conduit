@@ -90,6 +90,8 @@
 # show_chat_scrollbar = false
 # # Keep the sidebar always visible; Ctrl+T toggles focus instead of show/hide
 # always_show_sidebar = false
+# # Include the sidebar as a stop in the Alt+Tab workspace cycle (default: true)
+# sidebar_in_tab_cycle = true
 # # Show animated shimmer on the thinking indicator (default: true)
 # thinking_indicator_shimmer = true
 # # Label shown in the thinking indicator (default: "Working")
