@@ -26,6 +26,7 @@ pub fn default_keybindings() -> KeybindingConfig {
 
     bind(&mut config.global, "C-q", Action::Quit);
     bind(&mut config.global, "C-t", Action::ToggleSidebar);
+    bind(&mut config.global, "C-s", Action::EnterSidebarMode); // Focus sidebar without toggling visibility
     bind(&mut config.global, "M-S-t", Action::HideSidebar); // Alt+Shift+T: force-toggle sidebar (overrides always_show_sidebar)
     bind(&mut config.global, "C-n", Action::NewProject);
     bind(&mut config.global, "C-p", Action::OpenCommandPalette);

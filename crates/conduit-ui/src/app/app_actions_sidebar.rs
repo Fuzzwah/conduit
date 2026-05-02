@@ -75,6 +75,15 @@ impl App {
                 self.state.sidebar_state.show();
                 self.state.sidebar_state.set_focused(true);
                 self.state.input_mode = InputMode::SidebarNavigation;
+                if let Some(session) = self.state.tab_manager.active_session() {
+                    if let Some(workspace_id) = session.workspace_id {
+                        if let Some(index) =
+                            self.state.sidebar_data.focus_workspace(workspace_id)
+                        {
+                            self.state.sidebar_state.tree_state.selected = index;
+                        }
+                    }
+                }
             }
             Action::ExitSidebarMode => {
                 self.state.sidebar_state.set_focused(false);
