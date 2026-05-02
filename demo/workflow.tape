@@ -3,7 +3,7 @@ Output output/workflow.gif
 Set Width 1080
 Set Height 720
 Set FontSize 18
-Set Theme "Night Owl"
+Set Theme "Dracula"
 Set PlaybackSpeed 1.0
 Set TypingSpeed 200ms
 Set Shell "bash"
@@ -54,9 +54,8 @@ Enter
 Sleep 5000ms
 
 # ─── Step 3: Create workspace from the OpenSpec spec ───────────────────────────
-# After adding the project the sidebar is already visible.
-# SidebarNavigation mode
-Ctrl+s
+# Alt+Tab (NextTab) wraps to the sidebar when no workspace tabs are open
+Alt+Tab
 Sleep 5000ms
 
 # Alt+N with a focused sidebar repository row → workspace creation flow
