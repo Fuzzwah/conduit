@@ -46,13 +46,13 @@ Sleep 2s
 # ─── Step 2: Pick a theme ──────────────────────────────────────────────────────
 Sleep 1s
 Alt+t
-Sleep 1s
+Sleep 2s
 
 Type "tokyo"
-Sleep 1s
+Sleep 1.5s
 
 Enter
-Sleep 2s
+Sleep 3s
 
 # ─── Step 3: Create workspace from OpenSpec ────────────────────────────────────
 Sleep 1s
@@ -60,10 +60,10 @@ Alt+Tab
 Sleep 1s
 
 Alt+n
-Sleep 1s
+Sleep 2s
 
 Enter
-Sleep 2s
+Sleep 3s
 
 Enter
 
@@ -72,20 +72,19 @@ Enter
 Sleep 15s
 Type "do the needful"
 Enter
-Sleep 20s
+Sleep 25s
 
 # ─── Step 5: Archive the workspace ─────────────────────────────────────────────
 Ctrl+p
-Sleep 1s
+Sleep 1.5s
 
 Type "archive"
-Sleep 800ms
-Enter
 Sleep 1s
+Enter
+Sleep 5s
 
 Enter
-Sleep 2s
+Sleep 5s
 
-Sleep 2s
 Ctrl+q
-Sleep 500ms
+Sleep 3s
