@@ -18,7 +18,7 @@ impl ProviderSelectorState {
         }
     }
 
-    fn all_providers() -> [AgentType; 7] {
+    fn all_providers() -> [AgentType; 8] {
         AgentType::preferred_order()
     }
 

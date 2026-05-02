@@ -213,6 +213,7 @@ impl ReasoningSelectorState {
             AgentType::Dirac
             | AgentType::Gemini
             | AgentType::Opencode
+            | AgentType::Cecli
             | AgentType::Copilot
             | AgentType::Pi => {}
         }
@@ -394,6 +395,7 @@ impl ReasoningSelector {
             Some(AgentType::Dirac)
             | Some(AgentType::Gemini)
             | Some(AgentType::Opencode)
+            | Some(AgentType::Cecli)
             | Some(AgentType::Copilot)
             | Some(AgentType::Pi)
             | None => "Reasoning effort is not available for this agent",

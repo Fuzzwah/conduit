@@ -381,6 +381,7 @@ fn render_skill_invocation(
         AgentType::Gemini
         | AgentType::Dirac
         | AgentType::Opencode
+        | AgentType::Cecli
         | AgentType::Copilot
         | AgentType::Pi
         | AgentType::Claude => {

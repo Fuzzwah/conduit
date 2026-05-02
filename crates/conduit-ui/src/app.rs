@@ -783,6 +783,14 @@ impl App {
                             }
                         }
                     }
+                    AgentType::Cecli => {
+                        session.chat_view.push(
+                            MessageDisplay::System {
+                                content: "CE CLI history import isn't supported yet, so previous messages won't be shown.".to_string(),
+                            }
+                            .to_chat_message(),
+                        );
+                    }
                     AgentType::Copilot => {
                         session.chat_view.push(
                             MessageDisplay::System {
@@ -2308,7 +2316,7 @@ impl App {
                         AgentType::Dirac => self.dirac_runner().clone(),
                         AgentType::Gemini => self.gemini_runner().clone(),
                         AgentType::Opencode => self.opencode_runner().clone(),
-                        AgentType::Cecli => self.cecli_runner().clone(),
+                        AgentType::Cecli => self.core.cecli_runner().clone(),
                         AgentType::Copilot => self.copilot_runner().clone(),
                         AgentType::Pi => self.pi_runner().clone(),
                     };
@@ -4223,6 +4231,14 @@ impl App {
                                 }
                             }
                         }
+                        AgentType::Cecli => {
+                            session.chat_view.push(
+                                MessageDisplay::System {
+                                    content: "CE CLI history import isn't supported yet, so previous messages won't be shown.".to_string(),
+                                }
+                                .to_chat_message(),
+                            );
+                        }
                         AgentType::Copilot => {
                             session.chat_view.push(
                                 MessageDisplay::System {
@@ -6057,6 +6073,16 @@ impl App {
                         session.chat_view.push(msg);
                     }
                 }
+            }
+            AgentType::Cecli => {
+                session.resume_session_id = None;
+                session.agent_session_id = None;
+                session.chat_view.push(
+                    MessageDisplay::System {
+                        content: "CE CLI session import isn't supported yet.".to_string(),
+                    }
+                    .to_chat_message(),
+                );
             }
             AgentType::Copilot => {
                 session.resume_session_id = None;

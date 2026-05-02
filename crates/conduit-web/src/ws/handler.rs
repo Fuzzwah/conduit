@@ -1185,7 +1185,7 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                             }
                             continue;
                         }
-                        AgentType::Opencode | AgentType::Copilot | AgentType::Pi => {
+                        AgentType::Opencode | AgentType::Cecli | AgentType::Copilot | AgentType::Pi => {
                             if let Err(send_err) = tx
                                 .send(ServerMessage::session_error(
                                     session_id,
@@ -1560,6 +1560,7 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                             continue;
                         }
                         Some(AgentType::Opencode)
+                        | Some(AgentType::Cecli)
                         | Some(AgentType::Copilot)
                         | Some(AgentType::Pi) => {
                             if let Err(send_err) = tx

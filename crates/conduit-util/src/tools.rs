@@ -290,14 +290,6 @@ impl ToolAvailability {
         }
     }
 
-    fn find_binary(tool: Tool) -> Result<PathBuf, which::Error> {
-        if tool == Tool::Cecli {
-            which::which("cecli").or_else(|_| which::which("aider-ce"))
-        } else {
-            which::which(tool.binary_name())
-        }
-    }
-
     /// Check if a path points to a valid executable
     fn is_valid_executable(path: &Path) -> bool {
         if !path.exists() {

@@ -337,11 +337,6 @@ impl ConduitCore {
         &self.cecli_runner
     }
 
-    /// Get the CE CLI runner.
-    pub fn cecli_runner(&self) -> &Arc<CecliRunner> {
-        &self.cecli_runner
-    }
-
     /// Get the GitHub Copilot runner.
     pub fn copilot_runner(&self) -> &Arc<CopilotRunner> {
         &self.copilot_runner
