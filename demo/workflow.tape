@@ -1,11 +1,11 @@
 Output output/workflow.gif
 
-Set Width 1920
-Set Height 1080
-Set FontSize 13
-Set Theme "Dracula"
+Set Width 1080
+Set Height 720
+Set FontSize 18
+Set Theme "Night Owl"
 Set PlaybackSpeed 1.0
-Set TypingSpeed 60ms
+Set TypingSpeed 200ms
 Set Shell "bash"
 Set WindowBar "Rings"
 Set WindowBarSize 28
@@ -22,15 +22,11 @@ Hide
 Type "cd /tmp/conduit-demo"
 Enter
 Sleep 300ms
-Show
 
 # ─── Launch conduit ────────────────────────────────────────────────────────────
 Type "./conduit-demo.sh"
 Enter
-Sleep 5000ms
-
-# Dismiss any startup overlay (model picker guard)
-Escape
+Show
 Sleep 5000ms
 
 # ─── Step 1: Add project ───────────────────────────────────────────────────────
@@ -52,18 +48,15 @@ Sleep 5000ms
 
 # "Tokyo Night" is in the built-in list; typing "tokyo" filters to it
 Type "tokyo"
-Sleep 2000ms
+Sleep 5000ms
 
 Enter
 Sleep 5000ms
 
 # ─── Step 3: Create workspace from the OpenSpec spec ───────────────────────────
 # After adding the project the sidebar is already visible.
-# Double Ctrl+T: first press hides it, second press shows AND focuses it.
-# This guarantees sidebar is in SidebarNavigation mode regardless of prior state.
-Ctrl+t
-Sleep 300ms
-Ctrl+t
+# SidebarNavigation mode
+Ctrl+s
 Sleep 5000ms
 
 # Alt+N with a focused sidebar repository row → workspace creation flow
@@ -83,7 +76,7 @@ Sleep 5000ms
 # ─── Step 4: Edit README in shell mode ─────────────────────────────────────────
 # Workspace tab is active, Normal mode. "!" on empty input enters shell mode.
 Type "!"
-Sleep 400ms
+Sleep 1000ms
 
 Type "echo '## Recent Updates' >> README.md"
 Enter
@@ -113,7 +106,7 @@ Enter
 Sleep 5000ms
 
 # Workspace gone, sidebar shows only the project
-Sleep 2000ms
+Sleep 5000ms
 
 Ctrl+q
 Sleep 300ms
