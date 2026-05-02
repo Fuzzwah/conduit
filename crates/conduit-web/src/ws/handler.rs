@@ -175,6 +175,7 @@ impl SessionManager {
             AgentType::Dirac => core.dirac_runner().clone(),
             AgentType::Gemini => core.gemini_runner().clone(),
             AgentType::Opencode => core.opencode_runner().clone(),
+            AgentType::Cecli => core.cecli_runner().clone(),
             AgentType::Copilot => core.copilot_runner().clone(),
             AgentType::Pi => core.pi_runner().clone(),
         };
@@ -476,6 +477,7 @@ impl SessionManager {
             | AgentType::Dirac
             | AgentType::Gemini
             | AgentType::Opencode
+            | AgentType::Cecli
             | AgentType::Copilot
             | AgentType::Pi => AgentInput::CodexPrompt {
                 text: input,

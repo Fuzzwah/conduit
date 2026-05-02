@@ -16,6 +16,8 @@ export function agentDisplayName(agentType: AgentType, options?: { short?: boole
       return short ? 'Dirac' : 'Dirac CLI';
     case 'opencode':
       return 'OpenCode';
+    case 'cecli':
+      return short ? 'CE' : 'CE CLI';
     case 'pi':
       return 'Pi';
   }
@@ -31,6 +33,8 @@ export function agentAccentColor(agentType: AgentType): string {
       return 'bg-fuchsia-400';
     case 'opencode':
       return 'bg-teal-400';
+    case 'cecli':
+      return 'bg-amber-400';
     case 'gemini':
       return 'bg-blue-400';
     case 'pi':

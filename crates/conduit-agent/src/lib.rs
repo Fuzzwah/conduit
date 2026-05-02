@@ -1,3 +1,4 @@
+pub mod cecli;
 pub mod claude;
 pub mod codex;
 pub mod copilot;
@@ -16,6 +17,7 @@ pub mod session;
 pub mod stream;
 pub mod title_generator;
 
+pub use cecli::CecliRunner;
 pub use claude::ClaudeCodeRunner;
 pub use codex::CodexCliRunner;
 pub use copilot::CopilotRunner;

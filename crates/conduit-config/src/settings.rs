@@ -821,6 +821,7 @@ impl Config {
             "dirac" => Some(AgentType::Dirac),
             "gemini" => Some(AgentType::Gemini),
             "opencode" => Some(AgentType::Opencode),
+            "cecli" => Some(AgentType::Cecli),
             "copilot" => Some(AgentType::Copilot),
             "pi" => Some(AgentType::Pi),
             _ => None,
@@ -1025,6 +1026,7 @@ impl Config {
             AgentType::Dirac => Tool::Dirac,
             AgentType::Gemini => Tool::Gemini,
             AgentType::Opencode => Tool::Opencode,
+            AgentType::Cecli => Tool::Cecli,
             AgentType::Copilot => Tool::Copilot,
             AgentType::Pi => Tool::Pi,
         }

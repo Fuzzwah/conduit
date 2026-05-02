@@ -2308,6 +2308,7 @@ impl App {
                         AgentType::Dirac => self.dirac_runner().clone(),
                         AgentType::Gemini => self.gemini_runner().clone(),
                         AgentType::Opencode => self.opencode_runner().clone(),
+                        AgentType::Cecli => self.cecli_runner().clone(),
                         AgentType::Copilot => self.copilot_runner().clone(),
                         AgentType::Pi => self.pi_runner().clone(),
                     };
@@ -4341,6 +4342,7 @@ impl App {
             AgentType::Dirac => conduit_util::Tool::Dirac,
             AgentType::Gemini => conduit_util::Tool::Gemini,
             AgentType::Opencode => conduit_util::Tool::Opencode,
+            AgentType::Cecli => conduit_util::Tool::Cecli,
             AgentType::Copilot => conduit_util::Tool::Copilot,
             AgentType::Pi => conduit_util::Tool::Pi,
         }

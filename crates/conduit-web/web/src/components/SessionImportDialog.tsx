@@ -4,7 +4,7 @@ import { useExternalSessions, useImportExternalSession } from '../hooks';
 import type { ExternalSession, Session } from '../types';
 import { cn } from '../lib/cn';
 
-type AgentFilter = 'all' | 'claude' | 'codex' | 'gemini' | 'opencode' | 'pi';
+type AgentFilter = 'all' | 'claude' | 'codex' | 'gemini' | 'opencode' | 'cecli' | 'pi';
 
 interface SessionImportDialogProps {
   isOpen: boolean;
@@ -18,6 +18,7 @@ const FILTER_LABELS: Record<AgentFilter, string> = {
   codex: 'Codex',
   gemini: 'Gemini',
   opencode: 'OpenCode',
+  cecli: 'CE CLI',
   pi: 'Pi',
 };
 
@@ -122,7 +123,7 @@ export function SessionImportDialog({ isOpen, onClose, onImported }: SessionImpo
               />
             </div>
             <div className="flex items-center gap-1 rounded-lg bg-surface-elevated p-1">
-              {(['all', 'claude', 'codex', 'gemini', 'opencode'] as AgentFilter[]).map((mode) => (
+              {(['all', 'claude', 'codex', 'gemini', 'opencode', 'cecli'] as AgentFilter[]).map((mode) => (
                 <button
                   key={mode}
                   onClick={() => setFilter(mode)}

@@ -68,6 +68,11 @@ impl AgentSelectorState {
                 name: "OpenCode",
                 description: "OpenCode multi-provider assistant",
             },
+            AgentType::Cecli => AgentOption {
+                agent_type: AgentType::Cecli,
+                name: "CE CLI",
+                description: "Community-maintained aider-based assistant",
+            },
             AgentType::Copilot => AgentOption {
                 agent_type: AgentType::Copilot,
                 name: "GitHub Copilot",
@@ -88,6 +93,7 @@ impl AgentSelectorState {
             AgentType::Dirac => Tool::Dirac,
             AgentType::Gemini => Tool::Gemini,
             AgentType::Opencode => Tool::Opencode,
+            AgentType::Cecli => Tool::Cecli,
             AgentType::Copilot => Tool::Copilot,
             AgentType::Pi => Tool::Pi,
         }
@@ -213,7 +219,7 @@ impl AgentSelector {
         }
 
         // Render dialog frame (instructions on bottom border)
-        let frame = DialogFrame::new("Select Agent", 44, 16).instructions(vec![
+        let frame = DialogFrame::new("Select Agent", 44, 18).instructions(vec![
             ("↑↓", "select"),
             ("Enter", "confirm"),
             ("Esc", "cancel"),
@@ -228,6 +234,7 @@ impl AgentSelector {
             Constraint::Length(2), // Claude option
             Constraint::Length(2), // Gemini option
             Constraint::Length(2), // OpenCode option
+            Constraint::Length(2), // CE CLI option
             Constraint::Length(2), // GitHub Copilot option
             Constraint::Length(2), // Pi option
         ])

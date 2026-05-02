@@ -153,6 +153,7 @@ pub async fn get_providers(
                 AgentType::Dirac => conduit_util::Tool::Dirac,
                 AgentType::Gemini => conduit_util::Tool::Gemini,
                 AgentType::Opencode => conduit_util::Tool::Opencode,
+                AgentType::Cecli => conduit_util::Tool::Cecli,
                 AgentType::Copilot => conduit_util::Tool::Copilot,
                 AgentType::Pi => conduit_util::Tool::Pi,
             };
@@ -187,6 +188,7 @@ pub async fn set_providers(
             "dirac" => Some(AgentType::Dirac),
             "gemini" => Some(AgentType::Gemini),
             "opencode" => Some(AgentType::Opencode),
+            "cecli" => Some(AgentType::Cecli),
             "copilot" => Some(AgentType::Copilot),
             "pi" => Some(AgentType::Pi),
             _ => None,

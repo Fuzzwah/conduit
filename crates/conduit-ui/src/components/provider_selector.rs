@@ -29,6 +29,7 @@ impl ProviderSelectorState {
             AgentType::Dirac => Tool::Dirac,
             AgentType::Gemini => Tool::Gemini,
             AgentType::Opencode => Tool::Opencode,
+            AgentType::Cecli => Tool::Cecli,
             AgentType::Copilot => Tool::Copilot,
             AgentType::Pi => Tool::Pi,
         }

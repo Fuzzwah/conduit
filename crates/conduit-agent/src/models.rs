@@ -78,6 +78,8 @@ impl ModelRegistry {
 
     /// Default context window for OpenCode models (approximate)
     pub const OPENCODE_CONTEXT_WINDOW: i64 = 200_000;
+    /// Default context window for CE CLI models (approximate)
+    pub const CECLI_CONTEXT_WINDOW: i64 = 200_000;
 
     /// Default context window for GitHub Copilot models (conservative estimate)
     pub const COPILOT_CONTEXT_WINDOW: i64 = 128_000;
@@ -121,6 +123,20 @@ impl ModelRegistry {
             ));
         }
         models
+    }
+
+    fn cecli_models_static() -> Vec<ModelInfo> {
+        vec![
+            ModelInfo::new(
+                AgentType::Cecli,
+                "default",
+                "CE CLI Default",
+                "default",
+                "Use CE CLI's default model selection",
+                Self::CECLI_CONTEXT_WINDOW,
+            )
+            .as_default(),
+        ]
     }
 
     pub fn set_opencode_models(model_ids: Vec<String>) {
@@ -866,6 +882,7 @@ impl ModelRegistry {
         models.extend(Self::dirac_models());
         models.extend(Self::gemini_models());
         models.extend(Self::opencode_models());
+        models.extend(Self::cecli_models());
         models.extend(Self::copilot_models());
         models.extend(Self::pi_models());
         models
@@ -879,6 +896,7 @@ impl ModelRegistry {
             AgentType::Dirac => Self::dirac_models(),
             AgentType::Gemini => Self::gemini_models(),
             AgentType::Opencode => Self::opencode_models(),
+            AgentType::Cecli => Self::cecli_models(),
             AgentType::Copilot => Self::copilot_models(),
             AgentType::Pi => Self::pi_models(),
         }
@@ -892,6 +910,7 @@ impl ModelRegistry {
             AgentType::Dirac => "claude-sonnet-4-5-20250929".to_string(),
             AgentType::Gemini => "gemini-2.5-pro".to_string(),
             AgentType::Opencode => Self::OPENCODE_DEFAULT_MODEL_ID.to_string(),
+            AgentType::Cecli => "default".to_string(),
             AgentType::Copilot => "gpt-5.3-codex".to_string(),
             AgentType::Pi => "openrouter/deepseek/deepseek-v4-flash".to_string(),
         }
@@ -899,24 +918,37 @@ impl ModelRegistry {
 
     /// Find a model by ID or alias
     pub fn find_model(agent_type: AgentType, id_or_alias: &str) -> Option<ModelInfo> {
-        if agent_type == AgentType::Opencode {
+        if matches!(agent_type, AgentType::Opencode | AgentType::Cecli) {
             let trimmed = id_or_alias.trim();
             if trimmed.is_empty() {
                 return None;
             }
-            if let Some(model) = Self::opencode_models()
+            let known_models = match agent_type {
+                AgentType::Opencode => Self::opencode_models(),
+                AgentType::Cecli => Self::cecli_models(),
+                _ => unreachable!(),
+            };
+            if let Some(model) = known_models
                 .into_iter()
                 .find(|m| m.id == trimmed || m.alias == trimmed)
             {
                 return Some(model);
             }
             return Some(ModelInfo::new(
-                AgentType::Opencode,
+                agent_type,
                 trimmed,
                 trimmed,
                 trimmed,
-                "OpenCode model",
-                Self::OPENCODE_CONTEXT_WINDOW,
+                if agent_type == AgentType::Opencode {
+                    "OpenCode model"
+                } else {
+                    "CE CLI model"
+                },
+                if agent_type == AgentType::Opencode {
+                    Self::OPENCODE_CONTEXT_WINDOW
+                } else {
+                    Self::CECLI_CONTEXT_WINDOW
+                },
             ));
         }
 
@@ -933,6 +965,7 @@ impl ModelRegistry {
             AgentType::Dirac => "◉",
             AgentType::Gemini => "◆",
             AgentType::Opencode => "◍",
+            AgentType::Cecli => "◐",
             AgentType::Copilot => "⊙",
             AgentType::Pi => "◌",
         }
@@ -946,6 +979,7 @@ impl ModelRegistry {
             AgentType::Dirac => "Dirac",
             AgentType::Gemini => "Gemini",
             AgentType::Opencode => "OpenCode",
+            AgentType::Cecli => "CE CLI",
             AgentType::Copilot => "GitHub Copilot",
             AgentType::Pi => "Pi",
         }
@@ -966,9 +1000,14 @@ impl ModelRegistry {
             AgentType::Dirac => Self::DIRAC_CONTEXT_WINDOW,
             AgentType::Gemini => Self::GEMINI_CONTEXT_WINDOW,
             AgentType::Opencode => Self::OPENCODE_CONTEXT_WINDOW,
+            AgentType::Cecli => Self::CECLI_CONTEXT_WINDOW,
             AgentType::Copilot => Self::COPILOT_CONTEXT_WINDOW,
             AgentType::Pi => Self::PI_CONTEXT_WINDOW,
         }
+    }
+
+    pub fn cecli_models() -> Vec<ModelInfo> {
+        Self::cecli_models_static()
     }
 }
 

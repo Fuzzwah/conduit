@@ -6,8 +6,8 @@ use conduit_agent::codex::load_codex_models;
 use conduit_agent::gemini::load_gemini_models;
 use conduit_agent::pi::load_pi_models;
 use conduit_agent::{
-    ClaudeCodeRunner, CodexCliRunner, CopilotRunner, DiracRunner, GeminiCliRunner, ModelRegistry,
-    OpencodeRunner, PiRunner,
+    CecliRunner, ClaudeCodeRunner, CodexCliRunner, CopilotRunner, DiracRunner, GeminiCliRunner,
+    ModelRegistry, OpencodeRunner, PiRunner,
 };
 use conduit_config::Config;
 use conduit_data::{
@@ -50,6 +50,8 @@ pub struct ConduitCore {
     gemini_runner: Arc<GeminiCliRunner>,
     /// OpenCode runner
     opencode_runner: Arc<OpencodeRunner>,
+    /// CE CLI runner
+    cecli_runner: Arc<CecliRunner>,
     /// GitHub Copilot runner
     copilot_runner: Arc<CopilotRunner>,
     /// Pi runner
@@ -149,6 +151,14 @@ impl ConduitCore {
             None => Arc::new(OpencodeRunner::new()),
         };
 
+        if tools.is_available(Tool::Cecli) {
+            progress("Initializing CE CLI");
+        }
+        let cecli_runner = match tools.get_path(Tool::Cecli) {
+            Some(path) => Arc::new(CecliRunner::with_path(path.clone())),
+            None => Arc::new(CecliRunner::new()),
+        };
+
         if tools.is_available(Tool::Copilot) {
             progress("Initializing GitHub Copilot");
         }
@@ -230,6 +240,7 @@ impl ConduitCore {
             dirac_runner,
             gemini_runner,
             opencode_runner,
+            cecli_runner,
             copilot_runner,
             pi_runner,
             worktree_manager,
@@ -321,6 +332,16 @@ impl ConduitCore {
         &self.opencode_runner
     }
 
+    /// Get the CE CLI runner.
+    pub fn cecli_runner(&self) -> &Arc<CecliRunner> {
+        &self.cecli_runner
+    }
+
+    /// Get the CE CLI runner.
+    pub fn cecli_runner(&self) -> &Arc<CecliRunner> {
+        &self.cecli_runner
+    }
+
     /// Get the GitHub Copilot runner.
     pub fn copilot_runner(&self) -> &Arc<CopilotRunner> {
         &self.copilot_runner
@@ -384,6 +405,10 @@ impl ConduitCore {
         self.opencode_runner = match self.tools.get_path(Tool::Opencode) {
             Some(path) => Arc::new(OpencodeRunner::with_path(path.clone())),
             None => Arc::new(OpencodeRunner::new()),
+        };
+        self.cecli_runner = match self.tools.get_path(Tool::Cecli) {
+            Some(path) => Arc::new(CecliRunner::with_path(path.clone())),
+            None => Arc::new(CecliRunner::new()),
         };
         self.copilot_runner = match self.tools.get_path(Tool::Copilot) {
             Some(path) => Arc::new(CopilotRunner::with_path(path.clone())),

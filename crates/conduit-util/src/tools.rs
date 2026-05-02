@@ -1,7 +1,7 @@
 //! Tool availability detection and management
 //!
 //! This module provides functionality to detect and track the availability
-//! of external tools required by Conduit (git, gh, claude, codex, dirac, gemini, opencode, pi).
+//! of external tools required by Conduit (git, gh, claude, codex, dirac, gemini, opencode, cecli, pi).
 
 use std::path::{Path, PathBuf};
 
@@ -24,6 +24,8 @@ pub enum Tool {
     Gemini,
     /// OpenCode CLI agent
     Opencode,
+    /// CE CLI agent
+    Cecli,
     /// GitHub Copilot CLI agent
     Copilot,
     /// Pi coding agent
@@ -41,6 +43,7 @@ impl Tool {
             Tool::Dirac => "dirac",
             Tool::Gemini => "gemini",
             Tool::Opencode => "opencode",
+            Tool::Cecli => "cecli",
             Tool::Copilot => "copilot",
             Tool::Pi => "pi",
         }
@@ -56,6 +59,7 @@ impl Tool {
             Tool::Dirac => "Dirac CLI",
             Tool::Gemini => "Gemini CLI",
             Tool::Opencode => "OpenCode",
+            Tool::Cecli => "CE CLI",
             Tool::Copilot => "GitHub Copilot",
             Tool::Pi => "Pi",
         }
@@ -71,6 +75,7 @@ impl Tool {
             Tool::Dirac => "npm install -g dirac-cli\nhttps://github.com/dirac-run/dirac",
             Tool::Gemini => "npm install -g @google/gemini-cli\nhttps://github.com/google-gemini/gemini-cli",
             Tool::Opencode => "brew install anomalyco/tap/opencode\nhttps://opencode.ai/docs",
+            Tool::Cecli => "pipx install cecli-dev\nhttps://cecli.dev/docs/install.html",
             Tool::Copilot => "https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli",
             Tool::Pi => "npm install -g @mariozechner/pi-coding-agent\nhttps://github.com/badlogic/pi-mono/tree/main/packages/coding-agent",
         }
@@ -86,6 +91,7 @@ impl Tool {
             Tool::Dirac => "Dirac is an AI coding assistant focused on efficient context curation.",
             Tool::Gemini => "Gemini CLI is an AI coding assistant from Google.",
             Tool::Opencode => "OpenCode is a multi-provider AI coding assistant.",
+            Tool::Cecli => "CE CLI is a community-maintained AI coding assistant based on aider.",
             Tool::Copilot => "GitHub Copilot CLI is an AI coding assistant from GitHub.",
             Tool::Pi => {
                 "Pi is a terminal coding agent with persistent sessions and structured RPC."
@@ -107,6 +113,7 @@ impl Tool {
                 | Tool::Dirac
                 | Tool::Gemini
                 | Tool::Opencode
+                | Tool::Cecli
                 | Tool::Copilot
                 | Tool::Pi
         )
@@ -122,6 +129,7 @@ impl Tool {
             Tool::Dirac,
             Tool::Gemini,
             Tool::Opencode,
+            Tool::Cecli,
             Tool::Copilot,
             Tool::Pi,
         ]
@@ -171,6 +179,7 @@ pub struct ToolPaths {
     pub dirac: Option<PathBuf>,
     pub gemini: Option<PathBuf>,
     pub opencode: Option<PathBuf>,
+    pub cecli: Option<PathBuf>,
     pub copilot: Option<PathBuf>,
     pub pi: Option<PathBuf>,
 }
@@ -186,6 +195,7 @@ impl ToolPaths {
             Tool::Dirac => self.dirac.as_ref(),
             Tool::Gemini => self.gemini.as_ref(),
             Tool::Opencode => self.opencode.as_ref(),
+            Tool::Cecli => self.cecli.as_ref(),
             Tool::Copilot => self.copilot.as_ref(),
             Tool::Pi => self.pi.as_ref(),
         }
@@ -201,6 +211,7 @@ impl ToolPaths {
             Tool::Dirac => self.dirac = Some(path),
             Tool::Gemini => self.gemini = Some(path),
             Tool::Opencode => self.opencode = Some(path),
+            Tool::Cecli => self.cecli = Some(path),
             Tool::Copilot => self.copilot = Some(path),
             Tool::Pi => self.pi = Some(path),
         }
@@ -217,6 +228,7 @@ pub struct ToolAvailability {
     dirac: ToolStatus,
     gemini: ToolStatus,
     opencode: ToolStatus,
+    cecli: ToolStatus,
     copilot: ToolStatus,
     pi: ToolStatus,
 }
@@ -237,6 +249,7 @@ impl ToolAvailability {
             dirac: Self::detect_tool(Tool::Dirac, configured_paths.dirac.as_ref()),
             gemini: Self::detect_tool(Tool::Gemini, configured_paths.gemini.as_ref()),
             opencode: Self::detect_tool(Tool::Opencode, configured_paths.opencode.as_ref()),
+            cecli: Self::detect_tool(Tool::Cecli, configured_paths.cecli.as_ref()),
             copilot: Self::detect_tool(Tool::Copilot, configured_paths.copilot.as_ref()),
             pi: Self::detect_tool(Tool::Pi, configured_paths.pi.as_ref()),
         }
@@ -254,7 +267,7 @@ impl ToolAvailability {
         }
 
         // Otherwise, try to find it in PATH using `which`
-        match which::which(tool.binary_name()) {
+        match Self::find_binary(tool) {
             Ok(path) => ToolStatus::Available(path),
             Err(_) => {
                 if matches!(tool, Tool::Codex | Tool::Gemini) {
@@ -266,6 +279,22 @@ impl ToolAvailability {
                     ToolStatus::NotFound
                 }
             }
+        }
+    }
+
+    fn find_binary(tool: Tool) -> Result<PathBuf, which::Error> {
+        if tool == Tool::Cecli {
+            which::which("cecli").or_else(|_| which::which("aider-ce"))
+        } else {
+            which::which(tool.binary_name())
+        }
+    }
+
+    fn find_binary(tool: Tool) -> Result<PathBuf, which::Error> {
+        if tool == Tool::Cecli {
+            which::which("cecli").or_else(|_| which::which("aider-ce"))
+        } else {
+            which::which(tool.binary_name())
         }
     }
 
@@ -303,6 +332,7 @@ impl ToolAvailability {
             Tool::Dirac => &self.dirac,
             Tool::Gemini => &self.gemini,
             Tool::Opencode => &self.opencode,
+            Tool::Cecli => &self.cecli,
             Tool::Copilot => &self.copilot,
             Tool::Pi => &self.pi,
         }
@@ -342,6 +372,7 @@ impl ToolAvailability {
             || self.is_available(Tool::Dirac)
             || self.is_available(Tool::Gemini)
             || self.is_available(Tool::Opencode)
+            || self.is_available(Tool::Cecli)
             || self.is_available(Tool::Copilot)
             || self.is_available(Tool::Pi)
     }
@@ -375,6 +406,7 @@ impl ToolAvailability {
             Tool::Dirac => self.dirac = status,
             Tool::Gemini => self.gemini = status,
             Tool::Opencode => self.opencode = status,
+            Tool::Cecli => self.cecli = status,
             Tool::Copilot => self.copilot = status,
             Tool::Pi => self.pi = status,
         }
@@ -422,6 +454,8 @@ mod tests {
         assert_eq!(Tool::Codex.binary_name(), "codex");
         assert_eq!(Tool::Gemini.binary_name(), "gemini");
         assert_eq!(Tool::Opencode.binary_name(), "opencode");
+        assert_eq!(Tool::Cecli.binary_name(), "cecli");
+        assert_eq!(Tool::Cecli.binary_name(), "cecli");
     }
 
     #[test]
@@ -432,6 +466,8 @@ mod tests {
         assert!(!Tool::Codex.is_required());
         assert!(!Tool::Gemini.is_required());
         assert!(!Tool::Opencode.is_required());
+        assert!(!Tool::Cecli.is_required());
+        assert!(!Tool::Cecli.is_required());
     }
 
     #[test]
@@ -442,6 +478,8 @@ mod tests {
         assert!(Tool::Codex.is_agent());
         assert!(Tool::Gemini.is_agent());
         assert!(Tool::Opencode.is_agent());
+        assert!(Tool::Cecli.is_agent());
+        assert!(Tool::Cecli.is_agent());
     }
 
     #[test]

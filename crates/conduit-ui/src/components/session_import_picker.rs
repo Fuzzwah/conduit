@@ -576,6 +576,7 @@ impl SessionImportPicker {
                 AgentType::Dirac => "D",
                 AgentType::Gemini => "G",
                 AgentType::Opencode => "O",
+                AgentType::Cecli => "E",
                 AgentType::Copilot => "P",
                 AgentType::Pi => "π",
             };
@@ -585,6 +586,7 @@ impl SessionImportPicker {
                 AgentType::Dirac => agent_dirac(),
                 AgentType::Gemini => agent_gemini(),
                 AgentType::Opencode => agent_opencode(),
+                AgentType::Cecli => agent_opencode(),
                 AgentType::Copilot => agent_copilot(),
                 AgentType::Pi => agent_pi(),
             };
