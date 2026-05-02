@@ -9565,11 +9565,6 @@ impl App {
             agent_prompt.clone()
         };
 
-        let mut config = AgentStartConfig::new(prompt_for_agent, working_dir.clone())
-            .with_tools(self.config().claude_allowed_tools.clone())
-            .with_images(images)
-            .with_agent_mode(agent_mode);
-
         let project_mcp_enabled = self
             .state
             .tab_manager
@@ -9581,13 +9576,22 @@ impl App {
             })
             .map(|repo| repo.mcp_enabled)
             .unwrap_or(true);
-        if agent_type == AgentType::Codex && !project_mcp_enabled {
-            for server_name in Self::detect_codex_project_mcp_servers(&working_dir) {
-                config = config.with_session_config_override(
-                    format!("mcp_servers.{server_name}.enabled"),
-                    serde_json::json!(false),
-                );
-            }
+        let disabled_codex_mcp_servers = if agent_type == AgentType::Codex && !project_mcp_enabled {
+            Self::detect_codex_project_mcp_servers(&working_dir)
+        } else {
+            Vec::new()
+        };
+
+        let mut config = AgentStartConfig::new(prompt_for_agent, working_dir)
+            .with_tools(self.config().claude_allowed_tools.clone())
+            .with_images(images)
+            .with_agent_mode(agent_mode);
+
+        for server_name in disabled_codex_mcp_servers {
+            config = config.with_session_config_override(
+                format!("mcp_servers.{server_name}.enabled"),
+                serde_json::json!(false),
+            );
         }
 
         if let Some(skill) = codex_skill {

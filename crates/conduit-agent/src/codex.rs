@@ -284,7 +284,12 @@ impl CodexCliRunner {
                 serde_json::Value::String(effort.codex_config_value().to_string()),
             );
         }
-        values.extend(config.session_config_overrides.clone());
+        values.extend(
+            config
+                .session_config_overrides
+                .iter()
+                .map(|(key, value)| (key.clone(), value.clone())),
+        );
         if values.is_empty() {
             None
         } else {
