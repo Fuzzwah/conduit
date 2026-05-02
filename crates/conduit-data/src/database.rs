@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS repositories (
     workspace_mode TEXT,
     archive_delete_branch INTEGER,
     archive_remote_prompt INTEGER,
+    mcp_enabled INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     theme_name TEXT
@@ -562,6 +563,22 @@ CREATE TABLE IF NOT EXISTS fork_seeds_new (
                 "UPDATE repositories SET position = (
                     SELECT COUNT(*) FROM repositories r2 WHERE r2.name < repositories.name
                 )",
+                [],
+            )?;
+        }
+
+        // Migration 17: Add persisted MCP enabled flag for repositories.
+        let has_mcp_enabled: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('repositories') WHERE name='mcp_enabled'",
+                [],
+                |row| row.get::<_, i64>(0).map(|c| c > 0),
+            )
+            .unwrap_or(false);
+
+        if !has_mcp_enabled {
+            conn.execute(
+                "ALTER TABLE repositories ADD COLUMN mcp_enabled INTEGER NOT NULL DEFAULT 1",
                 [],
             )?;
         }

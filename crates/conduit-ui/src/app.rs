@@ -43,11 +43,11 @@ use crate::components::{
     ChatMessage, CommandPalette, ConfirmationContext, ConfirmationDialog, ConfirmationType,
     DefaultModelSelection, ErrorDialog, EventDirection, GlobalFooter, HelpDialog,
     InlinePromptState, InlinePromptType, KeybindingsEditor, MessageRole, MissingToolDialog,
-    ModelSelector, ProcessingState, ProjectEntry, ProjectPicker, PromptAnswer, ProviderSelector,
-    RawEventsClick, ReasoningSelector, RenameProjectDialog, SessionHeader, SessionImportPicker,
-    SettingsMenu, SettingsMenuEntry, SettingsMenuEntryId, Sidebar, SidebarData, SlashMenu, TabBar,
-    TabBarHitTarget, ThemePicker, WorkspaceDefaultsDialog, WorkspaceDefaultsDraft,
-    SIDEBAR_HEADER_ROWS,
+    ModelSelector, ProcessingState, ProjectEntry, ProjectMcpDialog, ProjectPicker, PromptAnswer,
+    ProviderSelector, RawEventsClick, ReasoningSelector, RenameProjectDialog, SessionHeader,
+    SessionImportPicker, SettingsMenu, SettingsMenuEntry, SettingsMenuEntryId, Sidebar,
+    SidebarData, SlashMenu, TabBar, TabBarHitTarget, ThemePicker, WorkspaceDefaultsDialog,
+    WorkspaceDefaultsDraft, SIDEBAR_HEADER_ROWS,
 };
 use crate::effect::Effect;
 use crate::events::{
@@ -2206,7 +2206,8 @@ impl App {
             | Action::OpenSettings
             | Action::ArchiveOrRemove
             | Action::ArchiveCurrentWorkspace
-            | Action::RenameProject => {
+            | Action::RenameProject
+            | Action::ManageProjectMcp => {
                 self.handle_dialog_action(action);
             }
 
@@ -3846,6 +3847,69 @@ impl App {
         self.sync_theme_to_active_tab();
         self.state
             .set_timed_footer_message("Project theme cleared".to_string(), Duration::from_secs(3));
+    }
+
+    fn detect_codex_project_mcp_servers(project_root: &std::path::Path) -> Vec<String> {
+        let path = project_root.join(".codex").join("config.toml");
+        let Ok(contents) = std::fs::read_to_string(path) else {
+            return Vec::new();
+        };
+        let Ok(value) = contents.parse::<toml::Value>() else {
+            return Vec::new();
+        };
+        let mut servers = value
+            .get("mcp_servers")
+            .and_then(toml::Value::as_table)
+            .map(|table| table.keys().cloned().collect::<Vec<_>>())
+            .unwrap_or_default();
+        servers.sort();
+        servers
+    }
+
+    fn detect_generic_project_mcp_servers(project_root: &std::path::Path) -> Vec<String> {
+        let path = project_root.join(".mcp.json");
+        let Ok(contents) = std::fs::read_to_string(path) else {
+            return Vec::new();
+        };
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(&contents) else {
+            return Vec::new();
+        };
+        let mut servers = value
+            .get("mcpServers")
+            .and_then(serde_json::Value::as_object)
+            .map(|table| table.keys().cloned().collect::<Vec<_>>())
+            .unwrap_or_default();
+        servers.sort();
+        servers
+    }
+
+    fn repository_mcp_enabled(&self, repo_id: uuid::Uuid) -> bool {
+        self.repo_dao()
+            .and_then(|dao| dao.get_by_id(repo_id).ok().flatten())
+            .map(|repo| repo.mcp_enabled)
+            .unwrap_or(true)
+    }
+
+    fn is_claude_mcp_tool_name(tool_name: &str) -> bool {
+        tool_name.starts_with("mcp__")
+            || tool_name.starts_with("mcp:")
+            || tool_name.starts_with("mcp/")
+    }
+
+    pub(super) fn project_mcp_summary(&self, project_root: Option<&std::path::Path>) -> String {
+        let Some(project_root) = project_root else {
+            return "Detected MCP config: project path unavailable".to_string();
+        };
+        let codex_servers = Self::detect_codex_project_mcp_servers(project_root);
+        let generic_servers = Self::detect_generic_project_mcp_servers(project_root);
+        match (codex_servers.len(), generic_servers.len()) {
+            (0, 0) => "Detected MCP config: none".to_string(),
+            (codex, 0) => format!("Detected MCP config: Codex {codex} server(s)"),
+            (0, generic) => format!("Detected MCP config: .mcp.json {generic} server(s)"),
+            (codex, generic) => {
+                format!("Detected MCP config: Codex {codex}, .mcp.json {generic}")
+            }
+        }
     }
 
     /// Execute a command from command mode
@@ -8143,6 +8207,7 @@ impl App {
         let mut pending_model_invalidation = false;
         let mut should_drain_queue = false;
         let mut pending_observed_context_window: Option<(AgentType, String, i64)> = None;
+        let repo_dao = self.repo_dao_clone();
 
         {
             let Some(session) = self.state.tab_manager.session_mut(tab_index) else {
@@ -8381,7 +8446,46 @@ impl App {
                     }
                 }
                 AgentEvent::ControlRequest(request) => {
-                    if let Some(tool_use_id) = request.tool_use_id.clone() {
+                    let project_mcp_disabled = session
+                        .repository_id
+                        .and_then(|repo_id| {
+                            repo_dao
+                                .as_ref()
+                                .and_then(|dao| dao.get_by_id(repo_id).ok().flatten())
+                        })
+                        .is_some_and(|repo| !repo.mcp_enabled);
+                    if session.agent_type == AgentType::Claude
+                        && project_mcp_disabled
+                        && Self::is_claude_mcp_tool_name(&request.tool_name)
+                    {
+                        let response_payload = Self::build_permission_deny_response(
+                            "Project MCP is disabled for this repository.".to_string(),
+                            request.tool_use_id.as_deref(),
+                        );
+                        if let Some(ref input_tx) = session.agent_input_tx {
+                            if let Ok(jsonl) = Self::build_control_response_jsonl(
+                                &request.request_id,
+                                response_payload,
+                            ) {
+                                let input_tx = input_tx.clone();
+                                tokio::spawn(async move {
+                                    if let Err(err) =
+                                        input_tx.send(AgentInput::ClaudeJsonl(jsonl)).await
+                                    {
+                                        tracing::warn!(
+                                            "Failed to send automatic Claude MCP deny response: {}",
+                                            err
+                                        );
+                                    }
+                                });
+                                session.start_processing();
+                                session.set_processing_state(ProcessingState::Thinking);
+                                if is_active_tab {
+                                    should_start_footer_spinner = true;
+                                }
+                            }
+                        }
+                    } else if let Some(tool_use_id) = request.tool_use_id.clone() {
                         session
                             .pending_tool_permissions
                             .insert(tool_use_id.clone(), request.request_id.clone());
@@ -9514,10 +9618,30 @@ impl App {
             agent_prompt.clone()
         };
 
+        let project_mcp_enabled = self
+            .state
+            .tab_manager
+            .session(tab_index)
+            .and_then(|session| session.repository_id)
+            .map(|repo_id| self.repository_mcp_enabled(repo_id))
+            .unwrap_or(true);
+        let disabled_codex_mcp_servers = if agent_type == AgentType::Codex && !project_mcp_enabled {
+            Self::detect_codex_project_mcp_servers(&working_dir)
+        } else {
+            Vec::new()
+        };
+
         let mut config = AgentStartConfig::new(prompt_for_agent, working_dir)
             .with_tools(self.config().claude_allowed_tools.clone())
             .with_images(images)
             .with_agent_mode(agent_mode);
+
+        for server_name in disabled_codex_mcp_servers {
+            config = config.with_session_config_override(
+                format!("mcp_servers.{server_name}.enabled"),
+                serde_json::json!(false),
+            );
+        }
 
         if let Some(skill) = codex_skill {
             config = config.with_skill(skill);
@@ -11449,6 +11573,16 @@ impl App {
                             );
                         }
 
+                        if self.state.input_mode == InputMode::ProjectMcp
+                            || self.state.project_mcp_dialog_state.is_visible()
+                        {
+                            ProjectMcpDialog::new().render(
+                                right_area,
+                                f.buffer_mut(),
+                                &self.state.project_mcp_dialog_state,
+                            );
+                        }
+
                         // Draw workspace-creation dialogs (remote sync, issue/spec
                         // pickers, progress) — these can appear over the splash
                         // screen when the user starts a new workspace with no
@@ -11991,6 +12125,16 @@ impl App {
                 right_area,
                 f.buffer_mut(),
                 &self.state.rename_project_dialog_state,
+            );
+        }
+
+        if self.state.input_mode == InputMode::ProjectMcp
+            || self.state.project_mcp_dialog_state.is_visible()
+        {
+            ProjectMcpDialog::new().render(
+                right_area,
+                f.buffer_mut(),
+                &self.state.project_mcp_dialog_state,
             );
         }
 

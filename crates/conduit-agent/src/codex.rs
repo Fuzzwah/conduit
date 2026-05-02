@@ -277,13 +277,24 @@ impl CodexCliRunner {
     fn conversation_config(
         config: &AgentStartConfig,
     ) -> Option<HashMap<String, serde_json::Value>> {
-        let effort = config.reasoning_effort?;
         let mut values = HashMap::new();
-        values.insert(
-            "model_reasoning_effort".to_string(),
-            serde_json::Value::String(effort.codex_config_value().to_string()),
+        if let Some(effort) = config.reasoning_effort {
+            values.insert(
+                "model_reasoning_effort".to_string(),
+                serde_json::Value::String(effort.codex_config_value().to_string()),
+            );
+        }
+        values.extend(
+            config
+                .session_config_overrides
+                .iter()
+                .map(|(key, value)| (key.clone(), value.clone())),
         );
-        Some(values)
+        if values.is_empty() {
+            None
+        } else {
+            Some(values)
+        }
     }
 
     fn update_token_usage(

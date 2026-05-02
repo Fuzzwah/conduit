@@ -25,8 +25,8 @@ impl RepositoryStore {
     pub fn create(&self, repo: &Repository) -> SqliteResult<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "INSERT INTO repositories (id, name, base_path, repository_url, workspace_mode, archive_delete_branch, archive_remote_prompt, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            "INSERT INTO repositories (id, name, base_path, repository_url, workspace_mode, archive_delete_branch, archive_remote_prompt, mcp_enabled, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 repo.id.to_string(),
                 repo.name,
@@ -37,6 +37,7 @@ impl RepositoryStore {
                 repo.workspace_mode.map(|mode| mode.as_str().to_string()),
                 repo.archive_delete_branch.map(|value| value as i32),
                 repo.archive_remote_prompt.map(|value| value as i32),
+                repo.mcp_enabled as i32,
                 repo.created_at.to_rfc3339(),
                 repo.updated_at.to_rfc3339(),
             ],
@@ -48,7 +49,7 @@ impl RepositoryStore {
     pub fn get_by_id(&self, id: Uuid) -> SqliteResult<Option<Repository>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, base_path, repository_url, workspace_mode, archive_delete_branch, archive_remote_prompt, created_at, updated_at, theme_name
+            "SELECT id, name, base_path, repository_url, workspace_mode, archive_delete_branch, archive_remote_prompt, mcp_enabled, created_at, updated_at, theme_name
              FROM repositories WHERE id = ?1",
         )?;
 
@@ -64,7 +65,7 @@ impl RepositoryStore {
     pub fn get_all(&self) -> SqliteResult<Vec<Repository>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, base_path, repository_url, workspace_mode, archive_delete_branch, archive_remote_prompt, created_at, updated_at, theme_name
+            "SELECT id, name, base_path, repository_url, workspace_mode, archive_delete_branch, archive_remote_prompt, mcp_enabled, created_at, updated_at, theme_name
              FROM repositories ORDER BY COALESCE(position, 999999), name",
         )?;
 
@@ -79,7 +80,7 @@ impl RepositoryStore {
     pub fn update(&self, repo: &Repository) -> SqliteResult<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "UPDATE repositories SET name = ?2, base_path = ?3, repository_url = ?4, workspace_mode = ?5, archive_delete_branch = ?6, archive_remote_prompt = ?7, updated_at = ?8
+            "UPDATE repositories SET name = ?2, base_path = ?3, repository_url = ?4, workspace_mode = ?5, archive_delete_branch = ?6, archive_remote_prompt = ?7, mcp_enabled = ?8, updated_at = ?9
              WHERE id = ?1",
             params![
                 repo.id.to_string(),
@@ -89,6 +90,7 @@ impl RepositoryStore {
                 repo.workspace_mode.map(|mode| mode.as_str().to_string()),
                 repo.archive_delete_branch.map(|value| value as i32),
                 repo.archive_remote_prompt.map(|value| value as i32),
+                repo.mcp_enabled as i32,
                 Utc::now().to_rfc3339(),
             ],
         )?;
@@ -122,7 +124,7 @@ impl RepositoryStore {
         let conn = self.conn.lock().unwrap();
         let path_str = path.to_string_lossy().to_string();
         let mut stmt = conn.prepare(
-            "SELECT id, name, base_path, repository_url, workspace_mode, archive_delete_branch, archive_remote_prompt, created_at, updated_at, theme_name
+            "SELECT id, name, base_path, repository_url, workspace_mode, archive_delete_branch, archive_remote_prompt, mcp_enabled, created_at, updated_at, theme_name
              FROM repositories WHERE base_path = ?1",
         )?;
 
@@ -141,9 +143,10 @@ impl RepositoryStore {
         let workspace_mode_raw: Option<String> = row.get(4)?;
         let archive_delete_branch_raw: Option<i32> = row.get(5)?;
         let archive_remote_prompt_raw: Option<i32> = row.get(6)?;
-        let created_at_str: String = row.get(7)?;
-        let updated_at_str: String = row.get(8)?;
-        let theme_name: Option<String> = row.get(9)?;
+        let mcp_enabled_raw: i32 = row.get(7)?;
+        let created_at_str: String = row.get(8)?;
+        let updated_at_str: String = row.get(9)?;
+        let theme_name: Option<String> = row.get(10)?;
 
         let workspace_mode = match workspace_mode_raw {
             None => None,
@@ -171,6 +174,7 @@ impl RepositoryStore {
             workspace_mode,
             archive_delete_branch: archive_delete_branch_raw.map(|value| value != 0),
             archive_remote_prompt: archive_remote_prompt_raw.map(|value| value != 0),
+            mcp_enabled: mcp_enabled_raw != 0,
             created_at: DateTime::parse_from_rfc3339(&created_at_str)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),

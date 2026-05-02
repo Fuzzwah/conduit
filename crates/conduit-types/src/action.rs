@@ -178,6 +178,8 @@ pub enum Action {
     ProjectMoveDown,
     /// Rename the selected project
     RenameProject,
+    /// Manage MCP settings for the selected project
+    ManageProjectMcp,
     /// Add a file from the local filesystem into the current project repository
     AddFileToProject,
     /// Pick a destination directory in the repo, then display an SCP command to upload from a remote workstation
@@ -351,6 +353,7 @@ impl Action {
             Action::ProjectMoveUp => "Move project up",
             Action::ProjectMoveDown => "Move project down",
             Action::RenameProject => "Rename project",
+            Action::ManageProjectMcp => "Manage project MCP",
             Action::AddFileToProject => "Add file to project",
             Action::UploadFileToProject => "Upload file to project via SCP",
 
@@ -421,6 +424,7 @@ impl Action {
                 | Action::HandoffSession
                 | Action::ArchiveCurrentWorkspace
                 | Action::RenameProject
+                | Action::ManageProjectMcp
                 | Action::AddFileToProject
                 | Action::UploadFileToProject
         )
@@ -471,6 +475,7 @@ impl Action {
                 | Action::ArchiveOrRemove
                 | Action::ArchiveCurrentWorkspace
                 | Action::RenameProject
+                | Action::ManageProjectMcp
                 | Action::AddFileToProject
                 | Action::UploadFileToProject
                 // Agent/Session

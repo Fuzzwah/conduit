@@ -23,6 +23,7 @@ mod missing_tool_dialog;
 mod model_selector;
 mod multi_select_dialog;
 mod path_input;
+mod project_mcp_dialog;
 mod project_picker;
 mod provider_selector;
 mod raw_events_types;
@@ -89,6 +90,7 @@ pub use model_selector::{
 };
 pub use multi_select_dialog::{MultiSelectDialog, MultiSelectDialogState, MultiSelectItem};
 pub use path_input::PathInputState;
+pub use project_mcp_dialog::{ProjectMcpDialog, ProjectMcpDialogState};
 pub use project_picker::{ProjectEntry, ProjectPicker, ProjectPickerState};
 pub use provider_selector::{ProviderSelector, ProviderSelectorState};
 pub use raw_events_types::{
