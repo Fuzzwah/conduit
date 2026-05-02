@@ -189,8 +189,9 @@ impl SpecifyPicker {
         };
         let show_chrome = !state.loading;
         let search_height: u16 = if show_chrome { 1 } else { 0 };
-        // border(2) + padding(1) + search + list + footer(1) + padding(1)
-        let dialog_height = 5 + search_height + list_height;
+        let header_height: u16 = if show_chrome { 1 } else { 0 };
+        // border(2) + padding(1) + search + header + list + footer(1) + padding(1)
+        let dialog_height = 5 + search_height + header_height + list_height;
 
         let frame = DialogFrame::new("Select Specify Spec", DIALOG_WIDTH, dialog_height)
             .instructions(if show_chrome {
@@ -207,6 +208,7 @@ impl SpecifyPicker {
 
         let chunks = Layout::vertical([
             Constraint::Length(search_height),
+            Constraint::Length(header_height),
             Constraint::Min(1),
             Constraint::Length(1), // footer
             Constraint::Length(1), // bottom padding
@@ -216,12 +218,21 @@ impl SpecifyPicker {
         let mut idx = 0;
         let search_area = chunks[idx];
         idx += 1;
+        let header_area = chunks[idx];
+        idx += 1;
         let list_area = chunks[idx];
         idx += 1;
         let footer_area = chunks[idx];
 
         if show_chrome {
             self.render_search(search_area, buf, state);
+            Paragraph::new(Line::from(vec![
+                Span::raw("  "),
+                Span::styled("[rem/total]", Style::default().fg(text_muted())),
+                Span::raw("  "),
+                Span::styled("spec", Style::default().fg(text_muted())),
+            ]))
+            .render(header_area, buf);
         }
 
         if state.loading {
