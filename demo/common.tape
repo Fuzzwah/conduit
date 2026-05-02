@@ -1,0 +1,11 @@
+Set Width 1200
+Set Height 600
+Set FontSize 13
+Set Theme "Dracula"
+Set PlaybackSpeed 1.5
+Set TypingSpeed 60ms
+Set Shell "bash"
+Set WindowBar "Rings"
+Set WindowBarSize 28
+Set BorderRadius 8
+Set Padding 12
