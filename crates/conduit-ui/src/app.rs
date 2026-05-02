@@ -11704,9 +11704,9 @@ impl App {
                         // Use the content area width (after left margin / scrollbar) so wrap points
                         // match the actual visible columns. Mirrors ChatView::content_area logic.
                         let prompt_render_width = if show_chat_scrollbar {
-                            chat_area.width.saturating_sub(6)
+                            chat_area.width.saturating_sub(10)
                         } else {
-                            chat_area.width.saturating_sub(4)
+                            chat_area.width.saturating_sub(8)
                         } as usize;
                         let prompt_lines = session
                             .inline_prompt
