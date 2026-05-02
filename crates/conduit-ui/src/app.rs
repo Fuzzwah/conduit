@@ -43,12 +43,11 @@ use crate::components::{
     ChatMessage, CommandPalette, ConfirmationContext, ConfirmationDialog, ConfirmationType,
     DefaultModelSelection, ErrorDialog, EventDirection, GlobalFooter, HelpDialog,
     InlinePromptState, InlinePromptType, KeybindingsEditor, MessageRole, MissingToolDialog,
-    ModelSelector, ProcessingState, ProjectEntry, ProjectPicker, PromptAnswer, ProviderSelector,
-    ProjectMcpDialog, RawEventsClick, ReasoningSelector, RenameProjectDialog, SessionHeader,
+    ModelSelector, ProcessingState, ProjectEntry, ProjectMcpDialog, ProjectPicker, PromptAnswer,
+    ProviderSelector, RawEventsClick, ReasoningSelector, RenameProjectDialog, SessionHeader,
     SessionImportPicker, SettingsMenu, SettingsMenuEntry, SettingsMenuEntryId, Sidebar,
     SidebarData, SlashMenu, TabBar, TabBarHitTarget, ThemePicker, WorkspaceDefaultsDialog,
-    WorkspaceDefaultsDraft,
-    SIDEBAR_HEADER_ROWS,
+    WorkspaceDefaultsDraft, SIDEBAR_HEADER_ROWS,
 };
 use crate::effect::Effect;
 use crate::events::{
@@ -9576,7 +9575,10 @@ impl App {
             .tab_manager
             .session(tab_index)
             .and_then(|session| session.repository_id)
-            .and_then(|repo_id| self.repo_dao().and_then(|dao| dao.get_by_id(repo_id).ok().flatten()))
+            .and_then(|repo_id| {
+                self.repo_dao()
+                    .and_then(|dao| dao.get_by_id(repo_id).ok().flatten())
+            })
             .map(|repo| repo.mcp_enabled)
             .unwrap_or(true);
         if agent_type == AgentType::Codex && !project_mcp_enabled {

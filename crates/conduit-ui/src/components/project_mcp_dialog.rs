@@ -101,8 +101,12 @@ impl ProjectMcpDialog {
     }
 
     pub fn render(&self, area: Rect, buf: &mut Buffer, state: &ProjectMcpDialogState) {
-        let frame = DialogFrame::new(" Project MCP ", DIALOG_WIDTH, DIALOG_HEIGHT)
-            .instructions(vec![("↑↓", "select"), ("Enter", "change/save"), ("Esc", "cancel")]);
+        let frame =
+            DialogFrame::new(" Project MCP ", DIALOG_WIDTH, DIALOG_HEIGHT).instructions(vec![
+                ("↑↓", "select"),
+                ("Enter", "change/save"),
+                ("Esc", "cancel"),
+            ]);
         let inner = frame.render(area, buf);
 
         let chunks = Layout::vertical([

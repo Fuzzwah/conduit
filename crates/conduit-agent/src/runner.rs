@@ -293,11 +293,7 @@ impl AgentStartConfig {
         self
     }
 
-    pub fn with_session_config_override(
-        mut self,
-        key: impl Into<String>,
-        value: Value,
-    ) -> Self {
+    pub fn with_session_config_override(mut self, key: impl Into<String>, value: Value) -> Self {
         self.session_config_overrides.insert(key.into(), value);
         self
     }

@@ -9,12 +9,11 @@ use crate::components::{
     AddRepoDialogState, AgentSelectorState, BaseDirDialogState, CommandPaletteState,
     ConfirmationDialogState, ErrorDialogState, FilePickerDialogState, HelpDialogState,
     IssuePickerState, KeybindingsEditorState, KnightRiderSpinner, LogoShineAnimation,
-    MissingToolDialogState, ModelSelectorState, ProjectPickerState, ProviderSelectorState,
-    ProjectMcpDialogState, ReasoningSelectorState, RemoteSyncDialogState,
-    RenameProjectDialogState, ScpCommandDialogState, SessionImportPickerState,
-    SettingsMenuState, SidebarData, SidebarState, SlashMenuState, SpecPickerState,
-    SpecifyPickerState, ThemePickerState, WorkspaceDefaultsDialogState,
-    WorkspaceProgressDialogState,
+    MissingToolDialogState, ModelSelectorState, ProjectMcpDialogState, ProjectPickerState,
+    ProviderSelectorState, ReasoningSelectorState, RemoteSyncDialogState, RenameProjectDialogState,
+    ScpCommandDialogState, SessionImportPickerState, SettingsMenuState, SidebarData, SidebarState,
+    SlashMenuState, SpecPickerState, SpecifyPickerState, ThemePickerState,
+    WorkspaceDefaultsDialogState, WorkspaceProgressDialogState,
 };
 use crate::events::{InputMode, ViewMode};
 use crate::tab_manager::TabManager;
