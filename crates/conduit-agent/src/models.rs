@@ -126,17 +126,15 @@ impl ModelRegistry {
     }
 
     fn cecli_models_static() -> Vec<ModelInfo> {
-        vec![
-            ModelInfo::new(
-                AgentType::Cecli,
-                "default",
-                "CE CLI Default",
-                "default",
-                "Use CE CLI's default model selection",
-                Self::CECLI_CONTEXT_WINDOW,
-            )
-            .as_default(),
-        ]
+        vec![ModelInfo::new(
+            AgentType::Cecli,
+            "default",
+            "CE CLI Default",
+            "default",
+            "Use CE CLI's default model selection",
+            Self::CECLI_CONTEXT_WINDOW,
+        )
+        .as_default()]
     }
 
     pub fn set_opencode_models(model_ids: Vec<String>) {

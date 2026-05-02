@@ -122,7 +122,11 @@ impl AgentRunner for CecliRunner {
                     let error_msg = if stderr_content.is_empty() {
                         format!("cecli exited with status: {}", status)
                     } else {
-                        format!("cecli exited with status {}: {}", status, stderr_content.trim())
+                        format!(
+                            "cecli exited with status {}: {}",
+                            status,
+                            stderr_content.trim()
+                        )
                     };
                     let _ = tx
                         .send(AgentEvent::TurnFailed(TurnFailedEvent { error: error_msg }))
