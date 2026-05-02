@@ -3883,6 +3883,19 @@ impl App {
         servers
     }
 
+    fn repository_mcp_enabled(&self, repo_id: uuid::Uuid) -> bool {
+        self.repo_dao()
+            .and_then(|dao| dao.get_by_id(repo_id).ok().flatten())
+            .map(|repo| repo.mcp_enabled)
+            .unwrap_or(true)
+    }
+
+    fn is_claude_mcp_tool_name(tool_name: &str) -> bool {
+        tool_name.starts_with("mcp__")
+            || tool_name.starts_with("mcp:")
+            || tool_name.starts_with("mcp/")
+    }
+
     pub(super) fn project_mcp_summary(&self, project_root: Option<&std::path::Path>) -> String {
         let Some(project_root) = project_root else {
             return "Detected MCP config: project path unavailable".to_string();
@@ -8194,6 +8207,7 @@ impl App {
         let mut pending_model_invalidation = false;
         let mut should_drain_queue = false;
         let mut pending_observed_context_window: Option<(AgentType, String, i64)> = None;
+        let repo_dao = self.repo_dao_clone();
 
         {
             let Some(session) = self.state.tab_manager.session_mut(tab_index) else {
@@ -8432,7 +8446,46 @@ impl App {
                     }
                 }
                 AgentEvent::ControlRequest(request) => {
-                    if let Some(tool_use_id) = request.tool_use_id.clone() {
+                    let project_mcp_disabled = session
+                        .repository_id
+                        .and_then(|repo_id| {
+                            repo_dao
+                                .as_ref()
+                                .and_then(|dao| dao.get_by_id(repo_id).ok().flatten())
+                        })
+                        .is_some_and(|repo| !repo.mcp_enabled);
+                    if session.agent_type == AgentType::Claude
+                        && project_mcp_disabled
+                        && Self::is_claude_mcp_tool_name(&request.tool_name)
+                    {
+                        let response_payload = Self::build_permission_deny_response(
+                            "Project MCP is disabled for this repository.".to_string(),
+                            request.tool_use_id.as_deref(),
+                        );
+                        if let Some(ref input_tx) = session.agent_input_tx {
+                            if let Ok(jsonl) = Self::build_control_response_jsonl(
+                                &request.request_id,
+                                response_payload,
+                            ) {
+                                let input_tx = input_tx.clone();
+                                tokio::spawn(async move {
+                                    if let Err(err) =
+                                        input_tx.send(AgentInput::ClaudeJsonl(jsonl)).await
+                                    {
+                                        tracing::warn!(
+                                            "Failed to send automatic Claude MCP deny response: {}",
+                                            err
+                                        );
+                                    }
+                                });
+                                session.start_processing();
+                                session.set_processing_state(ProcessingState::Thinking);
+                                if is_active_tab {
+                                    should_start_footer_spinner = true;
+                                }
+                            }
+                        }
+                    } else if let Some(tool_use_id) = request.tool_use_id.clone() {
                         session
                             .pending_tool_permissions
                             .insert(tool_use_id.clone(), request.request_id.clone());
@@ -9570,11 +9623,7 @@ impl App {
             .tab_manager
             .session(tab_index)
             .and_then(|session| session.repository_id)
-            .and_then(|repo_id| {
-                self.repo_dao()
-                    .and_then(|dao| dao.get_by_id(repo_id).ok().flatten())
-            })
-            .map(|repo| repo.mcp_enabled)
+            .map(|repo_id| self.repository_mcp_enabled(repo_id))
             .unwrap_or(true);
         let disabled_codex_mcp_servers = if agent_type == AgentType::Codex && !project_mcp_enabled {
             Self::detect_codex_project_mcp_servers(&working_dir)
