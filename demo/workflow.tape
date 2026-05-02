@@ -18,9 +18,11 @@ Env GIT_AUTHOR_EMAIL "demo@example.com"
 Env GIT_COMMITTER_NAME "Demo User"
 Env GIT_COMMITTER_EMAIL "demo@example.com"
 
-Type "cd /tmp/conduit-demo && clear"
+Hide
+Type "cd /tmp/conduit-demo"
 Enter
 Sleep 300ms
+Show
 
 # ─── Launch conduit ────────────────────────────────────────────────────────────
 Type "./conduit-demo.sh"
