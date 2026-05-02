@@ -66,4 +66,4 @@
 
 - [x] 11.1 Review all six GIFs for visual correctness: text readable, no garbled render frames, no excessively long pauses
 - [x] 11.2 Write `demo/README.md`: prerequisites (vhs ≥ 0.11.0, git, conduit binary at `./target/debug/conduit`), how to regenerate (`bash demo/generate.sh`), how to embed (`![clip name](demo/output/01-add-project.gif)`), and a note on sequential clip state
-- [ ] 11.3 Commit `demo/` directory (scripts, tapes, README, generated GIFs, `.gitattributes` update) in one commit: `"feat: add VHS demo GIF workflow"`
+- [x] 11.3 Commit `demo/` directory (scripts, tapes, README, generated GIFs, `.gitattributes` update) in one commit: `"feat: add VHS demo GIF workflow"`
