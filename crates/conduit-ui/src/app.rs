@@ -11449,6 +11449,53 @@ impl App {
                             );
                         }
 
+                        // Draw workspace-creation dialogs (remote sync, issue/spec
+                        // pickers, progress) — these can appear over the splash
+                        // screen when the user starts a new workspace with no
+                        // sessions open.
+                        if self.state.issue_picker_state.visible {
+                            use crate::components::IssuePicker;
+                            IssuePicker::new().render(
+                                right_area,
+                                f.buffer_mut(),
+                                &self.state.issue_picker_state,
+                            );
+                        }
+
+                        if self.state.spec_picker_state.visible {
+                            use crate::components::SpecPicker;
+                            SpecPicker::new().render(
+                                right_area,
+                                f.buffer_mut(),
+                                &self.state.spec_picker_state,
+                            );
+                        }
+
+                        if self.state.specify_picker_state.visible {
+                            use crate::components::SpecifyPicker;
+                            SpecifyPicker::new().render(
+                                right_area,
+                                f.buffer_mut(),
+                                &self.state.specify_picker_state,
+                            );
+                        }
+
+                        if self.state.workspace_progress_dialog_state.visible {
+                            use crate::components::WorkspaceProgressDialog;
+                            use ratatui::widgets::Widget;
+                            WorkspaceProgressDialog::new(
+                                &self.state.workspace_progress_dialog_state,
+                            )
+                            .render(right_area, f.buffer_mut());
+                        }
+
+                        if self.state.remote_sync_dialog_state.visible {
+                            use crate::components::RemoteSyncDialog;
+                            use ratatui::widgets::Widget;
+                            RemoteSyncDialog::new(&self.state.remote_sync_dialog_state)
+                                .render(right_area, f.buffer_mut());
+                        }
+
                         // Draw footer for empty state (sidebar-aware)
                         let footer_context =
                             if self.state.input_mode == InputMode::SidebarNavigation {
