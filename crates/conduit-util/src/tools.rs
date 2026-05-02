@@ -447,7 +447,6 @@ mod tests {
         assert_eq!(Tool::Gemini.binary_name(), "gemini");
         assert_eq!(Tool::Opencode.binary_name(), "opencode");
         assert_eq!(Tool::Cecli.binary_name(), "cecli");
-        assert_eq!(Tool::Cecli.binary_name(), "cecli");
     }
 
     #[test]
@@ -459,7 +458,6 @@ mod tests {
         assert!(!Tool::Gemini.is_required());
         assert!(!Tool::Opencode.is_required());
         assert!(!Tool::Cecli.is_required());
-        assert!(!Tool::Cecli.is_required());
     }
 
     #[test]
@@ -470,7 +468,6 @@ mod tests {
         assert!(Tool::Codex.is_agent());
         assert!(Tool::Gemini.is_agent());
         assert!(Tool::Opencode.is_agent());
-        assert!(Tool::Cecli.is_agent());
         assert!(Tool::Cecli.is_agent());
     }
 
