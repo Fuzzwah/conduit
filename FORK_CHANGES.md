@@ -539,3 +539,56 @@ forgejo_hosts = ["codeberg.org"]
 Authentication uses the `GITEA_TOKEN` and `FORGEJO_TOKEN` environment variables. Without a token, the provider returns no issues and the picker is silently skipped.
 
 Both pickers also gained filtering: type to substring-filter the list, `Tab` to toggle a label filter (issue picker), `m` to restrict to your own assigned issues, and `s` to cycle the spec sort order.
+
+---
+
+## 53. Archive Preflight Warns on Incomplete Spec Tasks
+
+The archive preflight check now reads the workspace's spec (OpenSpec or Specify) and warns when incomplete tasks remain. The warning is shown at informational severity so it does not block archiving, but surfaces the fact that outstanding work is attached to the branch before it is closed.
+
+---
+
+## 54. Wrap Long Choice Option Labels in Inline Prompt
+
+Option labels and descriptions in `AskUserQuestion` choice prompts are now word-wrapped when they would otherwise overflow the right edge of the terminal. Both the scrollable chat-line renderer and the widget render path apply wrapping.
+
+---
+
+## 55. Right Margin in Agent Output and Input Cursor Fix
+
+A 4-character right margin is now applied to the chat view content area so agent output no longer runs to the screen edge, matching the left and right padding of the input box.
+
+An off-by-one in the input box cursor position calculation is also fixed: the cursor no longer overlaps the final character of a full line and instead sits one column past it, as expected.
+
+---
+
+## 56. Column Headers in Spec Picker Dialogs
+
+Both the OpenSpec and Specify spec pickers now show a muted `[rem/total] / name` header row above the list. The header makes the task-count format immediately readable without guessing.
+
+---
+
+## 57. Workspace-Creation Dialogs Render Over the Splash Screen
+
+The issue picker, spec picker, and remote-sync progress dialog are now drawn even when no workspace sessions are open (i.e. when the splash screen is showing). Previously the empty-state render branch returned early, causing the dialogs to be silently skipped and the TUI to appear frozen.
+
+---
+
+## 58. `C-s` Hotkey to Focus Sidebar Directly
+
+**`Ctrl+s`** is now a default keybinding for `EnterSidebarMode`, focusing the sidebar without toggling its visibility. This solves the double-press workaround previously needed when `always_show_sidebar` is enabled.
+
+When `C-s` fires, the sidebar selection is also synced to the active workspace, matching the behaviour of `ToggleSidebar` and `HideSidebar`.
+
+---
+
+## 59. Sidebar Included in `Alt+Tab` Cycle (Opt-Out)
+
+The sidebar is now included as a stop in the `Alt+Tab` / `Alt+Shift+Tab` workspace cycle by default. Users who prefer pure workspace cycling can opt out:
+
+```toml
+[ui]
+sidebar_in_tab_cycle = false
+```
+
+When `false`, `Alt+Tab` wraps only between workspace tabs, restoring the previous behaviour.
