@@ -56,6 +56,8 @@ pub struct Repository {
     pub archive_delete_branch: Option<bool>,
     /// Whether to prompt for remote deletion on archive (None = config default)
     pub archive_remote_prompt: Option<bool>,
+    /// Whether project MCP integrations are enabled for supported agents
+    pub mcp_enabled: bool,
     /// When the repository was added
     pub created_at: DateTime<Utc>,
     /// Last time the repository was modified
@@ -76,6 +78,7 @@ impl Repository {
             workspace_mode: None,
             archive_delete_branch: None,
             archive_remote_prompt: None,
+            mcp_enabled: true,
             created_at: now,
             updated_at: now,
             theme_name: None,
@@ -93,6 +96,7 @@ impl Repository {
             workspace_mode: None,
             archive_delete_branch: None,
             archive_remote_prompt: None,
+            mcp_enabled: true,
             created_at: now,
             updated_at: now,
             theme_name: None,

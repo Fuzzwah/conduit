@@ -47,6 +47,9 @@ impl App {
                 InputMode::WorkspaceDefaults => {
                     self.state.workspace_defaults_dialog_state.select_next();
                 }
+                InputMode::ProjectMcp => {
+                    self.state.project_mcp_dialog_state.select_next();
+                }
                 InputMode::SlashMenu => {
                     self.state.slash_menu_state.select_next();
                 }
@@ -101,6 +104,9 @@ impl App {
                 }
                 InputMode::WorkspaceDefaults => {
                     self.state.workspace_defaults_dialog_state.select_prev();
+                }
+                InputMode::ProjectMcp => {
+                    self.state.project_mcp_dialog_state.select_prev();
                 }
                 InputMode::SlashMenu => {
                     self.state.slash_menu_state.select_prev();

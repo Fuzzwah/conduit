@@ -44,9 +44,10 @@ use crate::components::{
     DefaultModelSelection, ErrorDialog, EventDirection, GlobalFooter, HelpDialog,
     InlinePromptState, InlinePromptType, KeybindingsEditor, MessageRole, MissingToolDialog,
     ModelSelector, ProcessingState, ProjectEntry, ProjectPicker, PromptAnswer, ProviderSelector,
-    RawEventsClick, ReasoningSelector, RenameProjectDialog, SessionHeader, SessionImportPicker,
-    SettingsMenu, SettingsMenuEntry, SettingsMenuEntryId, Sidebar, SidebarData, SlashMenu, TabBar,
-    TabBarHitTarget, ThemePicker, WorkspaceDefaultsDialog, WorkspaceDefaultsDraft,
+    ProjectMcpDialog, RawEventsClick, ReasoningSelector, RenameProjectDialog, SessionHeader,
+    SessionImportPicker, SettingsMenu, SettingsMenuEntry, SettingsMenuEntryId, Sidebar,
+    SidebarData, SlashMenu, TabBar, TabBarHitTarget, ThemePicker, WorkspaceDefaultsDialog,
+    WorkspaceDefaultsDraft,
     SIDEBAR_HEADER_ROWS,
 };
 use crate::effect::Effect;
@@ -2206,7 +2207,8 @@ impl App {
             | Action::OpenSettings
             | Action::ArchiveOrRemove
             | Action::ArchiveCurrentWorkspace
-            | Action::RenameProject => {
+            | Action::RenameProject
+            | Action::ManageProjectMcp => {
                 self.handle_dialog_action(action);
             }
 
@@ -3846,6 +3848,56 @@ impl App {
         self.sync_theme_to_active_tab();
         self.state
             .set_timed_footer_message("Project theme cleared".to_string(), Duration::from_secs(3));
+    }
+
+    fn detect_codex_project_mcp_servers(project_root: &std::path::Path) -> Vec<String> {
+        let path = project_root.join(".codex").join("config.toml");
+        let Ok(contents) = std::fs::read_to_string(path) else {
+            return Vec::new();
+        };
+        let Ok(value) = contents.parse::<toml::Value>() else {
+            return Vec::new();
+        };
+        let mut servers = value
+            .get("mcp_servers")
+            .and_then(toml::Value::as_table)
+            .map(|table| table.keys().cloned().collect::<Vec<_>>())
+            .unwrap_or_default();
+        servers.sort();
+        servers
+    }
+
+    fn detect_generic_project_mcp_servers(project_root: &std::path::Path) -> Vec<String> {
+        let path = project_root.join(".mcp.json");
+        let Ok(contents) = std::fs::read_to_string(path) else {
+            return Vec::new();
+        };
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(&contents) else {
+            return Vec::new();
+        };
+        let mut servers = value
+            .get("mcpServers")
+            .and_then(serde_json::Value::as_object)
+            .map(|table| table.keys().cloned().collect::<Vec<_>>())
+            .unwrap_or_default();
+        servers.sort();
+        servers
+    }
+
+    pub(super) fn project_mcp_summary(&self, project_root: Option<&std::path::Path>) -> String {
+        let Some(project_root) = project_root else {
+            return "Detected MCP config: project path unavailable".to_string();
+        };
+        let codex_servers = Self::detect_codex_project_mcp_servers(project_root);
+        let generic_servers = Self::detect_generic_project_mcp_servers(project_root);
+        match (codex_servers.len(), generic_servers.len()) {
+            (0, 0) => "Detected MCP config: none".to_string(),
+            (codex, 0) => format!("Detected MCP config: Codex {codex} server(s)"),
+            (0, generic) => format!("Detected MCP config: .mcp.json {generic} server(s)"),
+            (codex, generic) => {
+                format!("Detected MCP config: Codex {codex}, .mcp.json {generic}")
+            }
+        }
     }
 
     /// Execute a command from command mode
@@ -9514,10 +9566,27 @@ impl App {
             agent_prompt.clone()
         };
 
-        let mut config = AgentStartConfig::new(prompt_for_agent, working_dir)
+        let mut config = AgentStartConfig::new(prompt_for_agent, working_dir.clone())
             .with_tools(self.config().claude_allowed_tools.clone())
             .with_images(images)
             .with_agent_mode(agent_mode);
+
+        let project_mcp_enabled = self
+            .state
+            .tab_manager
+            .session(tab_index)
+            .and_then(|session| session.repository_id)
+            .and_then(|repo_id| self.repo_dao().and_then(|dao| dao.get_by_id(repo_id).ok().flatten()))
+            .map(|repo| repo.mcp_enabled)
+            .unwrap_or(true);
+        if agent_type == AgentType::Codex && !project_mcp_enabled {
+            for server_name in Self::detect_codex_project_mcp_servers(&working_dir) {
+                config = config.with_session_config_override(
+                    format!("mcp_servers.{server_name}.enabled"),
+                    serde_json::json!(false),
+                );
+            }
+        }
 
         if let Some(skill) = codex_skill {
             config = config.with_skill(skill);
@@ -11449,6 +11518,16 @@ impl App {
                             );
                         }
 
+                        if self.state.input_mode == InputMode::ProjectMcp
+                            || self.state.project_mcp_dialog_state.is_visible()
+                        {
+                            ProjectMcpDialog::new().render(
+                                right_area,
+                                f.buffer_mut(),
+                                &self.state.project_mcp_dialog_state,
+                            );
+                        }
+
                         // Draw workspace-creation dialogs (remote sync, issue/spec
                         // pickers, progress) — these can appear over the splash
                         // screen when the user starts a new workspace with no
@@ -11991,6 +12070,16 @@ impl App {
                 right_area,
                 f.buffer_mut(),
                 &self.state.rename_project_dialog_state,
+            );
+        }
+
+        if self.state.input_mode == InputMode::ProjectMcp
+            || self.state.project_mcp_dialog_state.is_visible()
+        {
+            ProjectMcpDialog::new().render(
+                right_area,
+                f.buffer_mut(),
+                &self.state.project_mcp_dialog_state,
             );
         }
 

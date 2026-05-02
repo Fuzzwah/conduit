@@ -115,6 +115,10 @@ impl App {
                     self.state.rename_project_dialog_state.hide();
                     self.state.input_mode = InputMode::SidebarNavigation;
                 }
+                InputMode::ProjectMcp => {
+                    self.state.project_mcp_dialog_state.hide();
+                    self.state.input_mode = InputMode::SidebarNavigation;
+                }
                 InputMode::SlashMenu => {
                     self.state.slash_menu_state.hide();
                     self.state.input_mode = InputMode::Normal;
@@ -243,6 +247,26 @@ impl App {
                                     .rename_project_dialog_state
                                     .show(repo_id, &repo.name);
                                 self.state.input_mode = InputMode::RenamingProject;
+                            }
+                        }
+                    }
+                }
+            }
+            Action::ManageProjectMcp if self.state.input_mode == InputMode::SidebarNavigation => {
+                let selected = self.state.sidebar_state.tree_state.selected;
+                if let Some(node) = self.state.sidebar_data.get_at(selected) {
+                    use crate::components::NodeType;
+                    if node.node_type == NodeType::Repository {
+                        let repo_id = node.id;
+                        if let Some(dao) = self.repo_dao() {
+                            if let Ok(Some(repo)) = dao.get_by_id(repo_id) {
+                                self.state.project_mcp_dialog_state.show(
+                                    repo_id,
+                                    repo.name,
+                                    repo.mcp_enabled,
+                                    self.project_mcp_summary(repo.base_path.as_deref()),
+                                );
+                                self.state.input_mode = InputMode::ProjectMcp;
                             }
                         }
                     }

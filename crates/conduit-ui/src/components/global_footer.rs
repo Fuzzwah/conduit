@@ -187,6 +187,7 @@ impl<'a> GlobalFooter<'a> {
             ("↑↓".to_string(), "navigate"),
             ("enter".to_string(), "select"),
             ("h/l".to_string(), "collapse/expand"),
+            ("M-S-m".to_string(), "mcp"),
             ("M-S-x".to_string(), "archive"),
             ("C-n".to_string(), "new project"),
             ("esc".to_string(), "exit"),

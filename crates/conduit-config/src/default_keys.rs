@@ -397,6 +397,7 @@ pub fn default_keybindings() -> KeybindingConfig {
     bind(sidebar, "s", Action::OpenSettings);
     bind(sidebar, "?", Action::ShowHelp);
     bind(sidebar, "M-S-r", Action::RenameProject);
+    bind(sidebar, "M-S-m", Action::ManageProjectMcp);
     bind(sidebar, "M-S-x", Action::ArchiveOrRemove);
     sidebar.insert(
         KeyCombo::new(KeyCode::PageUp, KeyModifiers::NONE),

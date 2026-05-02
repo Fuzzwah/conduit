@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::path::PathBuf;
 use tokio::sync::mpsc;
 
@@ -218,6 +219,8 @@ pub struct AgentStartConfig {
     pub stdin_payload: Option<String>,
     /// Optional structured skill reference for providers that support it.
     pub skill: Option<SkillReference>,
+    /// Optional per-session config overrides for providers that support them.
+    pub session_config_overrides: std::collections::HashMap<String, Value>,
 }
 
 impl AgentStartConfig {
@@ -236,6 +239,7 @@ impl AgentStartConfig {
             input_format: None,
             stdin_payload: None,
             skill: None,
+            session_config_overrides: std::collections::HashMap::new(),
         }
     }
 
@@ -286,6 +290,15 @@ impl AgentStartConfig {
 
     pub fn with_skill(mut self, skill: SkillReference) -> Self {
         self.skill = Some(skill);
+        self
+    }
+
+    pub fn with_session_config_override(
+        mut self,
+        key: impl Into<String>,
+        value: Value,
+    ) -> Self {
+        self.session_config_overrides.insert(key.into(), value);
         self
     }
 }

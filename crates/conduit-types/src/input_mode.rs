@@ -54,6 +54,8 @@ pub enum InputMode {
     WorkspaceDefaults,
     /// Renaming a project
     RenamingProject,
+    /// Managing MCP settings for a project
+    ProjectMcp,
     /// Browsing local filesystem to pick a source file (step 1 of add-file flow)
     FilePickerSource,
     /// Browsing repository directories to pick a copy destination (step 2 of add-file flow)

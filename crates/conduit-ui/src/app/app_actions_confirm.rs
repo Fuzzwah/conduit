@@ -346,6 +346,43 @@ impl App {
                     self.state.input_mode = InputMode::Normal;
                 }
             }
+            InputMode::ProjectMcp if self.state.project_mcp_dialog_state.activate_selected() => {
+                let repo_id = self.state.project_mcp_dialog_state.repo_id;
+                let mcp_enabled = self.state.project_mcp_dialog_state.mcp_enabled;
+                if let Some(repo_id) = repo_id {
+                    if let Some(dao) = self.repo_dao_clone() {
+                        match dao.get_by_id(repo_id) {
+                            Ok(Some(mut repo)) => {
+                                repo.mcp_enabled = mcp_enabled;
+                                match dao.update(&repo) {
+                                    Ok(()) => {
+                                        self.state.project_mcp_dialog_state.hide();
+                                        self.state.input_mode = InputMode::SidebarNavigation;
+                                        self.state.sidebar_state.set_focused(true);
+                                        self.state.set_timed_footer_message(
+                                            format!(
+                                                "Project MCP {}",
+                                                if mcp_enabled { "enabled" } else { "disabled" }
+                                            ),
+                                            std::time::Duration::from_secs(3),
+                                        );
+                                    }
+                                    Err(err) => {
+                                        self.show_error("Failed to Save", &err.to_string());
+                                    }
+                                }
+                            }
+                            Ok(None) => {
+                                self.show_error("Failed to Save", "Project not found.");
+                            }
+                            Err(err) => {
+                                self.show_error("Failed to Save", &err.to_string());
+                            }
+                        }
+                    }
+                }
+                return Ok(());
+            }
             InputMode::Confirming => {
                 if self.is_blocking_confirmation_loading_dialog() {
                     return Ok(());

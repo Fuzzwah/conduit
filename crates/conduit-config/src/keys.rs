@@ -235,7 +235,8 @@ impl KeyContext {
             | InputMode::CommandPalette
             | InputMode::SlashMenu
             | InputMode::FileMention
-            | InputMode::WorkspaceDefaults => return KeyContext::CommandPalette,
+            | InputMode::WorkspaceDefaults
+            | InputMode::ProjectMcp => return KeyContext::CommandPalette,
             InputMode::RenamingProject => return KeyContext::AddRepository,
             InputMode::FilePickerSource | InputMode::FilePickerDest | InputMode::ScpCommand => {
                 return KeyContext::Dialog;
