@@ -592,3 +592,9 @@ sidebar_in_tab_cycle = false
 ```
 
 When `false`, `Alt+Tab` wraps only between workspace tabs, restoring the previous behaviour.
+
+---
+
+## 60. Correct Prompt Wrap Width to Match Chat Area Margins
+
+The `prompt_render_width` calculation was subtracting 6/4 columns instead of the correct 10/8 (matching the left margin + right margin applied by `ChatView`). The result was wrap points 4 columns too wide, clipping the last few characters of wrapped lines. The subtracted values now mirror `ChatView::content_area` exactly.
