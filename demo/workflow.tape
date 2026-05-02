@@ -4,7 +4,7 @@ Set Width 1920
 Set Height 1080
 Set FontSize 13
 Set Theme "Dracula"
-Set PlaybackSpeed 2.0
+Set PlaybackSpeed 1.0
 Set TypingSpeed 60ms
 Set Shell "bash"
 Set WindowBar "Rings"
