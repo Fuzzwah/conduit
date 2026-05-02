@@ -147,6 +147,8 @@ pub struct UiConfig {
     pub show_chat_scrollbar: bool,
     /// Keep the sidebar always visible; Ctrl+T toggles focus instead of show/hide
     pub always_show_sidebar: bool,
+    /// Include the sidebar as a stop in the Alt+Tab workspace cycle (default: true)
+    pub sidebar_in_tab_cycle: bool,
     /// Show animated shimmer on the thinking indicator (default: true)
     pub thinking_indicator_shimmer: bool,
     /// Label shown in the thinking indicator (default: "Working")
@@ -165,6 +167,7 @@ pub struct TomlSelectionConfig {
 pub struct TomlUiConfig {
     pub show_chat_scrollbar: Option<bool>,
     pub always_show_sidebar: Option<bool>,
+    pub sidebar_in_tab_cycle: Option<bool>,
     pub thinking_indicator_shimmer: Option<bool>,
     pub thinking_indicator_label: Option<String>,
     pub thinking_indicator_spinner: Option<ThinkingSpinnerStyle>,
@@ -255,6 +258,7 @@ impl Default for Config {
             ui: UiConfig {
                 show_chat_scrollbar: false,
                 always_show_sidebar: false,
+                sidebar_in_tab_cycle: true,
                 thinking_indicator_shimmer: true,
                 thinking_indicator_label: "Working".to_string(),
                 thinking_indicator_spinner: ThinkingSpinnerStyle::Star,
@@ -923,6 +927,9 @@ impl Config {
                         }
                         if let Some(always_show_sidebar) = ui.always_show_sidebar {
                             config.ui.always_show_sidebar = always_show_sidebar;
+                        }
+                        if let Some(sidebar_in_tab_cycle) = ui.sidebar_in_tab_cycle {
+                            config.ui.sidebar_in_tab_cycle = sidebar_in_tab_cycle;
                         }
                         if let Some(thinking_indicator_shimmer) = ui.thinking_indicator_shimmer {
                             config.ui.thinking_indicator_shimmer = thinking_indicator_shimmer;

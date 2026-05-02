@@ -65,8 +65,24 @@ impl App {
                         self.sync_sidebar_to_active_tab();
                         self.sync_theme_to_active_tab();
                     }
+                } else if self.config().ui.sidebar_in_tab_cycle
+                    && self.state.tab_manager.active_index()
+                        == self.state.tab_manager.len().saturating_sub(1)
+                {
+                    // On last tab with sidebar in cycle — wrap to sidebar
+                    self.state.sidebar_state.show();
+                    self.state.sidebar_state.set_focused(true);
+                    self.state.input_mode = InputMode::SidebarNavigation;
+                    if let Some(session) = self.state.tab_manager.active_session() {
+                        if let Some(workspace_id) = session.workspace_id {
+                            if let Some(index) =
+                                self.state.sidebar_data.focus_workspace(workspace_id)
+                            {
+                                self.state.sidebar_state.tree_state.selected = index;
+                            }
+                        }
+                    }
                 } else {
-                    // Cycle through workspaces, wrapping around (sidebar not in cycle)
                     self.state.tab_manager.next_tab();
                     self.sync_input_mode_for_active_tab();
                     self.sync_sidebar_to_active_tab();
@@ -87,8 +103,23 @@ impl App {
                         self.sync_footer_spinner();
                         self.sync_theme_to_active_tab();
                     }
+                } else if self.config().ui.sidebar_in_tab_cycle
+                    && self.state.tab_manager.active_index() == 0
+                {
+                    // On first tab with sidebar in cycle — wrap to sidebar
+                    self.state.sidebar_state.show();
+                    self.state.sidebar_state.set_focused(true);
+                    self.state.input_mode = InputMode::SidebarNavigation;
+                    if let Some(session) = self.state.tab_manager.active_session() {
+                        if let Some(workspace_id) = session.workspace_id {
+                            if let Some(index) =
+                                self.state.sidebar_data.focus_workspace(workspace_id)
+                            {
+                                self.state.sidebar_state.tree_state.selected = index;
+                            }
+                        }
+                    }
                 } else {
-                    // Cycle through workspaces in reverse, wrapping around (sidebar not in cycle)
                     self.state.tab_manager.prev_tab();
                     self.sync_input_mode_for_active_tab();
                     self.sync_sidebar_to_active_tab();
