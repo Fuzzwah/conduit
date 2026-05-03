@@ -377,13 +377,32 @@ impl SessionManager {
 
     /// Stop a running session.
     pub async fn stop_session(&self, session_id: Uuid) -> Result<(), String> {
-        let mut sessions = self.sessions.write().await;
-        if let Some(session) = sessions.remove(&session_id) {
+        let (pid, pid_start_time) = {
+            let mut sessions = self.sessions.write().await;
+            let in_memory = sessions.remove(&session_id);
+            match in_memory {
+                Some(session) if session.pid.is_some() => (session.pid, session.pid_start_time),
+                _ => {
+                    // Not in the in-memory map (TUI-launched session) or no PID stored there —
+                    // fall back to the DB-persisted PID.
+                    let store = {
+                        let core = self.core.read().await;
+                        core.session_tab_store_clone()
+                    };
+                    match store.and_then(|s| s.get_by_id(session_id).ok().flatten()) {
+                        Some(tab) => (tab.agent_pid, tab.agent_pid_start_time),
+                        None => (None, None),
+                    }
+                }
+            }
+        };
+
+        if let Some(pid) = pid {
             #[cfg(unix)]
-            if let Some(pid) = session.pid {
+            {
                 let _ = conduit_util::process::terminate_process_tree(
                     pid,
-                    session.pid_start_time,
+                    pid_start_time,
                     "web_session_stop",
                     Duration::from_secs(2),
                     Duration::from_millis(50),
@@ -392,26 +411,24 @@ impl SessionManager {
             #[cfg(windows)]
             {
                 use std::process::Command;
-                if let Some(pid) = session.pid {
-                    match Command::new("taskkill")
-                        .args(["/PID", &pid.to_string(), "/F"])
-                        .status()
-                    {
-                        Ok(status) if status.success() => {}
-                        Ok(status) => {
-                            tracing::warn!(
-                                pid,
-                                exit_status = ?status.code(),
-                                "Failed to terminate session process with taskkill"
-                            );
-                        }
-                        Err(err) => {
-                            tracing::warn!(
-                                error = %err,
-                                pid,
-                                "Failed to execute taskkill for session process"
-                            );
-                        }
+                match Command::new("taskkill")
+                    .args(["/PID", &pid.to_string(), "/F"])
+                    .status()
+                {
+                    Ok(status) if status.success() => {}
+                    Ok(status) => {
+                        tracing::warn!(
+                            pid,
+                            exit_status = ?status.code(),
+                            "Failed to terminate session process with taskkill"
+                        );
+                    }
+                    Err(err) => {
+                        tracing::warn!(
+                            error = %err,
+                            pid,
+                            "Failed to execute taskkill for session process"
+                        );
                     }
                 }
             }
