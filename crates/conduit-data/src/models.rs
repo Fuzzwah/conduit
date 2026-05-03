@@ -224,6 +224,10 @@ pub struct SessionTab {
     pub title: Option<String>,
     /// Whether a title has already been generated and persisted
     pub title_generated: bool,
+    /// PID of the currently running agent process (None if not running)
+    pub agent_pid: Option<u32>,
+    /// Start time of the agent process, used to verify PID identity
+    pub agent_pid_start_time: Option<u64>,
 }
 
 impl SessionTab {
@@ -254,6 +258,8 @@ impl SessionTab {
             fork_seed_id: None,
             title: None,
             title_generated: false,
+            agent_pid: None,
+            agent_pid_start_time: None,
         }
     }
 }

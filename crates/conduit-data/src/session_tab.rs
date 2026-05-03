@@ -154,7 +154,7 @@ impl SessionTabStore {
         // sessions closed, but older DBs may still contain "open" sessions pointing at archived
         // workspaces.)
         let mut stmt = conn.prepare(
-            "SELECT st.id, st.tab_index, st.is_open, st.workspace_id, st.agent_type, st.agent_mode, st.agent_session_id, st.model, st.model_invalid, st.pr_number, st.created_at, st.pending_user_message, st.queued_messages, st.input_history, st.fork_seed_id, st.title, st.title_generated
+            "SELECT st.id, st.tab_index, st.is_open, st.workspace_id, st.agent_type, st.agent_mode, st.agent_session_id, st.model, st.model_invalid, st.pr_number, st.created_at, st.pending_user_message, st.queued_messages, st.input_history, st.fork_seed_id, st.title, st.title_generated, st.agent_pid, st.agent_pid_start_time
              FROM session_tabs st
              LEFT JOIN workspaces w ON st.workspace_id = w.id
              WHERE st.is_open = 1
@@ -177,7 +177,7 @@ impl SessionTabStore {
     pub fn get_by_id(&self, id: Uuid) -> SqliteResult<Option<SessionTab>> {
         let conn = self.lock_conn()?;
         let mut stmt = conn.prepare(
-            "SELECT id, tab_index, is_open, workspace_id, agent_type, agent_mode, agent_session_id, model, model_invalid, pr_number, created_at, pending_user_message, queued_messages, input_history, fork_seed_id, title, title_generated
+            "SELECT id, tab_index, is_open, workspace_id, agent_type, agent_mode, agent_session_id, model, model_invalid, pr_number, created_at, pending_user_message, queued_messages, input_history, fork_seed_id, title, title_generated, agent_pid, agent_pid_start_time
              FROM session_tabs WHERE id = ?1",
         )?;
 
@@ -255,7 +255,7 @@ impl SessionTabStore {
         workspace_id: Uuid,
     ) -> SqliteResult<Option<SessionTab>> {
         let mut stmt = conn.prepare(
-            "SELECT id, tab_index, is_open, workspace_id, agent_type, agent_mode, agent_session_id, model, model_invalid, pr_number, created_at, pending_user_message, queued_messages, input_history, fork_seed_id, title, title_generated
+            "SELECT id, tab_index, is_open, workspace_id, agent_type, agent_mode, agent_session_id, model, model_invalid, pr_number, created_at, pending_user_message, queued_messages, input_history, fork_seed_id, title, title_generated, agent_pid, agent_pid_start_time
              FROM session_tabs WHERE workspace_id = ?1 ORDER BY is_open DESC, created_at DESC LIMIT 1",
         )?;
 
@@ -277,7 +277,7 @@ impl SessionTabStore {
         workspace_id: Uuid,
     ) -> SqliteResult<Option<SessionTab>> {
         let mut stmt = conn.prepare(
-            "SELECT id, tab_index, is_open, workspace_id, agent_type, agent_mode, agent_session_id, model, model_invalid, pr_number, created_at, pending_user_message, queued_messages, input_history, fork_seed_id, title, title_generated
+            "SELECT id, tab_index, is_open, workspace_id, agent_type, agent_mode, agent_session_id, model, model_invalid, pr_number, created_at, pending_user_message, queued_messages, input_history, fork_seed_id, title, title_generated, agent_pid, agent_pid_start_time
              FROM session_tabs WHERE workspace_id = ?1 AND is_open = 1 ORDER BY created_at DESC LIMIT 1",
         )?;
 
@@ -401,7 +401,31 @@ impl SessionTabStore {
             fork_seed_id: fork_seed_id_str.and_then(|s| Uuid::parse_str(&s).ok()),
             title: row.get("title")?,
             title_generated: title_generated != 0,
+            agent_pid: row.get::<_, Option<i64>>("agent_pid")?.map(|v| v as u32),
+            agent_pid_start_time: row
+                .get::<_, Option<i64>>("agent_pid_start_time")?
+                .map(|v| v as u64),
         })
+    }
+
+    /// Set the active agent PID for a session tab.
+    pub fn set_agent_pid(&self, id: Uuid, pid: u32, start_time: Option<u64>) -> SqliteResult<()> {
+        let conn = self.lock_conn()?;
+        conn.execute(
+            "UPDATE session_tabs SET agent_pid = ?2, agent_pid_start_time = ?3 WHERE id = ?1",
+            params![id.to_string(), pid as i64, start_time.map(|t| t as i64),],
+        )?;
+        Ok(())
+    }
+
+    /// Clear the stored agent PID for a session tab.
+    pub fn clear_agent_pid(&self, id: Uuid) -> SqliteResult<()> {
+        let conn = self.lock_conn()?;
+        conn.execute(
+            "UPDATE session_tabs SET agent_pid = NULL, agent_pid_start_time = NULL WHERE id = ?1",
+            params![id.to_string()],
+        )?;
+        Ok(())
     }
 }
 

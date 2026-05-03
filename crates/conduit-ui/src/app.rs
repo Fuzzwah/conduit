@@ -1689,6 +1689,14 @@ impl App {
             self.spawn_agent_termination(pid, pid_start_time, "interrupt_agent", session_id, true);
         }
 
+        if let Some(sid) = session_id {
+            if let Some(store) = self.session_tab_dao() {
+                if let Err(e) = store.clear_agent_pid(sid) {
+                    tracing::warn!(error = %e, session_id = %sid, "Failed to clear agent PID");
+                }
+            }
+        }
+
         if was_processing {
             if let Some(session_id) = session_id {
                 if let Some(session) = self.state.tab_manager.session_by_id_mut(session_id) {
@@ -1829,8 +1837,10 @@ impl App {
     fn stop_agent_for_tab(&mut self, tab_index: usize) {
         let mut pid = None;
         let mut pid_start_time = None;
+        let mut session_id = None;
         {
             if let Some(session) = self.state.tab_manager.session_mut(tab_index) {
+                session_id = Some(session.id);
                 Self::flush_pending_agent_output(session);
                 if session.is_processing {
                     session.stop_processing();
@@ -1842,6 +1852,14 @@ impl App {
 
         if let Some(pid) = pid {
             self.spawn_agent_termination(pid, pid_start_time, "stop_agent_for_tab", None, false);
+        }
+
+        if let Some(sid) = session_id {
+            if let Some(store) = self.session_tab_dao() {
+                if let Err(e) = store.clear_agent_pid(sid) {
+                    tracing::warn!(error = %e, session_id = %sid, "Failed to clear agent PID");
+                }
+            }
         }
     }
 
@@ -7774,9 +7792,10 @@ impl App {
                     );
                     return Ok(effects);
                 };
+                let pid_start_time = conduit_util::process::pid_start_time(pid);
                 if let Some(session) = self.state.tab_manager.session_mut(tab_index) {
                     session.agent_pid = Some(pid);
-                    session.agent_pid_start_time = conduit_util::process::pid_start_time(pid);
+                    session.agent_pid_start_time = pid_start_time;
                     session.agent_input_tx = input_tx;
                     tracing::debug!(
                         session_id = %session_id,
@@ -7794,6 +7813,11 @@ impl App {
                                     .to_string(),
                         };
                         session.chat_view.push(display.to_chat_message());
+                    }
+                }
+                if let Some(store) = self.session_tab_dao() {
+                    if let Err(e) = store.set_agent_pid(session_id, pid, pid_start_time) {
+                        tracing::warn!(error = %e, %session_id, "Failed to persist agent PID");
                     }
                 }
             }
@@ -7875,6 +7899,12 @@ impl App {
                 // Only stop footer spinner if this was the active tab
                 if was_processing && is_active_tab {
                     self.state.stop_footer_spinner();
+                }
+
+                if let Some(store) = self.session_tab_dao() {
+                    if let Err(e) = store.clear_agent_pid(session_id) {
+                        tracing::warn!(error = %e, %session_id, "Failed to clear agent PID");
+                    }
                 }
 
                 match self.drain_queue_for_tab(tab_index) {
