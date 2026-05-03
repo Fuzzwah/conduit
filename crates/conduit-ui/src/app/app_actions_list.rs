@@ -47,8 +47,8 @@ impl App {
                 InputMode::WorkspaceDefaults => {
                     self.state.workspace_defaults_dialog_state.select_next();
                 }
-                InputMode::ProjectMcp => {
-                    self.state.project_mcp_dialog_state.select_next();
+                InputMode::ManageMcp => {
+                    self.state.mcp_dialog_state.select_next();
                 }
                 InputMode::SlashMenu => {
                     self.state.slash_menu_state.select_next();
@@ -105,8 +105,8 @@ impl App {
                 InputMode::WorkspaceDefaults => {
                     self.state.workspace_defaults_dialog_state.select_prev();
                 }
-                InputMode::ProjectMcp => {
-                    self.state.project_mcp_dialog_state.select_prev();
+                InputMode::ManageMcp => {
+                    self.state.mcp_dialog_state.select_prev();
                 }
                 InputMode::SlashMenu => {
                     self.state.slash_menu_state.select_prev();
@@ -121,6 +121,9 @@ impl App {
                 }
                 _ => {}
             },
+            Action::ToggleMcpScope if self.state.input_mode == InputMode::ManageMcp => {
+                self.state.mcp_dialog_state.toggle_scope();
+            }
             Action::SelectPageDown => {
                 if self.state.input_mode == InputMode::PickingProject {
                     self.state.project_picker_state.page_down();

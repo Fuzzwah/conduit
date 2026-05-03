@@ -19,11 +19,11 @@ mod keybindings_editor;
 mod knight_rider_spinner;
 mod logo_shine;
 mod markdown;
+mod mcp_dialog;
 mod missing_tool_dialog;
 mod model_selector;
 mod multi_select_dialog;
 mod path_input;
-mod project_mcp_dialog;
 mod project_picker;
 mod provider_selector;
 mod raw_events_types;
@@ -82,6 +82,7 @@ pub use keybindings_editor::{
 pub use knight_rider_spinner::KnightRiderSpinner;
 pub use logo_shine::{draw_startup_splash_animated, LogoShineAnimation};
 pub use markdown::MarkdownRenderer;
+pub use mcp_dialog::{McpDialog, McpDialogParams, McpDialogState, McpScope, McpServer, McpSource};
 pub use missing_tool_dialog::{
     MissingToolDialog, MissingToolDialogState, MissingToolResult, StartupToolDialog,
 };
@@ -90,7 +91,6 @@ pub use model_selector::{
 };
 pub use multi_select_dialog::{MultiSelectDialog, MultiSelectDialogState, MultiSelectItem};
 pub use path_input::PathInputState;
-pub use project_mcp_dialog::{ProjectMcpDialog, ProjectMcpDialogState};
 pub use project_picker::{ProjectEntry, ProjectPicker, ProjectPickerState};
 pub use provider_selector::{ProviderSelector, ProviderSelectorState};
 pub use raw_events_types::{

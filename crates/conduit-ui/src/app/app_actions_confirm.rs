@@ -346,37 +346,81 @@ impl App {
                     self.state.input_mode = InputMode::Normal;
                 }
             }
-            InputMode::ProjectMcp if self.state.project_mcp_dialog_state.activate_selected() => {
-                let repo_id = self.state.project_mcp_dialog_state.repo_id;
-                let mcp_enabled = self.state.project_mcp_dialog_state.mcp_enabled;
-                if let Some(repo_id) = repo_id {
-                    if let Some(dao) = self.repo_dao_clone() {
-                        match dao.get_by_id(repo_id) {
-                            Ok(Some(mut repo)) => {
-                                repo.mcp_enabled = mcp_enabled;
-                                match dao.update(&repo) {
-                                    Ok(()) => {
-                                        self.state.project_mcp_dialog_state.hide();
-                                        self.state.input_mode = InputMode::SidebarNavigation;
-                                        self.state.sidebar_state.set_focused(true);
-                                        self.state.set_timed_footer_message(
-                                            format!(
-                                                "Project MCP {}",
-                                                if mcp_enabled { "enabled" } else { "disabled" }
-                                            ),
-                                            std::time::Duration::from_secs(3),
-                                        );
+            InputMode::ManageMcp if self.state.mcp_dialog_state.activate_selected() => {
+                use crate::components::McpScope;
+                let scope = self.state.mcp_dialog_state.scope;
+                let repo_id = self.state.mcp_dialog_state.repo_id;
+                let workspace_id = self.state.mcp_dialog_state.workspace_id;
+                let disabled = self
+                    .state
+                    .mcp_dialog_state
+                    .disabled_servers_for_current_scope();
+                let return_mode = self.state.mcp_dialog_state.return_to_input_mode;
+
+                match scope {
+                    McpScope::Project => {
+                        if let Some(repo_id) = repo_id {
+                            if let Some(dao) = self.repo_dao_clone() {
+                                match dao.get_by_id(repo_id) {
+                                    Ok(Some(mut repo)) => {
+                                        repo.mcp_disabled_servers = disabled;
+                                        match dao.update(&repo) {
+                                            Ok(()) => {
+                                                self.state.mcp_dialog_state.hide();
+                                                self.state.input_mode = return_mode;
+                                                if return_mode == InputMode::SidebarNavigation {
+                                                    self.state.sidebar_state.set_focused(true);
+                                                }
+                                                self.state.set_timed_footer_message(
+                                                    "Project MCP updated".to_string(),
+                                                    std::time::Duration::from_secs(3),
+                                                );
+                                            }
+                                            Err(err) => {
+                                                self.show_error("Failed to Save", &err.to_string());
+                                            }
+                                        }
+                                    }
+                                    Ok(None) => {
+                                        self.show_error("Failed to Save", "Project not found.");
                                     }
                                     Err(err) => {
                                         self.show_error("Failed to Save", &err.to_string());
                                     }
                                 }
                             }
-                            Ok(None) => {
-                                self.show_error("Failed to Save", "Project not found.");
-                            }
-                            Err(err) => {
-                                self.show_error("Failed to Save", &err.to_string());
+                        }
+                    }
+                    McpScope::Workspace => {
+                        if let Some(ws_id) = workspace_id {
+                            if let Some(dao) = self.workspace_dao_clone() {
+                                match dao.get_by_id(ws_id) {
+                                    Ok(Some(mut ws)) => {
+                                        ws.mcp_disabled_servers = Some(disabled);
+                                        match dao.update(&ws) {
+                                            Ok(()) => {
+                                                self.state.mcp_dialog_state.hide();
+                                                self.state.input_mode = return_mode;
+                                                if return_mode == InputMode::SidebarNavigation {
+                                                    self.state.sidebar_state.set_focused(true);
+                                                }
+                                                self.state.set_timed_footer_message(
+                                                    "Workspace MCP updated".to_string(),
+                                                    std::time::Duration::from_secs(3),
+                                                );
+                                            }
+                                            Err(err) => {
+                                                self.show_error("Failed to Save", &err.to_string());
+                                            }
+                                        }
+                                    }
+                                    Ok(None) => {
+                                        self.show_error("Failed to Save", "Workspace not found.");
+                                    }
+                                    Err(err) => {
+                                        self.show_error("Failed to Save", &err.to_string());
+                                    }
+                                }
                             }
                         }
                     }

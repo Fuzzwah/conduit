@@ -624,6 +624,7 @@ fn context_display_name(ctx: KeyContext) -> &'static str {
         KeyContext::CommandPalette => "Command Palette",
         KeyContext::ThemePicker => "Theme Picker",
         KeyContext::QueueEditing => "Queue Editor",
+        KeyContext::McpDialog => "MCP Configuration",
     }
 }
 

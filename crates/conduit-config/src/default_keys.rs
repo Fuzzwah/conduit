@@ -221,6 +221,7 @@ pub fn default_keybindings() -> KeybindingConfig {
         KeyCombo::new(KeyCode::BackTab, KeyModifiers::SHIFT),
         Action::ToggleAgentMode,
     );
+    bind(chat, "M-S-m", Action::ManageMcp);
 
     // ========== Scrolling Mode ==========
     let scrolling = config.context.entry(KeyContext::Scrolling).or_default();
@@ -261,6 +262,7 @@ pub fn default_keybindings() -> KeybindingConfig {
     bind(scrolling, "i", Action::Cancel);
     bind(scrolling, "y", Action::CopyCodeBlock);
     bind(scrolling, "Y", Action::CopyCodeBlockPrev);
+    bind(scrolling, "M-S-m", Action::ManageMcp);
 
     // ========== File Viewer ==========
     let file_viewer = config.context.entry(KeyContext::FileViewer).or_default();
@@ -397,7 +399,7 @@ pub fn default_keybindings() -> KeybindingConfig {
     bind(sidebar, "s", Action::OpenSettings);
     bind(sidebar, "?", Action::ShowHelp);
     bind(sidebar, "M-S-r", Action::RenameProject);
-    bind(sidebar, "M-S-m", Action::ManageProjectMcp);
+    bind(sidebar, "M-S-m", Action::ManageMcp);
     bind(sidebar, "M-S-x", Action::ArchiveOrRemove);
     sidebar.insert(
         KeyCombo::new(KeyCode::PageUp, KeyModifiers::NONE),
@@ -795,6 +797,46 @@ pub fn default_keybindings() -> KeybindingConfig {
         Action::Confirm,
     );
     theme_picker.insert(
+        KeyCombo::new(KeyCode::Esc, KeyModifiers::NONE),
+        Action::Cancel,
+    );
+
+    // ========== MCP Configuration Dialog ==========
+    let mcp = config.context.entry(KeyContext::McpDialog).or_default();
+
+    mcp.insert(
+        KeyCombo::new(KeyCode::Up, KeyModifiers::NONE),
+        Action::SelectPrev,
+    );
+    mcp.insert(
+        KeyCombo::new(KeyCode::Down, KeyModifiers::NONE),
+        Action::SelectNext,
+    );
+    bind(mcp, "C-k", Action::SelectPrev);
+    bind(mcp, "C-j", Action::SelectNext);
+    bind(mcp, "C-p", Action::SelectPrev);
+    bind(mcp, "C-n", Action::SelectNext);
+    mcp.insert(
+        KeyCombo::new(KeyCode::Enter, KeyModifiers::NONE),
+        Action::Confirm,
+    );
+    mcp.insert(
+        KeyCombo::new(KeyCode::Left, KeyModifiers::NONE),
+        Action::ToggleMcpScope,
+    );
+    mcp.insert(
+        KeyCombo::new(KeyCode::Right, KeyModifiers::NONE),
+        Action::ToggleMcpScope,
+    );
+    mcp.insert(
+        KeyCombo::new(KeyCode::Tab, KeyModifiers::NONE),
+        Action::ToggleMcpScope,
+    );
+    mcp.insert(
+        KeyCombo::new(KeyCode::BackTab, KeyModifiers::NONE),
+        Action::ToggleMcpScope,
+    );
+    mcp.insert(
         KeyCombo::new(KeyCode::Esc, KeyModifiers::NONE),
         Action::Cancel,
     );
