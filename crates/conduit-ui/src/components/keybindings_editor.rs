@@ -346,6 +346,29 @@ fn visible_rows_count(dialog_height: u16) -> usize {
     (dialog_height.saturating_sub(chrome)) as usize
 }
 
+/// Derive the current tab-switch modifier prefix from the live keybinding config.
+///
+/// Looks up what `SwitchToTab(1)` is bound to in the global map and strips the
+/// trailing digit to recover the prefix (e.g. `"M-1"` → `"M-"`).
+pub fn derive_tab_prefix(live_config: &KeybindingConfig) -> String {
+    for (combo, action) in &live_config.global {
+        if *action == Action::SwitchToTab(1) {
+            let s = combo.to_string();
+            if s.ends_with('1') {
+                return s[..s.len() - 1].to_string();
+            }
+        }
+    }
+    "M-".to_string()
+}
+
+/// Format a tab-switch prefix for display in the keybinding editor key column.
+///
+/// `"M-"` → `"M-N"`, `"C-"` → `"C-N"`, `"C-M-"` → `"C-M-N"`, etc.
+pub fn format_prefix_for_display(prefix: &str) -> String {
+    format!("{prefix}N")
+}
+
 /// Build the full list of keybinding items from `default_keybindings()`,
 /// cross-referencing the live config to detect user overrides.
 pub fn build_keybinding_items(live_config: &KeybindingConfig) -> Vec<KeybindingItem> {
@@ -409,6 +432,25 @@ pub fn build_keybinding_items(live_config: &KeybindingConfig) -> Vec<KeybindingI
             action_name,
             action: action.clone(),
             action_label: action.description().to_string(),
+            current_key,
+            default_key,
+            is_user_override,
+        });
+    }
+
+    // Add the tab-switch prefix row (synthetic — not in default_keybindings).
+    {
+        let prefix = derive_tab_prefix(live_config);
+        let default_prefix = "M-".to_string();
+        let current_key = format_prefix_for_display(&prefix);
+        let default_key = format_prefix_for_display(&default_prefix);
+        let is_user_override = prefix != default_prefix;
+        items.push(KeybindingItem {
+            context: None,
+            context_label: "Global".to_string(),
+            action_name: "switch_to_tab_prefix",
+            action: Action::SwitchToTab(0),
+            action_label: "Switch to tab (1\u{2013}9)".to_string(),
             current_key,
             default_key,
             is_user_override,
@@ -746,10 +788,15 @@ impl KeybindingsEditor {
             }
         } else {
             let prompt = if let Some(item) = item {
-                format!(
-                    "Press the new key for: {}  ({})",
-                    item.action_label, item.context_label
-                )
+                if item.action_name == "switch_to_tab_prefix" {
+                    "Press modifier + digit 1\u{2013}9 (e.g. Alt+1) to set tab-switch prefix"
+                        .to_string()
+                } else {
+                    format!(
+                        "Press the new key for: {}  ({})",
+                        item.action_label, item.context_label
+                    )
+                }
             } else {
                 "Press the new key combination...".to_string()
             };
