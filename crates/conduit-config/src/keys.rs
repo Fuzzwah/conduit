@@ -152,6 +152,8 @@ pub enum KeyContext {
     ThemePicker,
     /// Queue editor (inline)
     QueueEditing,
+    /// MCP configuration dialog (per-server enable/disable with scope tabs)
+    McpDialog,
 }
 
 impl KeyContext {
@@ -174,6 +176,7 @@ impl KeyContext {
             KeyContext::CommandPalette,
             KeyContext::ThemePicker,
             KeyContext::QueueEditing,
+            KeyContext::McpDialog,
         ]
     }
 
@@ -201,7 +204,8 @@ impl KeyContext {
             | KeyContext::HelpDialog
             | KeyContext::SessionImport
             | KeyContext::CommandPalette
-            | KeyContext::ThemePicker => None,
+            | KeyContext::ThemePicker
+            | KeyContext::McpDialog => None,
         }
     }
 
@@ -231,12 +235,12 @@ impl KeyContext {
             InputMode::Command => return KeyContext::Command,
             InputMode::ShowingHelp => return KeyContext::HelpDialog,
             InputMode::ImportingSession => return KeyContext::SessionImport,
+            InputMode::ManageMcp => return KeyContext::McpDialog,
             InputMode::SettingsMenu
             | InputMode::CommandPalette
             | InputMode::SlashMenu
             | InputMode::FileMention
-            | InputMode::WorkspaceDefaults
-            | InputMode::ProjectMcp => return KeyContext::CommandPalette,
+            | InputMode::WorkspaceDefaults => return KeyContext::CommandPalette,
             InputMode::RenamingProject => return KeyContext::AddRepository,
             InputMode::FilePickerSource | InputMode::FilePickerDest | InputMode::ScpCommand => {
                 return KeyContext::Dialog;

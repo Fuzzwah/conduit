@@ -9,7 +9,7 @@ use crate::components::{
     AddRepoDialogState, AgentSelectorState, BaseDirDialogState, CommandPaletteState,
     ConfirmationDialogState, ErrorDialogState, FilePickerDialogState, HelpDialogState,
     IssuePickerState, KeybindingsEditorState, KnightRiderSpinner, LogoShineAnimation,
-    MissingToolDialogState, ModelSelectorState, ProjectMcpDialogState, ProjectPickerState,
+    McpDialogState, MissingToolDialogState, ModelSelectorState, ProjectPickerState,
     ProviderSelectorState, ReasoningSelectorState, RemoteSyncDialogState, RenameProjectDialogState,
     ScpCommandDialogState, SessionImportPickerState, SettingsMenuState, SidebarData, SidebarState,
     SlashMenuState, SpecPickerState, SpecifyPickerState, ThemePickerState,
@@ -187,7 +187,7 @@ pub struct AppState {
     pub file_mention_state: SlashMenuState,
     pub workspace_defaults_dialog_state: WorkspaceDefaultsDialogState,
     pub rename_project_dialog_state: RenameProjectDialogState,
-    pub project_mcp_dialog_state: ProjectMcpDialogState,
+    pub mcp_dialog_state: McpDialogState,
     pub file_picker_dialog_state: FilePickerDialogState,
     pub scp_command_dialog_state: ScpCommandDialogState,
     pub workspace_progress_dialog_state: WorkspaceProgressDialogState,
@@ -411,7 +411,7 @@ impl AppState {
             file_mention_state: SlashMenuState::new(),
             workspace_defaults_dialog_state: WorkspaceDefaultsDialogState::new(),
             rename_project_dialog_state: RenameProjectDialogState::new(),
-            project_mcp_dialog_state: ProjectMcpDialogState::new(),
+            mcp_dialog_state: McpDialogState::new(),
             file_picker_dialog_state: FilePickerDialogState::new(),
             scp_command_dialog_state: ScpCommandDialogState::default(),
             workspace_progress_dialog_state: WorkspaceProgressDialogState::new(),
@@ -487,7 +487,7 @@ impl AppState {
         self.file_mention_state.hide();
         self.workspace_defaults_dialog_state.hide();
         self.rename_project_dialog_state.hide();
-        self.project_mcp_dialog_state.hide();
+        self.mcp_dialog_state.hide();
         self.file_picker_dialog_state.hide();
         self.scp_command_dialog_state.hide();
         self.issue_picker_state.hide();
@@ -515,7 +515,7 @@ impl AppState {
             || self.file_mention_state.is_visible()
             || self.workspace_defaults_dialog_state.is_visible()
             || self.rename_project_dialog_state.is_visible()
-            || self.project_mcp_dialog_state.is_visible()
+            || self.mcp_dialog_state.is_visible()
             || self.file_picker_dialog_state.is_visible()
             || self.scp_command_dialog_state.visible
             || self.issue_picker_state.visible
