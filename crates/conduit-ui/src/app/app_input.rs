@@ -14,7 +14,10 @@ use crate::effect::Effect;
 use crate::events::{InputMode, ViewMode};
 use crate::terminal_guard::TerminalGuard;
 use conduit_agent::{AgentMode, AgentType, MessageDisplay};
-use conduit_config::{remove_keybinding, save_keybinding, Config, KeyCombo, KeyContext};
+use conduit_config::{
+    remove_keybinding, remove_tab_prefix, save_keybinding, save_tab_prefix, Config, KeyCombo,
+    KeyContext,
+};
 
 impl App {
     pub(super) async fn handle_input_event(
@@ -1780,6 +1783,11 @@ impl App {
 
         let item = self.state.keybindings_editor_state.items[item_idx].clone();
 
+        // Prefix row has its own capture logic — handle before normal flow.
+        if item.action_name == "switch_to_tab_prefix" {
+            return self.handle_tab_prefix_capture(key, item).await;
+        }
+
         // Enter while conflict is pending: steal the key from the conflicting action.
         if key.code == KeyCode::Enter {
             if let Some(conflict) = self.state.keybindings_editor_state.conflict_pending.take() {
@@ -1879,6 +1887,75 @@ impl App {
         self.state
             .keybindings_editor_state
             .set_status(format!("Saved: {key_str}"));
+        self.state.keybindings_editor_state.refresh_items(new_items);
+        self.state.keybindings_editor_state.cancel_capture();
+        self.state.input_mode = InputMode::KeybindingsEditor;
+        Ok(vec![])
+    }
+
+    async fn handle_tab_prefix_capture(
+        &mut self,
+        key: KeyEvent,
+        item: KeybindingItem,
+    ) -> anyhow::Result<Vec<Effect>> {
+        // Backspace/Delete: reset prefix to default.
+        let is_clear_key = matches!(key.code, KeyCode::Delete | KeyCode::Backspace);
+        if is_clear_key {
+            if item.is_user_override {
+                if let Err(e) = remove_tab_prefix() {
+                    self.state
+                        .keybindings_editor_state
+                        .set_status(format!("Error resetting: {e}"));
+                    self.state.keybindings_editor_state.cancel_capture();
+                    self.state.input_mode = InputMode::KeybindingsEditor;
+                    return Ok(vec![]);
+                }
+                self.config_mut().keybindings = Config::load().keybindings;
+                let new_items = build_keybinding_items(&self.config().keybindings);
+                self.state
+                    .keybindings_editor_state
+                    .set_status("Reset to default: M-N".to_string());
+                self.state.keybindings_editor_state.refresh_items(new_items);
+            }
+            self.state.keybindings_editor_state.cancel_capture();
+            self.state.input_mode = InputMode::KeybindingsEditor;
+            return Ok(vec![]);
+        }
+
+        let combo = KeyCombo::from_key_event(&key);
+        let key_str = combo.to_string();
+
+        // The captured key must end in a digit 1–9.
+        let Some(digit_char) = key_str.chars().last() else {
+            self.state
+                .keybindings_editor_state
+                .set_status("Must press modifier + digit 1\u{2013}9 (e.g. Alt+1)".to_string());
+            return Ok(vec![]);
+        };
+        if !matches!(digit_char, '1'..='9') {
+            self.state
+                .keybindings_editor_state
+                .set_status("Must press modifier + digit 1\u{2013}9 (e.g. Alt+1)".to_string());
+            return Ok(vec![]);
+        }
+
+        // Strip the trailing digit to get the prefix (e.g. "C-1" → "C-").
+        let prefix = &key_str[..key_str.len() - 1];
+
+        if let Err(e) = save_tab_prefix(prefix) {
+            self.state
+                .keybindings_editor_state
+                .set_status(format!("Error saving: {e}"));
+            self.state.keybindings_editor_state.cancel_capture();
+            self.state.input_mode = InputMode::KeybindingsEditor;
+            return Ok(vec![]);
+        }
+
+        self.config_mut().keybindings = Config::load().keybindings;
+        let new_items = build_keybinding_items(&self.config().keybindings);
+        self.state
+            .keybindings_editor_state
+            .set_status(format!("Saved: {prefix}N"));
         self.state.keybindings_editor_state.refresh_items(new_items);
         self.state.keybindings_editor_state.cancel_capture();
         self.state.input_mode = InputMode::KeybindingsEditor;

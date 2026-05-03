@@ -361,9 +361,19 @@ impl TomlKeybindings {
     fn to_keybinding_config(&self) -> KeybindingConfig {
         let mut config = KeybindingConfig::new();
 
+        // If user set a custom tab-switch prefix, generate the nine SwitchToTab bindings.
+        if let Some(prefix) = self.global.get("switch_to_tab_prefix") {
+            for i in 1..=9u8 {
+                let key = format!("{}{}", prefix, i);
+                if let Ok(combo) = parse_key_notation(&key) {
+                    config.global.insert(combo, Action::SwitchToTab(i));
+                }
+            }
+        }
+
         // Parse global bindings
         for (action_name, key_str) in &self.global {
-            // Skip context sections (they're handled separately)
+            // Skip context sections and special prefix keys (handled separately)
             if matches!(
                 action_name.as_str(),
                 "chat"
@@ -376,6 +386,7 @@ impl TomlKeybindings {
                     | "base_dir"
                     | "raw_events"
                     | "queue"
+                    | "switch_to_tab_prefix"
             ) {
                 continue;
             }
@@ -1368,6 +1379,56 @@ pub fn save_keybinding(
 
     fs::write(&config_file, doc.to_string())?;
 
+    Ok(())
+}
+
+/// Save the tab-switch modifier prefix to `[keys] switch_to_tab_prefix` in the config file.
+pub fn save_tab_prefix(prefix: &str) -> std::io::Result<()> {
+    let config_file = config_path();
+
+    let contents = if config_file.exists() {
+        fs::read_to_string(&config_file)?
+    } else {
+        String::new()
+    };
+
+    let mut doc: DocumentMut = contents
+        .parse()
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
+    if !doc.contains_key("keys") {
+        doc["keys"] = Item::Table(Table::new());
+    }
+    doc["keys"]["switch_to_tab_prefix"] = toml_edit::value(prefix);
+
+    if let Some(parent) = config_file.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent)?;
+        }
+    }
+
+    fs::write(&config_file, doc.to_string())?;
+    Ok(())
+}
+
+/// Remove the `switch_to_tab_prefix` key from the config file, restoring the default Alt+1–9.
+pub fn remove_tab_prefix() -> std::io::Result<()> {
+    let config_file = config_path();
+
+    if !config_file.exists() {
+        return Ok(());
+    }
+
+    let contents = fs::read_to_string(&config_file)?;
+    let mut doc: DocumentMut = contents
+        .parse()
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
+    if let Some(Item::Table(keys_table)) = doc.get_mut("keys") {
+        keys_table.remove("switch_to_tab_prefix");
+    }
+
+    fs::write(&config_file, doc.to_string())?;
     Ok(())
 }
 
