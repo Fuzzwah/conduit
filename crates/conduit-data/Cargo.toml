@@ -11,8 +11,8 @@ description = "Conduit SQLite-backed persistence for repositories, workspaces, a
 path = "src/lib.rs"
 
 [dependencies]
-conduit-agent = { workspace = true }
 conduit-git = { workspace = true }
+conduit-types = { workspace = true }
 conduit-util = { workspace = true }
 
 chrono = { workspace = true }

@@ -2,7 +2,7 @@
 
 use super::models::ForkSeed;
 use chrono::{DateTime, Utc};
-use conduit_agent::AgentType;
+use conduit_types::AgentType;
 use rusqlite::{params, Connection, Result as SqliteResult};
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;

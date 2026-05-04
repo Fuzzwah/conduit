@@ -11,7 +11,7 @@ description = "Conduit external session discovery and caching"
 path = "src/lib.rs"
 
 [dependencies]
-conduit-agent = { workspace = true }
+conduit-types = { workspace = true }
 conduit-util = { workspace = true }
 
 anyhow = { workspace = true }

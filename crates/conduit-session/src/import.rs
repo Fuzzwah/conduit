@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::warn;
 
-use conduit_agent::AgentType;
+use conduit_types::AgentType;
 
 use crate::cache::{get_file_mtime, SessionCache};
 

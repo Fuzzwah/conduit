@@ -824,8 +824,8 @@ name = "conduit-data"
 version = "0.5.1"
 dependencies = [
  "chrono",
- "conduit-agent",
  "conduit-git",
+ "conduit-types",
  "conduit-util",
  "rusqlite",
  "serde",
@@ -854,7 +854,6 @@ dependencies = [
 name = "conduit-resolver"
 version = "0.5.1"
 dependencies = [
- "conduit-agent",
  "conduit-types",
  "dirs",
  "serde",
@@ -869,7 +868,7 @@ version = "0.5.1"
 dependencies = [
  "anyhow",
  "chrono",
- "conduit-agent",
+ "conduit-types",
  "conduit-util",
  "dirs",
  "serde",
