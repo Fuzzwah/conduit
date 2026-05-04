@@ -64,6 +64,8 @@ CREATE TABLE IF NOT EXISTS session_tabs (
     fork_seed_id TEXT,
     title TEXT,
     title_generated INTEGER NOT NULL DEFAULT 0,
+    agent_pid INTEGER,
+    agent_pid_start_time INTEGER,
     FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL
 );
 
@@ -585,7 +587,77 @@ CREATE TABLE IF NOT EXISTS fork_seeds_new (
             )?;
         }
 
-        // Migration 18: Add active_change_id and active_issue_number to workspaces.
+        // Migration 18: Add agent PID columns to session_tabs for cross-path process cleanup.
+        let has_agent_pid: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('session_tabs') WHERE name='agent_pid'",
+                [],
+                |row| row.get::<_, i64>(0).map(|c| c > 0),
+            )
+            .unwrap_or(false);
+
+        if !has_agent_pid {
+            conn.execute("ALTER TABLE session_tabs ADD COLUMN agent_pid INTEGER", [])?;
+        }
+
+        let has_agent_pid_start_time: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('session_tabs') WHERE name='agent_pid_start_time'",
+                [],
+                |row| row.get::<_, i64>(0).map(|c| c > 0),
+            )
+            .unwrap_or(false);
+
+        if !has_agent_pid_start_time {
+            conn.execute(
+                "ALTER TABLE session_tabs ADD COLUMN agent_pid_start_time INTEGER",
+                [],
+            )?;
+        }
+
+        // Migration 19: Replace coarse mcp_enabled bool with per-server JSON disabled list on
+        // both repositories and workspaces. Workspace column is nullable (NULL = inherit project).
+        let has_repo_mcp_disabled: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('repositories') WHERE name='mcp_disabled_servers'",
+                [],
+                |row| row.get::<_, i64>(0).map(|c| c > 0),
+            )
+            .unwrap_or(false);
+
+        if !has_repo_mcp_disabled {
+            conn.execute(
+                "ALTER TABLE repositories ADD COLUMN mcp_disabled_servers TEXT NOT NULL DEFAULT '[]'",
+                [],
+            )?;
+            let has_old_mcp_enabled: bool = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM pragma_table_info('repositories') WHERE name='mcp_enabled'",
+                    [],
+                    |row| row.get::<_, i64>(0).map(|c| c > 0),
+                )
+                .unwrap_or(false);
+            if has_old_mcp_enabled {
+                conn.execute("ALTER TABLE repositories DROP COLUMN mcp_enabled", [])?;
+            }
+        }
+
+        let has_ws_mcp_disabled: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('workspaces') WHERE name='mcp_disabled_servers'",
+                [],
+                |row| row.get::<_, i64>(0).map(|c| c > 0),
+            )
+            .unwrap_or(false);
+
+        if !has_ws_mcp_disabled {
+            conn.execute(
+                "ALTER TABLE workspaces ADD COLUMN mcp_disabled_servers TEXT",
+                [],
+            )?;
+        }
+
+        // Migration 20: Add active_change_id and active_issue_number to workspaces.
         let has_active_change_id: bool = conn
             .query_row(
                 "SELECT COUNT(*) FROM pragma_table_info('workspaces') WHERE name='active_change_id'",

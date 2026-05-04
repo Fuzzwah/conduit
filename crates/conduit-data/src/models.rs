@@ -56,8 +56,8 @@ pub struct Repository {
     pub archive_delete_branch: Option<bool>,
     /// Whether to prompt for remote deletion on archive (None = config default)
     pub archive_remote_prompt: Option<bool>,
-    /// Whether project MCP integrations are enabled for supported agents
-    pub mcp_enabled: bool,
+    /// MCP server names that are disabled for this project (empty = all enabled)
+    pub mcp_disabled_servers: Vec<String>,
     /// When the repository was added
     pub created_at: DateTime<Utc>,
     /// Last time the repository was modified
@@ -78,7 +78,7 @@ impl Repository {
             workspace_mode: None,
             archive_delete_branch: None,
             archive_remote_prompt: None,
-            mcp_enabled: true,
+            mcp_disabled_servers: Vec::new(),
             created_at: now,
             updated_at: now,
             theme_name: None,
@@ -96,7 +96,7 @@ impl Repository {
             workspace_mode: None,
             archive_delete_branch: None,
             archive_remote_prompt: None,
-            mcp_enabled: true,
+            mcp_disabled_servers: Vec::new(),
             created_at: now,
             updated_at: now,
             theme_name: None,
@@ -143,6 +143,8 @@ pub struct Workspace {
     pub active_change_id: Option<String>,
     /// Linked GitHub issue number (populated at creation or inferred at Work Complete preflight)
     pub active_issue_number: Option<i32>,
+    /// MCP server names disabled for this workspace (None = inherit project config)
+    pub mcp_disabled_servers: Option<Vec<String>>,
 }
 
 impl Workspace {
@@ -167,6 +169,7 @@ impl Workspace {
             archived_commit_sha: None,
             active_change_id: None,
             active_issue_number: None,
+            mcp_disabled_servers: None,
         }
     }
 
@@ -240,6 +243,10 @@ pub struct SessionTab {
     pub title: Option<String>,
     /// Whether a title has already been generated and persisted
     pub title_generated: bool,
+    /// PID of the currently running agent process (None if not running)
+    pub agent_pid: Option<u32>,
+    /// Start time of the agent process, used to verify PID identity
+    pub agent_pid_start_time: Option<u64>,
 }
 
 impl SessionTab {
@@ -270,6 +277,8 @@ impl SessionTab {
             fork_seed_id: None,
             title: None,
             title_generated: false,
+            agent_pid: None,
+            agent_pid_start_time: None,
         }
     }
 }

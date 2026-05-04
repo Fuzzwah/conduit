@@ -42,11 +42,11 @@ use crate::components::{
     build_keybinding_items, dialog_content_area, AddRepoDialog, AgentSelector, BaseDirDialog,
     ChatMessage, CommandPalette, ConfirmationContext, ConfirmationDialog, ConfirmationType,
     DefaultModelSelection, ErrorDialog, EventDirection, GlobalFooter, HelpDialog,
-    InlinePromptState, InlinePromptType, KeybindingsEditor, MessageRole, MissingToolDialog,
-    ModelSelector, ProcessingState, ProjectEntry, ProjectMcpDialog, ProjectPicker, PromptAnswer,
-    ProviderSelector, RawEventsClick, ReasoningSelector, RenameProjectDialog, SessionHeader,
-    SessionImportPicker, SettingsMenu, SettingsMenuEntry, SettingsMenuEntryId, Sidebar,
-    SidebarData, SlashMenu, TabBar, TabBarHitTarget, ThemePicker, WorkspaceDefaultsDialog,
+    InlinePromptState, InlinePromptType, KeybindingsEditor, McpDialog, McpServer, McpSource,
+    MessageRole, MissingToolDialog, ModelSelector, ProcessingState, ProjectEntry, ProjectPicker,
+    PromptAnswer, ProviderSelector, RawEventsClick, ReasoningSelector, RenameProjectDialog,
+    SessionHeader, SessionImportPicker, SettingsMenu, SettingsMenuEntry, SettingsMenuEntryId,
+    Sidebar, SidebarData, SlashMenu, TabBar, TabBarHitTarget, ThemePicker, WorkspaceDefaultsDialog,
     WorkspaceDefaultsDraft, SIDEBAR_HEADER_ROWS,
 };
 use crate::effect::Effect;
@@ -1675,6 +1675,14 @@ impl App {
             self.spawn_agent_termination(pid, pid_start_time, "interrupt_agent", session_id, true);
         }
 
+        if let Some(sid) = session_id {
+            if let Some(store) = self.session_tab_dao() {
+                if let Err(e) = store.clear_agent_pid(sid) {
+                    tracing::warn!(error = %e, session_id = %sid, "Failed to clear agent PID");
+                }
+            }
+        }
+
         if was_processing {
             if let Some(session_id) = session_id {
                 if let Some(session) = self.state.tab_manager.session_by_id_mut(session_id) {
@@ -1815,8 +1823,10 @@ impl App {
     fn stop_agent_for_tab(&mut self, tab_index: usize) {
         let mut pid = None;
         let mut pid_start_time = None;
+        let mut session_id = None;
         {
             if let Some(session) = self.state.tab_manager.session_mut(tab_index) {
+                session_id = Some(session.id);
                 Self::flush_pending_agent_output(session);
                 if session.is_processing {
                     session.stop_processing();
@@ -1828,6 +1838,14 @@ impl App {
 
         if let Some(pid) = pid {
             self.spawn_agent_termination(pid, pid_start_time, "stop_agent_for_tab", None, false);
+        }
+
+        if let Some(sid) = session_id {
+            if let Some(store) = self.session_tab_dao() {
+                if let Err(e) = store.clear_agent_pid(sid) {
+                    tracing::warn!(error = %e, session_id = %sid, "Failed to clear agent PID");
+                }
+            }
         }
     }
 
@@ -2074,7 +2092,8 @@ impl App {
             Action::SelectNext
             | Action::SelectPrev
             | Action::SelectPageDown
-            | Action::SelectPageUp => {
+            | Action::SelectPageUp
+            | Action::ToggleMcpScope => {
                 self.handle_list_action(action);
             }
             Action::Confirm => {
@@ -2193,7 +2212,7 @@ impl App {
             | Action::ArchiveOrRemove
             | Action::CompleteWorkspaceWork
             | Action::RenameProject
-            | Action::ManageProjectMcp => {
+            | Action::ManageMcp => {
                 self.handle_dialog_action(action);
             }
 
@@ -3671,7 +3690,9 @@ impl App {
             .set_timed_footer_message("Project theme cleared".to_string(), Duration::from_secs(3));
     }
 
-    fn detect_codex_project_mcp_servers(project_root: &std::path::Path) -> Vec<String> {
+    fn detect_codex_project_mcp_servers(
+        project_root: &std::path::Path,
+    ) -> Vec<(String, McpSource)> {
         let path = project_root.join(".codex").join("config.toml");
         let Ok(contents) = std::fs::read_to_string(path) else {
             return Vec::new();
@@ -3679,16 +3700,21 @@ impl App {
         let Ok(value) = contents.parse::<toml::Value>() else {
             return Vec::new();
         };
-        let mut servers = value
+        let mut servers: Vec<String> = value
             .get("mcp_servers")
             .and_then(toml::Value::as_table)
-            .map(|table| table.keys().cloned().collect::<Vec<_>>())
+            .map(|table| table.keys().cloned().collect())
             .unwrap_or_default();
         servers.sort();
         servers
+            .into_iter()
+            .map(|name| (name, McpSource::Codex))
+            .collect()
     }
 
-    fn detect_generic_project_mcp_servers(project_root: &std::path::Path) -> Vec<String> {
+    fn detect_generic_project_mcp_servers(
+        project_root: &std::path::Path,
+    ) -> Vec<(String, McpSource)> {
         let path = project_root.join(".mcp.json");
         let Ok(contents) = std::fs::read_to_string(path) else {
             return Vec::new();
@@ -3696,42 +3722,58 @@ impl App {
         let Ok(value) = serde_json::from_str::<serde_json::Value>(&contents) else {
             return Vec::new();
         };
-        let mut servers = value
+        let mut servers: Vec<String> = value
             .get("mcpServers")
             .and_then(serde_json::Value::as_object)
-            .map(|table| table.keys().cloned().collect::<Vec<_>>())
+            .map(|table| table.keys().cloned().collect())
             .unwrap_or_default();
         servers.sort();
         servers
+            .into_iter()
+            .map(|name| (name, McpSource::McpJson))
+            .collect()
     }
 
-    fn repository_mcp_enabled(&self, repo_id: uuid::Uuid) -> bool {
-        self.repo_dao()
-            .and_then(|dao| dao.get_by_id(repo_id).ok().flatten())
-            .map(|repo| repo.mcp_enabled)
-            .unwrap_or(true)
+    pub(super) fn detect_all_mcp_servers(project_root: &std::path::Path) -> Vec<McpServer> {
+        let mut servers = Self::detect_codex_project_mcp_servers(project_root);
+        servers.extend(Self::detect_generic_project_mcp_servers(project_root));
+        servers
+            .into_iter()
+            .map(|(name, source)| McpServer {
+                name,
+                source,
+                enabled: true,
+            })
+            .collect()
+    }
+
+    fn resolve_disabled_servers(
+        repo: &conduit_data::Repository,
+        workspace: Option<&conduit_data::Workspace>,
+    ) -> Vec<String> {
+        match workspace.and_then(|w| w.mcp_disabled_servers.as_ref()) {
+            Some(ws_list) => ws_list.clone(),
+            None => repo.mcp_disabled_servers.clone(),
+        }
+    }
+
+    fn extract_mcp_server_name(tool_name: &str) -> Option<&str> {
+        if let Some(rest) = tool_name.strip_prefix("mcp__") {
+            return rest.split("__").next();
+        }
+        if let Some(rest) = tool_name.strip_prefix("mcp:") {
+            return rest.split(':').next();
+        }
+        if let Some(rest) = tool_name.strip_prefix("mcp/") {
+            return rest.split('/').next();
+        }
+        None
     }
 
     fn is_claude_mcp_tool_name(tool_name: &str) -> bool {
         tool_name.starts_with("mcp__")
             || tool_name.starts_with("mcp:")
             || tool_name.starts_with("mcp/")
-    }
-
-    pub(super) fn project_mcp_summary(&self, project_root: Option<&std::path::Path>) -> String {
-        let Some(project_root) = project_root else {
-            return "Detected MCP config: project path unavailable".to_string();
-        };
-        let codex_servers = Self::detect_codex_project_mcp_servers(project_root);
-        let generic_servers = Self::detect_generic_project_mcp_servers(project_root);
-        match (codex_servers.len(), generic_servers.len()) {
-            (0, 0) => "Detected MCP config: none".to_string(),
-            (codex, 0) => format!("Detected MCP config: Codex {codex} server(s)"),
-            (0, generic) => format!("Detected MCP config: .mcp.json {generic} server(s)"),
-            (codex, generic) => {
-                format!("Detected MCP config: Codex {codex}, .mcp.json {generic}")
-            }
-        }
     }
 
     /// Execute a command from command mode
@@ -7359,9 +7401,10 @@ impl App {
                     );
                     return Ok(effects);
                 };
+                let pid_start_time = conduit_util::process::pid_start_time(pid);
                 if let Some(session) = self.state.tab_manager.session_mut(tab_index) {
                     session.agent_pid = Some(pid);
-                    session.agent_pid_start_time = conduit_util::process::pid_start_time(pid);
+                    session.agent_pid_start_time = pid_start_time;
                     session.agent_input_tx = input_tx;
                     tracing::debug!(
                         session_id = %session_id,
@@ -7379,6 +7422,11 @@ impl App {
                                     .to_string(),
                         };
                         session.chat_view.push(display.to_chat_message());
+                    }
+                }
+                if let Some(store) = self.session_tab_dao() {
+                    if let Err(e) = store.set_agent_pid(session_id, pid, pid_start_time) {
+                        tracing::warn!(error = %e, %session_id, "Failed to persist agent PID");
                     }
                 }
             }
@@ -7460,6 +7508,12 @@ impl App {
                 // Only stop footer spinner if this was the active tab
                 if was_processing && is_active_tab {
                     self.state.stop_footer_spinner();
+                }
+
+                if let Some(store) = self.session_tab_dao() {
+                    if let Err(e) = store.clear_agent_pid(session_id) {
+                        tracing::warn!(error = %e, %session_id, "Failed to clear agent PID");
+                    }
                 }
 
                 match self.drain_queue_for_tab(tab_index) {
@@ -7793,6 +7847,7 @@ impl App {
         let mut should_drain_queue = false;
         let mut pending_observed_context_window: Option<(AgentType, String, i64)> = None;
         let repo_dao = self.repo_dao_clone();
+        let workspace_dao = self.workspace_dao_clone();
 
         {
             let Some(session) = self.state.tab_manager.session_mut(tab_index) else {
@@ -8031,20 +8086,37 @@ impl App {
                     }
                 }
                 AgentEvent::ControlRequest(request) => {
-                    let project_mcp_disabled = session
-                        .repository_id
-                        .and_then(|repo_id| {
-                            repo_dao
-                                .as_ref()
-                                .and_then(|dao| dao.get_by_id(repo_id).ok().flatten())
-                        })
-                        .is_some_and(|repo| !repo.mcp_enabled);
-                    if session.agent_type == AgentType::Claude
-                        && project_mcp_disabled
+                    let mcp_server_disabled = if session.agent_type == AgentType::Claude
                         && Self::is_claude_mcp_tool_name(&request.tool_name)
                     {
+                        if let Some(server_name) = Self::extract_mcp_server_name(&request.tool_name)
+                        {
+                            let repo = session.repository_id.and_then(|repo_id| {
+                                repo_dao
+                                    .as_ref()
+                                    .and_then(|dao| dao.get_by_id(repo_id).ok().flatten())
+                            });
+                            let workspace = session.workspace_id.and_then(|ws_id| {
+                                workspace_dao
+                                    .as_ref()
+                                    .and_then(|dao| dao.get_by_id(ws_id).ok().flatten())
+                            });
+                            repo.as_ref().is_some_and(|r| {
+                                Self::resolve_disabled_servers(r, workspace.as_ref())
+                                    .iter()
+                                    .any(|s| s == server_name)
+                            })
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    };
+                    if mcp_server_disabled {
+                        let server_name =
+                            Self::extract_mcp_server_name(&request.tool_name).unwrap_or("unknown");
                         let response_payload = Self::build_permission_deny_response(
-                            "Project MCP is disabled for this repository.".to_string(),
+                            format!("MCP server '{server_name}' is disabled for this workspace."),
                             request.tool_use_id.as_deref(),
                         );
                         if let Some(ref input_tx) = session.agent_input_tx {
@@ -9203,15 +9275,40 @@ impl App {
             agent_prompt.clone()
         };
 
-        let project_mcp_enabled = self
-            .state
-            .tab_manager
-            .session(tab_index)
-            .and_then(|session| session.repository_id)
-            .map(|repo_id| self.repository_mcp_enabled(repo_id))
-            .unwrap_or(true);
-        let disabled_codex_mcp_servers = if agent_type == AgentType::Codex && !project_mcp_enabled {
-            Self::detect_codex_project_mcp_servers(&working_dir)
+        let disabled_codex_mcp_servers: Vec<String> = if agent_type == AgentType::Codex {
+            let repo = self
+                .state
+                .tab_manager
+                .session(tab_index)
+                .and_then(|s| s.repository_id)
+                .and_then(|repo_id| {
+                    self.repo_dao()
+                        .and_then(|dao| dao.get_by_id(repo_id).ok().flatten())
+                });
+            let workspace = self
+                .state
+                .tab_manager
+                .session(tab_index)
+                .and_then(|s| s.workspace_id)
+                .and_then(|ws_id| {
+                    self.workspace_dao()
+                        .and_then(|dao| dao.get_by_id(ws_id).ok().flatten())
+                });
+            if let Some(ref repo) = repo {
+                let effective_disabled = Self::resolve_disabled_servers(repo, workspace.as_ref());
+                Self::detect_codex_project_mcp_servers(&working_dir)
+                    .into_iter()
+                    .filter_map(|(name, _)| {
+                        if effective_disabled.contains(&name) {
+                            Some(name)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            }
         } else {
             Vec::new()
         };
@@ -11158,13 +11255,13 @@ impl App {
                             );
                         }
 
-                        if self.state.input_mode == InputMode::ProjectMcp
-                            || self.state.project_mcp_dialog_state.is_visible()
+                        if self.state.input_mode == InputMode::ManageMcp
+                            || self.state.mcp_dialog_state.is_visible()
                         {
-                            ProjectMcpDialog::new().render(
+                            McpDialog::new().render(
                                 right_area,
                                 f.buffer_mut(),
-                                &self.state.project_mcp_dialog_state,
+                                &self.state.mcp_dialog_state,
                             );
                         }
 
@@ -11713,14 +11810,9 @@ impl App {
             );
         }
 
-        if self.state.input_mode == InputMode::ProjectMcp
-            || self.state.project_mcp_dialog_state.is_visible()
+        if self.state.input_mode == InputMode::ManageMcp || self.state.mcp_dialog_state.is_visible()
         {
-            ProjectMcpDialog::new().render(
-                right_area,
-                f.buffer_mut(),
-                &self.state.project_mcp_dialog_state,
-            );
+            McpDialog::new().render(right_area, f.buffer_mut(), &self.state.mcp_dialog_state);
         }
 
         if self.state.file_picker_dialog_state.is_visible() {

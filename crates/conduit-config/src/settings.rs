@@ -531,7 +531,8 @@ pub fn parse_action(name: &str) -> Option<Action> {
         "archive_or_remove" => Some(Action::ArchiveOrRemove),
         "project_move_up" => Some(Action::ProjectMoveUp),
         "project_move_down" => Some(Action::ProjectMoveDown),
-        "manage_project_mcp" => Some(Action::ManageProjectMcp),
+        "manage_mcp" => Some(Action::ManageMcp),
+        "toggle_mcp_scope" => Some(Action::ToggleMcpScope),
 
         // Sidebar
         "enter_sidebar_mode" => Some(Action::EnterSidebarMode),
@@ -680,7 +681,8 @@ pub fn action_to_name(action: &Action) -> Option<&'static str> {
         Action::CompleteWorkspaceWork => Some("complete_workspace_work"),
         Action::ProjectMoveUp => Some("project_move_up"),
         Action::ProjectMoveDown => Some("project_move_down"),
-        Action::ManageProjectMcp => Some("manage_project_mcp"),
+        Action::ManageMcp => Some("manage_mcp"),
+        Action::ToggleMcpScope => Some("toggle_mcp_scope"),
         Action::RenameProject => Some("rename_project"),
         Action::AddFileToProject => Some("add_file_to_project"),
         Action::UploadFileToProject => Some("upload_file_to_project"),

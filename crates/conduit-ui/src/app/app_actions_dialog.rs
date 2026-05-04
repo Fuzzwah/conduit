@@ -115,9 +115,13 @@ impl App {
                     self.state.rename_project_dialog_state.hide();
                     self.state.input_mode = InputMode::SidebarNavigation;
                 }
-                InputMode::ProjectMcp => {
-                    self.state.project_mcp_dialog_state.hide();
-                    self.state.input_mode = InputMode::SidebarNavigation;
+                InputMode::ManageMcp => {
+                    let return_mode = self.state.mcp_dialog_state.return_to_input_mode;
+                    self.state.mcp_dialog_state.hide();
+                    self.state.input_mode = return_mode;
+                    if return_mode == InputMode::SidebarNavigation {
+                        self.state.sidebar_state.set_focused(true);
+                    }
                 }
                 InputMode::SlashMenu => {
                     self.state.slash_menu_state.hide();
@@ -252,21 +256,149 @@ impl App {
                     }
                 }
             }
-            Action::ManageProjectMcp if self.state.input_mode == InputMode::SidebarNavigation => {
+            Action::ManageMcp if self.state.input_mode == InputMode::SidebarNavigation => {
+                use crate::components::{McpDialogParams, McpScope, NodeType};
                 let selected = self.state.sidebar_state.tree_state.selected;
                 if let Some(node) = self.state.sidebar_data.get_at(selected) {
-                    use crate::components::NodeType;
-                    if node.node_type == NodeType::Repository {
-                        let repo_id = node.id;
-                        if let Some(dao) = self.repo_dao() {
-                            if let Ok(Some(repo)) = dao.get_by_id(repo_id) {
-                                self.state.project_mcp_dialog_state.show(
-                                    repo_id,
-                                    repo.name,
-                                    repo.mcp_enabled,
-                                    self.project_mcp_summary(repo.base_path.as_deref()),
-                                );
-                                self.state.input_mode = InputMode::ProjectMcp;
+                    match node.node_type {
+                        NodeType::Repository => {
+                            let repo_id = node.id;
+                            if let Some(repo_dao) = self.repo_dao_clone() {
+                                if let Ok(Some(repo)) = repo_dao.get_by_id(repo_id) {
+                                    let base_path = repo.base_path.clone();
+                                    let project_servers = base_path
+                                        .as_deref()
+                                        .map(Self::detect_all_mcp_servers)
+                                        .unwrap_or_default()
+                                        .into_iter()
+                                        .map(|mut s| {
+                                            s.enabled =
+                                                !repo.mcp_disabled_servers.contains(&s.name);
+                                            s
+                                        })
+                                        .collect();
+                                    self.state.mcp_dialog_state.show(McpDialogParams {
+                                        scope: McpScope::Project,
+                                        repo_id,
+                                        workspace_id: None,
+                                        project_name: repo.name.clone(),
+                                        workspace_name: None,
+                                        project_servers,
+                                        workspace_servers: Vec::new(),
+                                        workspace_config_is_inherited: false,
+                                        return_to_input_mode: InputMode::SidebarNavigation,
+                                    });
+                                    self.state.input_mode = InputMode::ManageMcp;
+                                }
+                            }
+                        }
+                        NodeType::Workspace => {
+                            let workspace_id = node.id;
+                            if let Some(ws_dao) = self.workspace_dao_clone() {
+                                if let Ok(Some(ws)) = ws_dao.get_by_id(workspace_id) {
+                                    let repo_id = ws.repository_id;
+                                    if let Some(repo_dao) = self.repo_dao_clone() {
+                                        if let Ok(Some(repo)) = repo_dao.get_by_id(repo_id) {
+                                            let base_path = repo.base_path.clone();
+                                            let all_servers: Vec<_> = base_path
+                                                .as_deref()
+                                                .map(Self::detect_all_mcp_servers)
+                                                .unwrap_or_default();
+                                            let inherited = ws.mcp_disabled_servers.is_none();
+                                            let effective_disabled =
+                                                Self::resolve_disabled_servers(&repo, Some(&ws));
+                                            let workspace_servers: Vec<_> = all_servers
+                                                .iter()
+                                                .map(|s| {
+                                                    let mut srv = s.clone();
+                                                    srv.enabled =
+                                                        !effective_disabled.contains(&srv.name);
+                                                    srv
+                                                })
+                                                .collect();
+                                            let project_servers: Vec<_> = all_servers
+                                                .into_iter()
+                                                .map(|mut s| {
+                                                    s.enabled = !repo
+                                                        .mcp_disabled_servers
+                                                        .contains(&s.name);
+                                                    s
+                                                })
+                                                .collect();
+                                            self.state.mcp_dialog_state.show(McpDialogParams {
+                                                scope: McpScope::Workspace,
+                                                repo_id,
+                                                workspace_id: Some(workspace_id),
+                                                project_name: repo.name.clone(),
+                                                workspace_name: Some(ws.name.clone()),
+                                                project_servers,
+                                                workspace_servers,
+                                                workspace_config_is_inherited: inherited,
+                                                return_to_input_mode: InputMode::SidebarNavigation,
+                                            });
+                                            self.state.input_mode = InputMode::ManageMcp;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            Action::ManageMcp
+                if matches!(
+                    self.state.input_mode,
+                    InputMode::Normal | InputMode::Scrolling
+                ) =>
+            {
+                use crate::components::{McpDialogParams, McpScope};
+                let session = self.state.tab_manager.active_session();
+                let workspace_id = session.and_then(|s| s.workspace_id);
+                if let Some(ws_id) = workspace_id {
+                    if let Some(ws_dao) = self.workspace_dao_clone() {
+                        if let Ok(Some(ws)) = ws_dao.get_by_id(ws_id) {
+                            let repo_id = ws.repository_id;
+                            if let Some(repo_dao) = self.repo_dao_clone() {
+                                if let Ok(Some(repo)) = repo_dao.get_by_id(repo_id) {
+                                    let base_path = repo.base_path.clone();
+                                    let all_servers: Vec<_> = base_path
+                                        .as_deref()
+                                        .map(Self::detect_all_mcp_servers)
+                                        .unwrap_or_default();
+                                    let inherited = ws.mcp_disabled_servers.is_none();
+                                    let effective_disabled =
+                                        Self::resolve_disabled_servers(&repo, Some(&ws));
+                                    let workspace_servers: Vec<_> = all_servers
+                                        .iter()
+                                        .map(|s| {
+                                            let mut srv = s.clone();
+                                            srv.enabled = !effective_disabled.contains(&srv.name);
+                                            srv
+                                        })
+                                        .collect();
+                                    let project_servers: Vec<_> = all_servers
+                                        .into_iter()
+                                        .map(|mut s| {
+                                            s.enabled =
+                                                !repo.mcp_disabled_servers.contains(&s.name);
+                                            s
+                                        })
+                                        .collect();
+                                    let return_mode = self.state.input_mode;
+                                    self.state.mcp_dialog_state.show(McpDialogParams {
+                                        scope: McpScope::Workspace,
+                                        repo_id,
+                                        workspace_id: Some(ws_id),
+                                        project_name: repo.name.clone(),
+                                        workspace_name: Some(ws.name.clone()),
+                                        project_servers,
+                                        workspace_servers,
+                                        workspace_config_is_inherited: inherited,
+                                        return_to_input_mode: return_mode,
+                                    });
+                                    self.state.input_mode = InputMode::ManageMcp;
+                                }
                             }
                         }
                     }
