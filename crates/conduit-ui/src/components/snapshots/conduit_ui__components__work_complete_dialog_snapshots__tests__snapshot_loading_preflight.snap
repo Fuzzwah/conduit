@@ -1,0 +1,22 @@
+---
+source: crates/conduit-ui/src/components/work_complete_dialog_snapshots.rs
+expression: output
+---
+
+
+
+
+
+
+
+
+
+
+
+    ╭ Work Complete ───────────────────────────────────────────────────────╮
+    │                                                                      │
+    │ ⠋ Analyzing workspace…                                               │
+    │                                                                      │
+    │                                                                      │
+    │                                                                      │
+    ╰──────────────────────────────Esc Cancel──────────────────────────────╯

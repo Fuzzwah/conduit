@@ -125,22 +125,17 @@ pub enum AppEvent {
         result: Result<ForkWorkspaceCreated, String>,
     },
 
-    /// Workspace archive completed
-    WorkspaceArchived {
+    /// Work Complete preflight finished.
+    WorkCompletePreflightLoaded {
         workspace_id: Uuid,
-        result: Result<WorkspaceArchived, String>,
+        result: Result<crate::work_complete::WorkCompleteData, String>,
     },
 
-    /// Archive-dialog preflight completed.
-    ArchiveWorkspaceDialogPreflightCompleted {
+    /// A Work Complete action finished (push, PR, issue-close, spec-archive, archive).
+    WorkCompleteActionFinished {
         workspace_id: Uuid,
-        result: Result<ArchiveWorkspaceDialogPreflightResult, String>,
-    },
-
-    /// Archive preflight completed (remote branch prompt check)
-    ArchiveWorkspacePreflightCompleted {
-        workspace_id: Uuid,
-        result: Result<ArchiveWorkspacePreflightResult, String>,
+        action: conduit_git::SuggestedAction,
+        result: Result<Vec<String>, String>,
     },
 
     /// Remove-project dialog preflight completed.
@@ -241,31 +236,6 @@ pub struct WorkspaceCreated {
 pub struct ForkWorkspaceCreated {
     pub repo_id: Uuid,
     pub workspace_id: Uuid,
-}
-
-#[derive(Debug, Clone)]
-pub struct WorkspaceArchived {
-    pub workspace_id: Uuid,
-    pub warnings: Vec<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct ArchiveWorkspaceDialogPreflightResult {
-    pub workspace_name: String,
-    pub message: String,
-    pub warnings: Vec<String>,
-    /// Informational items shown with a green tick (not warnings)
-    pub info_items: Vec<String>,
-    pub has_dirty: bool,
-    pub has_unmerged: bool,
-    /// If true, the worktree is clean and the archive should proceed immediately
-    /// without showing the confirmation dialog.
-    pub skip_to_archive: bool,
-}
-
-#[derive(Debug, Clone)]
-pub struct ArchiveWorkspacePreflightResult {
-    pub should_prompt_remote_delete: bool,
 }
 
 #[derive(Debug, Clone)]

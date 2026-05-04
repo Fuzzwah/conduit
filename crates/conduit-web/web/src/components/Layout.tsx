@@ -9,7 +9,7 @@ interface LayoutProps {
   selectedWorkspaceId?: string | null;
   onSelectWorkspace?: (workspace: Workspace) => void;
   onCreateWorkspace?: (repository: Repository) => void;
-  onArchiveWorkspace?: (workspace: Workspace) => void;
+  onCompleteWorkspace?: (workspace: Workspace) => void;
   onRemoveRepository?: (repository: Repository) => void;
   onAddProject?: () => void;
   onBrowseProjects?: () => void;
@@ -40,7 +40,7 @@ export function Layout({
   selectedWorkspaceId,
   onSelectWorkspace,
   onCreateWorkspace,
-  onArchiveWorkspace,
+  onCompleteWorkspace,
   onRemoveRepository,
   onAddProject,
   onBrowseProjects,
@@ -119,7 +119,7 @@ export function Layout({
           selectedWorkspaceId={selectedWorkspaceId}
           onSelectWorkspace={onSelectWorkspace}
           onCreateWorkspace={onCreateWorkspace}
-          onArchiveWorkspace={onArchiveWorkspace}
+          onCompleteWorkspace={onCompleteWorkspace}
           onRemoveRepository={onRemoveRepository}
           onAddProject={onAddProject}
           onBrowseProjects={onBrowseProjects}

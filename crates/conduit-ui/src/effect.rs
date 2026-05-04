@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use conduit_agent::{AgentStartConfig, AgentType};
-use conduit_git::{OpenSpec, RemoteIssue, SpecifySpec};
+use conduit_git::{OpenSpec, RemoteIssue, SpecifySpec, SuggestedAction};
 use conduit_session::ExternalSession;
 use uuid::Uuid;
 
@@ -46,13 +46,6 @@ pub enum Effect {
         parent_workspace_id: Uuid,
         base_branch: String,
     },
-    ArchiveWorkspacePreflight {
-        workspace_id: Uuid,
-    },
-    ArchiveWorkspace {
-        workspace_id: Uuid,
-        delete_remote: bool,
-    },
     RemoveProject {
         repo_id: Uuid,
     },
@@ -69,6 +62,17 @@ pub enum Effect {
         working_dir: PathBuf,
         workspace_id: Option<Uuid>,
         current_branch: String,
+    },
+    /// Run the Work Complete preflight (or re-run after an action).
+    WorkCompletePreflight {
+        workspace_id: Uuid,
+    },
+    /// Execute a single Work Complete action.
+    WorkCompleteAction {
+        workspace_id: Uuid,
+        action: SuggestedAction,
+        /// Optional payload (e.g., commit message for Commit action).
+        payload: Option<String>,
     },
     /// Run a local shell command
     RunShellCommand {

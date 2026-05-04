@@ -409,25 +409,6 @@ impl App {
                             }
                             return Ok(());
                         }
-                        ConfirmationContext::ArchiveWorkspaceRemoteDelete { workspace_id } => {
-                            let delete_remote =
-                                self.state.confirmation_dialog_state.is_confirm_selected();
-                            effects
-                                .push(self.execute_archive_workspace(workspace_id, delete_remote));
-                            return Ok(());
-                        }
-                        ConfirmationContext::ArchiveWorkspace(id) => {
-                            if self.state.confirmation_dialog_state.is_confirm_selected() {
-                                effects.push(self.execute_archive_workspace_preflight(id));
-                                return Ok(());
-                            }
-                        }
-                        ConfirmationContext::ArchiveWorkspaceInProgress { .. } => {
-                            return Ok(());
-                        }
-                        ConfirmationContext::ArchiveWorkspacePreflightInProgress { .. } => {
-                            return Ok(());
-                        }
                         ConfirmationContext::RemoveProject(id) => {
                             if self.state.confirmation_dialog_state.is_confirm_selected() {
                                 effects.push(self.execute_remove_project(id));

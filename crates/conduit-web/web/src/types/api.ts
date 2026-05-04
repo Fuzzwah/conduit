@@ -29,19 +29,6 @@ export interface Workspace {
   archived_at: string | null;
 }
 
-export interface ArchivePreflightResponse {
-  branch_name: string;
-  is_dirty: boolean;
-  is_merged: boolean;
-  commits_ahead: number;
-  commits_behind: number;
-  info_items: string[];
-  warnings: string[];
-  severity: 'info' | 'warning' | 'danger';
-  error: string | null;
-  remote_branch_exists: boolean | null;
-}
-
 export interface RepositoryRemovePreflightResponse {
   repository_name: string;
   workspace_count: number;
@@ -113,10 +100,6 @@ export interface CreateWorkspaceRequest {
   branch: string;
   path: string;
   is_default?: boolean;
-}
-
-export interface ArchiveWorkspaceRequest {
-  delete_remote?: boolean;
 }
 
 export interface CreateSessionRequest {
@@ -358,4 +341,93 @@ export interface FileContentResponse {
   size: number;
   media_type: string;
   exists: boolean;
+}
+
+// Work Complete flow
+
+export type SuggestedAction =
+  | 'commit'
+  | 'push'
+  | 'open_pr'
+  | 'merge_pr'
+  | 'close_issue'
+  | 'archive_spec'
+  | 'archive'
+  | 'show_remaining_tasks';
+
+export type WorkCompleteScenario =
+  | 'clean_ready'
+  | 'edits_no_link'
+  | 'spec_complete'
+  | 'spec_incomplete'
+  | 'issue_open'
+  | 'issue_closed';
+
+export interface WorkCompleteDirtyFile {
+  status: string;
+  path: string;
+}
+
+export interface WorkCompletePrSnapshot {
+  number: number;
+  url: string | null;
+  title: string | null;
+  is_open: boolean;
+  is_merged: boolean;
+  merge_readiness: 'ready' | 'blocked' | 'has_conflicts' | 'unknown';
+}
+
+export interface WorkCompleteSpecSnapshot {
+  change_id: string;
+  total: number;
+  completed: number;
+  source: 'linked' | 'detected';
+}
+
+export interface WorkCompleteIssueSnapshot {
+  number: number;
+  title: string | null;
+  url: string | null;
+  is_open: boolean;
+  source: 'linked' | 'detected';
+}
+
+export interface WorkCompletePreflight {
+  branch_name: string;
+  is_dirty: boolean;
+  dirty_files: WorkCompleteDirtyFile[];
+  commits_ahead: number;
+  commits_behind: number;
+  is_merged: boolean;
+  has_upstream: boolean;
+  pr: WorkCompletePrSnapshot | null;
+  spec: WorkCompleteSpecSnapshot | null;
+  issue: WorkCompleteIssueSnapshot | null;
+  scenario: WorkCompleteScenario;
+  suggested_actions: SuggestedAction[];
+}
+
+export interface WorkCompleteActionResponse {
+  status: string;
+  log_lines: string[];
+}
+
+export interface WorkCompleteCommitResponse {
+  status: string;
+  log_lines: string[];
+  sha: string;
+}
+
+export interface WorkCompletePrCreateResponse {
+  status: string;
+  log_lines: string[];
+  url: string;
+  number: number;
+}
+
+export interface WorkCompleteSpecArchiveResponse {
+  status: string;
+  log_lines: string[];
+  new_path: string;
+  warnings: string[];
 }

@@ -173,8 +173,8 @@ impl<'a> GlobalFooter<'a> {
             (key_for(config, &Action::NewProject, "C-n"), "new project"),
             (key_for(config, &Action::CloseTab, "M-S-w"), "close"),
             (
-                key_for(config, &Action::ArchiveCurrentWorkspace, "M-S-x"),
-                "archive",
+                key_for(config, &Action::CompleteWorkspaceWork, "M-S-x"),
+                "complete",
             ),
             (key_for(config, &Action::InterruptAgent, "C-c"), "stop"),
             (key_for(config, &Action::Quit, "C-q"), "quit"),
@@ -188,7 +188,7 @@ impl<'a> GlobalFooter<'a> {
             ("enter".to_string(), "select"),
             ("h/l".to_string(), "collapse/expand"),
             ("M-S-m".to_string(), "mcp"),
-            ("M-S-x".to_string(), "archive"),
+            ("M-S-x".to_string(), "complete"),
             ("C-n".to_string(), "new project"),
             ("esc".to_string(), "exit"),
         ]

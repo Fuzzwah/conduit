@@ -54,8 +54,8 @@ pub fn default_keybindings() -> KeybindingConfig {
 
     // Close tab with Alt+Shift+W (Ctrl+Shift doesn't work reliably in terminals)
     bind(&mut config.global, "M-S-w", Action::CloseTab);
-    // Archive current workspace with Alt+Shift+X (mirrors sidebar 'x' for archive)
-    bind(&mut config.global, "M-S-x", Action::ArchiveCurrentWorkspace);
+    // Complete workspace work with Alt+Shift+X (commit / push / PR / archive flow)
+    bind(&mut config.global, "M-S-x", Action::CompleteWorkspaceWork);
 
     // Tab/workspace switching with Alt+Tab and Alt+Shift+Tab
     config.global.insert(

@@ -33,18 +33,6 @@ impl App {
                                 }
                             }
                         }
-                        ConfirmationContext::ArchiveWorkspace(id) => {
-                            effects.push(self.execute_archive_workspace_preflight(id));
-                        }
-                        ConfirmationContext::ArchiveWorkspaceRemoteDelete { workspace_id } => {
-                            effects.push(self.execute_archive_workspace(workspace_id, true));
-                        }
-                        ConfirmationContext::ArchiveWorkspaceInProgress { .. } => {
-                            return Ok(());
-                        }
-                        ConfirmationContext::ArchiveWorkspacePreflightInProgress { .. } => {
-                            return Ok(());
-                        }
                         ConfirmationContext::RemoveProject(id) => {
                             effects.push(self.execute_remove_project(id));
                             self.state.confirmation_dialog_state.hide();
@@ -121,15 +109,6 @@ impl App {
                                     self.show_error("Unable to Set Workspace Mode", &err);
                                 }
                             }
-                        }
-                        ConfirmationContext::ArchiveWorkspaceRemoteDelete { workspace_id } => {
-                            effects.push(self.execute_archive_workspace(workspace_id, false));
-                        }
-                        ConfirmationContext::ArchiveWorkspaceInProgress { .. } => {
-                            return Ok(());
-                        }
-                        ConfirmationContext::ArchiveWorkspacePreflightInProgress { .. } => {
-                            return Ok(());
                         }
                         ConfirmationContext::RemoveProjectPreflightInProgress { .. } => {
                             return Ok(());

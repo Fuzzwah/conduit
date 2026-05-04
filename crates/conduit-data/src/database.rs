@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS workspaces (
     is_default INTEGER NOT NULL DEFAULT 0,
     archived_at TEXT,
     archived_commit_sha TEXT,
+    active_change_id TEXT,
+    active_issue_number INTEGER,
     FOREIGN KEY (repository_id) REFERENCES repositories(id) ON DELETE CASCADE
 );
 
@@ -583,6 +585,37 @@ CREATE TABLE IF NOT EXISTS fork_seeds_new (
             )?;
         }
 
+        // Migration 18: Add active_change_id and active_issue_number to workspaces.
+        let has_active_change_id: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('workspaces') WHERE name='active_change_id'",
+                [],
+                |row| row.get::<_, i64>(0).map(|c| c > 0),
+            )
+            .unwrap_or(false);
+
+        if !has_active_change_id {
+            conn.execute(
+                "ALTER TABLE workspaces ADD COLUMN active_change_id TEXT",
+                [],
+            )?;
+        }
+
+        let has_active_issue_number: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('workspaces') WHERE name='active_issue_number'",
+                [],
+                |row| row.get::<_, i64>(0).map(|c| c > 0),
+            )
+            .unwrap_or(false);
+
+        if !has_active_issue_number {
+            conn.execute(
+                "ALTER TABLE workspaces ADD COLUMN active_issue_number INTEGER",
+                [],
+            )?;
+        }
+
         Ok(())
     }
 
@@ -681,5 +714,106 @@ mod tests {
                 Ok(())
             })
             .unwrap();
+    }
+
+    #[test]
+    fn test_migration_adds_active_link_columns_to_fresh_db() {
+        let dir = tempdir().unwrap();
+        let db = Database::open(dir.path().join("test.db")).unwrap();
+        db.with_connection(|conn| {
+            let has_change_id: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('workspaces') WHERE name='active_change_id'",
+                [],
+                |row| row.get(0),
+            )?;
+            let has_issue_number: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('workspaces') WHERE name='active_issue_number'",
+                [],
+                |row| row.get(0),
+            )?;
+            assert_eq!(has_change_id, 1);
+            assert_eq!(has_issue_number, 1);
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_migration_adds_active_link_columns_to_existing_db() {
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("test.db");
+
+        // Create a database without the new columns by manually creating the table
+        {
+            let conn = rusqlite::Connection::open(&db_path).unwrap();
+            conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+            conn.execute_batch(
+                "CREATE TABLE IF NOT EXISTS workspaces (
+                    id TEXT PRIMARY KEY,
+                    repository_id TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    branch TEXT NOT NULL,
+                    path TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    last_accessed TEXT NOT NULL,
+                    is_default INTEGER NOT NULL DEFAULT 0,
+                    archived_at TEXT,
+                    archived_commit_sha TEXT
+                );
+                INSERT INTO workspaces (id, repository_id, name, branch, path, created_at, last_accessed)
+                VALUES ('aaaaaaaa-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000002', 'test', 'main', '/tmp/test', '2024-01-01T00:00:00Z', '2024-01-01T00:00:00Z');
+                CREATE TABLE IF NOT EXISTS repositories (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS app_state (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS session_tabs (id TEXT PRIMARY KEY, tab_index INTEGER NOT NULL, is_open INTEGER NOT NULL DEFAULT 1, workspace_id TEXT, agent_type TEXT NOT NULL, created_at TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS fork_seeds (id TEXT PRIMARY KEY, agent_type TEXT NOT NULL, parent_session_id TEXT, parent_workspace_id TEXT, created_at TEXT NOT NULL, seed_prompt_hash TEXT NOT NULL, seed_prompt_path TEXT, token_estimate INTEGER NOT NULL, context_window INTEGER NOT NULL, seed_ack_filtered INTEGER NOT NULL DEFAULT 0);",
+            )
+            .unwrap();
+        }
+
+        // Opening via Database::open should run migrations
+        let db = Database::open(db_path).unwrap();
+        db.with_connection(|conn| {
+            // Columns should now exist
+            let has_change_id: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('workspaces') WHERE name='active_change_id'",
+                [],
+                |row| row.get(0),
+            )?;
+            let has_issue_number: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('workspaces') WHERE name='active_issue_number'",
+                [],
+                |row| row.get(0),
+            )?;
+            // Existing row should have NULL in the new columns
+            let change_id: Option<String> = conn.query_row(
+                "SELECT active_change_id FROM workspaces WHERE id = 'aaaaaaaa-0000-0000-0000-000000000001'",
+                [],
+                |row| row.get(0),
+            )?;
+            assert_eq!(has_change_id, 1);
+            assert_eq!(has_issue_number, 1);
+            assert!(change_id.is_none());
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_migration_active_link_columns_idempotent() {
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("test.db");
+        // Open twice — second open should be a no-op
+        let _db1 = Database::open(db_path.clone()).unwrap();
+        let db2 = Database::open(db_path).unwrap();
+        db2.with_connection(|conn| {
+            let count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('workspaces') WHERE name='active_change_id'",
+                [],
+                |row| row.get(0),
+            )?;
+            assert_eq!(count, 1);
+            Ok(())
+        })
+        .unwrap();
     }
 }

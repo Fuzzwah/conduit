@@ -78,6 +78,8 @@ pub enum InputMode {
     KeybindingsEditor,
     /// Waiting for a keypress to capture as a new binding
     KeybindingsEditorCapture,
+    /// Work Complete dialog is open (commit / push / PR / archive flow)
+    WorkCompleting,
 }
 
 /// View mode for the main content area

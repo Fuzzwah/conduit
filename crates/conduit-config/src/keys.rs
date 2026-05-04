@@ -252,6 +252,7 @@ impl KeyContext {
             InputMode::SelectingTheme => return KeyContext::ThemePicker,
             InputMode::QueueEditing => return KeyContext::QueueEditing,
             InputMode::FileViewer => return KeyContext::FileViewer,
+            InputMode::WorkCompleting => return KeyContext::Dialog,
             // Non-modal modes - continue to check view mode
             InputMode::Normal | InputMode::Scrolling | InputMode::SidebarNavigation => {}
         }

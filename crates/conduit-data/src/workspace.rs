@@ -23,8 +23,8 @@ impl WorkspaceStore {
     pub fn create(&self, workspace: &Workspace) -> SqliteResult<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "INSERT INTO workspaces (id, repository_id, name, branch, path, created_at, last_accessed, is_default)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            "INSERT INTO workspaces (id, repository_id, name, branch, path, created_at, last_accessed, is_default, active_change_id, active_issue_number)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 workspace.id.to_string(),
                 workspace.repository_id.to_string(),
@@ -34,6 +34,8 @@ impl WorkspaceStore {
                 workspace.created_at.to_rfc3339(),
                 workspace.last_accessed.to_rfc3339(),
                 workspace.is_default as i32,
+                workspace.active_change_id,
+                workspace.active_issue_number,
             ],
         )?;
         Ok(())
@@ -43,7 +45,7 @@ impl WorkspaceStore {
     pub fn get_by_id(&self, id: Uuid) -> SqliteResult<Option<Workspace>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, repository_id, name, branch, path, created_at, last_accessed, is_default, archived_at, archived_commit_sha
+            "SELECT id, repository_id, name, branch, path, created_at, last_accessed, is_default, archived_at, archived_commit_sha, active_change_id, active_issue_number
              FROM workspaces WHERE id = ?1",
         )?;
 
@@ -59,7 +61,7 @@ impl WorkspaceStore {
     pub fn get_by_repository(&self, repository_id: Uuid) -> SqliteResult<Vec<Workspace>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, repository_id, name, branch, path, created_at, last_accessed, is_default, archived_at, archived_commit_sha
+            "SELECT id, repository_id, name, branch, path, created_at, last_accessed, is_default, archived_at, archived_commit_sha, active_change_id, active_issue_number
              FROM workspaces WHERE repository_id = ?1 AND archived_at IS NULL ORDER BY is_default DESC, name",
         )?;
 
@@ -113,7 +115,7 @@ impl WorkspaceStore {
     pub fn get_all(&self) -> SqliteResult<Vec<Workspace>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, repository_id, name, branch, path, created_at, last_accessed, is_default, archived_at, archived_commit_sha
+            "SELECT id, repository_id, name, branch, path, created_at, last_accessed, is_default, archived_at, archived_commit_sha, active_change_id, active_issue_number
              FROM workspaces WHERE archived_at IS NULL ORDER BY repository_id, is_default DESC, name",
         )?;
 
@@ -180,7 +182,7 @@ impl WorkspaceStore {
         let conn = self.conn.lock().unwrap();
         let path_str = path.to_string_lossy().to_string();
         let mut stmt = conn.prepare(
-            "SELECT id, repository_id, name, branch, path, created_at, last_accessed, is_default, archived_at, archived_commit_sha
+            "SELECT id, repository_id, name, branch, path, created_at, last_accessed, is_default, archived_at, archived_commit_sha, active_change_id, active_issue_number
              FROM workspaces WHERE path = ?1",
         )?;
 
@@ -199,7 +201,7 @@ impl WorkspaceStore {
     ) -> SqliteResult<Option<Workspace>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, repository_id, name, branch, path, created_at, last_accessed, is_default, archived_at, archived_commit_sha
+            "SELECT id, repository_id, name, branch, path, created_at, last_accessed, is_default, archived_at, archived_commit_sha, active_change_id, active_issue_number
              FROM workspaces WHERE repository_id = ?1 AND is_default = 1 AND archived_at IS NULL",
         )?;
 
@@ -209,6 +211,23 @@ impl WorkspaceStore {
         } else {
             Ok(None)
         }
+    }
+
+    /// Atomically rewrite the active spec and issue link columns for a workspace.
+    ///
+    /// Safe to call repeatedly — a `None` value leaves the corresponding column unchanged.
+    pub fn update_active_links(
+        &self,
+        id: Uuid,
+        active_change_id: Option<String>,
+        active_issue_number: Option<i32>,
+    ) -> SqliteResult<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE workspaces SET active_change_id = COALESCE(?2, active_change_id), active_issue_number = COALESCE(?3, active_issue_number) WHERE id = ?1",
+            params![id.to_string(), active_change_id, active_issue_number],
+        )?;
+        Ok(())
     }
 
     /// Archive a workspace (soft delete - marks as archived and stores the branch SHA)
@@ -231,6 +250,8 @@ impl WorkspaceStore {
         let is_default: i32 = row.get(7)?;
         let archived_at_str: Option<String> = row.get(8)?;
         let archived_commit_sha: Option<String> = row.get(9)?;
+        let active_change_id: Option<String> = row.get(10)?;
+        let active_issue_number: Option<i32> = row.get(11)?;
 
         Ok(Workspace {
             id: Uuid::parse_str(&id_str).unwrap_or_else(|_| Uuid::new_v4()),
@@ -251,6 +272,8 @@ impl WorkspaceStore {
                     .ok()
             }),
             archived_commit_sha,
+            active_change_id,
+            active_issue_number,
         })
     }
 }
@@ -329,5 +352,98 @@ mod tests {
 
         let workspaces = ws_dao.get_by_repository(repo.id).unwrap();
         assert!(workspaces.is_empty());
+    }
+
+    #[test]
+    fn test_create_with_null_active_links() {
+        let (_dir, _db, repo_dao, ws_dao) = setup_db();
+
+        let repo = Repository::from_local_path("test-repo", PathBuf::from("/tmp/test"));
+        repo_dao.create(&repo).unwrap();
+
+        let ws = Workspace::new(repo.id, "main", "main", PathBuf::from("/tmp/main"));
+        ws_dao.create(&ws).unwrap();
+
+        let retrieved = ws_dao.get_by_id(ws.id).unwrap().unwrap();
+        assert!(retrieved.active_change_id.is_none());
+        assert!(retrieved.active_issue_number.is_none());
+    }
+
+    #[test]
+    fn test_create_with_populated_active_links() {
+        let (_dir, _db, repo_dao, ws_dao) = setup_db();
+
+        let repo = Repository::from_local_path("test-repo", PathBuf::from("/tmp/test"));
+        repo_dao.create(&repo).unwrap();
+
+        let ws = Workspace::new(repo.id, "feat", "feat-branch", PathBuf::from("/tmp/feat"))
+            .with_active_change("my-feature")
+            .with_active_issue(42);
+        ws_dao.create(&ws).unwrap();
+
+        let retrieved = ws_dao.get_by_id(ws.id).unwrap().unwrap();
+        assert_eq!(retrieved.active_change_id.as_deref(), Some("my-feature"));
+        assert_eq!(retrieved.active_issue_number, Some(42));
+    }
+
+    #[test]
+    fn test_update_active_links_writes_both() {
+        let (_dir, _db, repo_dao, ws_dao) = setup_db();
+
+        let repo = Repository::from_local_path("test-repo", PathBuf::from("/tmp/test"));
+        repo_dao.create(&repo).unwrap();
+
+        let ws = Workspace::new(repo.id, "main", "main", PathBuf::from("/tmp/main"));
+        ws_dao.create(&ws).unwrap();
+
+        ws_dao
+            .update_active_links(ws.id, Some("change-123".to_string()), Some(99))
+            .unwrap();
+
+        let retrieved = ws_dao.get_by_id(ws.id).unwrap().unwrap();
+        assert_eq!(retrieved.active_change_id.as_deref(), Some("change-123"));
+        assert_eq!(retrieved.active_issue_number, Some(99));
+    }
+
+    #[test]
+    fn test_update_active_links_preserves_null_for_none() {
+        let (_dir, _db, repo_dao, ws_dao) = setup_db();
+
+        let repo = Repository::from_local_path("test-repo", PathBuf::from("/tmp/test"));
+        repo_dao.create(&repo).unwrap();
+
+        let ws = Workspace::new(repo.id, "main", "main", PathBuf::from("/tmp/main"));
+        ws_dao.create(&ws).unwrap();
+
+        // Set only the change id; issue number should stay NULL
+        ws_dao
+            .update_active_links(ws.id, Some("change-abc".to_string()), None)
+            .unwrap();
+
+        let retrieved = ws_dao.get_by_id(ws.id).unwrap().unwrap();
+        assert_eq!(retrieved.active_change_id.as_deref(), Some("change-abc"));
+        assert!(retrieved.active_issue_number.is_none());
+    }
+
+    #[test]
+    fn test_update_active_links_idempotent() {
+        let (_dir, _db, repo_dao, ws_dao) = setup_db();
+
+        let repo = Repository::from_local_path("test-repo", PathBuf::from("/tmp/test"));
+        repo_dao.create(&repo).unwrap();
+
+        let ws = Workspace::new(repo.id, "main", "main", PathBuf::from("/tmp/main"));
+        ws_dao.create(&ws).unwrap();
+
+        ws_dao
+            .update_active_links(ws.id, Some("change-xyz".to_string()), Some(7))
+            .unwrap();
+        ws_dao
+            .update_active_links(ws.id, Some("change-xyz".to_string()), Some(7))
+            .unwrap();
+
+        let retrieved = ws_dao.get_by_id(ws.id).unwrap().unwrap();
+        assert_eq!(retrieved.active_change_id.as_deref(), Some("change-xyz"));
+        assert_eq!(retrieved.active_issue_number, Some(7));
     }
 }

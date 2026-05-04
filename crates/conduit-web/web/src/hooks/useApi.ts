@@ -31,11 +31,11 @@ export const queryKeys = {
   repositoryWorkspaces: (id: string) => ['repositories', id, 'workspaces'] as const,
   workspace: (id: string) => ['workspaces', id] as const,
   workspaceStatus: (id: string) => ['workspaces', id, 'status'] as const,
-  workspaceArchivePreflight: (id: string) => ['workspaces', id, 'archive-preflight'] as const,
   workspacePrPreflight: (id: string) => ['workspaces', id, 'pr-preflight'] as const,
   workspaceSession: (id: string) => ['workspaces', id, 'session'] as const,
   workspaceFileContent: (workspaceId: string, filePath: string) =>
     ['workspaces', workspaceId, 'files', filePath] as const,
+  workCompletePreflight: (id: string) => ['workspaces', id, 'work-complete-preflight'] as const,
   sessions: ['sessions'] as const,
   session: (id: string) => ['sessions', id] as const,
   sessionEvents: (id: string, query?: SessionEventsQuery) =>
@@ -254,20 +254,6 @@ export function useCreateWorkspace(repositoryId: string) {
   });
 }
 
-export function useArchiveWorkspace() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (payload: { id: string; delete_remote?: boolean }) =>
-      api.archiveWorkspace(payload.id, { delete_remote: payload.delete_remote }),
-    onSuccess: (_data, payload) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
-      queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
-      queryClient.invalidateQueries({ queryKey: queryKeys.workspaceStatus(payload.id) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.workspaceSession(payload.id) });
-    },
-  });
-}
-
 export function useDeleteWorkspace() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -289,18 +275,6 @@ export function useWorkspaceStatus(
     enabled,
     refetchInterval: options?.refetchInterval ?? 5000,
     staleTime: options?.staleTime ?? 2000,
-  });
-}
-
-export function useWorkspaceArchivePreflight(
-  workspaceId: string | null,
-  options?: { enabled?: boolean }
-) {
-  return useQuery({
-    queryKey: queryKeys.workspaceArchivePreflight(workspaceId ?? ''),
-    queryFn: () => api.getWorkspaceArchivePreflight(workspaceId!),
-    enabled: (options?.enabled ?? true) && !!workspaceId,
-    staleTime: 5000,
   });
 }
 
@@ -697,6 +671,73 @@ export function useUpdateUiState() {
     mutationFn: api.updateUiState,
     onSuccess: (data) => {
       queryClient.setQueryData(queryKeys.uiState, data);
+    },
+  });
+}
+
+// Work Complete flow
+
+export function useWorkCompletePreflight(
+  workspaceId: string | null,
+  options?: { staleTime?: number }
+) {
+  return useQuery({
+    queryKey: queryKeys.workCompletePreflight(workspaceId ?? ''),
+    queryFn: () => api.getWorkCompletePreflight(workspaceId!),
+    enabled: !!workspaceId,
+    staleTime: options?.staleTime ?? 5000,
+  });
+}
+
+export function useWorkCompleteCommit() {
+  return useMutation({
+    mutationFn: ({ id, message }: { id: string; message: string }) =>
+      api.workCompleteCommit(id, message),
+  });
+}
+
+export function useWorkCompletePush() {
+  return useMutation({
+    mutationFn: (id: string) => api.workCompletePush(id),
+  });
+}
+
+export function useWorkCompleteOpenPr() {
+  return useMutation({
+    mutationFn: ({ id, title, body }: { id: string; title?: string; body?: string }) =>
+      api.workCompleteOpenPr(id, { title, body }),
+  });
+}
+
+export function useWorkCompleteMergePr() {
+  return useMutation({
+    mutationFn: ({ id, admin }: { id: string; admin?: boolean }) =>
+      api.workCompleteMergePr(id, 'squash', admin),
+  });
+}
+
+export function useWorkCompleteCloseIssue() {
+  return useMutation({
+    mutationFn: (id: string) => api.workCompleteCloseIssue(id),
+  });
+}
+
+export function useWorkCompleteArchiveSpec() {
+  return useMutation({
+    mutationFn: ({ id, changeId }: { id: string; changeId: string }) =>
+      api.workCompleteArchiveSpec(id, changeId),
+  });
+}
+
+export function useWorkCompleteArchive() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.workCompleteArchive(id),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
+      queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workspaceStatus(id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workspaceSession(id) });
     },
   });
 }

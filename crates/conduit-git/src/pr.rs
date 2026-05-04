@@ -326,6 +326,29 @@ struct GhPrView {
     review_decision: String,
 }
 
+/// Options for creating a PR via `gh pr create`.
+#[derive(Debug, Clone, Default)]
+pub struct PrCreateOpts {
+    pub base_branch: String,
+    pub title: Option<String>,
+    pub body: Option<String>,
+}
+
+/// Basic information returned after a PR is created.
+#[derive(Debug, Clone)]
+pub struct PrInfo {
+    pub url: String,
+    pub number: u32,
+}
+
+/// Merge strategy for `gh pr merge`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MergeMethod {
+    Squash,
+    Merge,
+    Rebase,
+}
+
 /// PR Manager for preflight checks and utilities
 pub struct PrManager;
 
@@ -596,6 +619,93 @@ impl PrManager {
         Ok(())
     }
 
+    /// Create a PR using `gh pr create`. Returns the URL and number of the new PR.
+    ///
+    /// When `opts.title` and `opts.body` are both `None`, passes `--fill` to let
+    /// `gh` derive the title and body from the commit messages. Otherwise uses
+    /// `--title` / `--body` explicitly.
+    pub fn create(path: &Path, opts: &PrCreateOpts) -> std::io::Result<PrInfo> {
+        let base = &opts.base_branch;
+        let mut args = vec!["pr", "create", "--base", base];
+
+        let fill_flag;
+        let title_flag;
+        let body_flag;
+
+        if opts.title.is_none() && opts.body.is_none() {
+            fill_flag = "--fill";
+            args.push(fill_flag);
+        } else {
+            if let Some(ref t) = opts.title {
+                title_flag = t.clone();
+                args.push("--title");
+                args.push(&title_flag);
+            }
+            if let Some(ref b) = opts.body {
+                body_flag = b.clone();
+                args.push("--body");
+                args.push(&body_flag);
+            }
+        }
+
+        // Ask gh to return JSON so we can parse the URL and number
+        args.push("--json");
+        args.push("url,number");
+
+        let output = Command::new("gh").args(&args).current_dir(path).output()?;
+
+        if !output.status.success() {
+            return Err(std::io::Error::other(format!(
+                "gh pr create failed: {}",
+                String::from_utf8_lossy(&output.stderr).trim()
+            )));
+        }
+
+        #[derive(serde::Deserialize)]
+        struct GhPrCreated {
+            url: String,
+            number: u32,
+        }
+
+        let json = String::from_utf8_lossy(&output.stdout);
+        let created: GhPrCreated = serde_json::from_str(&json).map_err(|e| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Failed to parse gh pr create output: {}", e),
+            )
+        })?;
+
+        Ok(PrInfo {
+            url: created.url,
+            number: created.number,
+        })
+    }
+
+    /// Merge the current branch's PR using `gh pr merge`.
+    pub fn merge(path: &Path, method: MergeMethod, admin: bool) -> std::io::Result<()> {
+        let method_flag = match method {
+            MergeMethod::Squash => "--squash",
+            MergeMethod::Merge => "--merge",
+            MergeMethod::Rebase => "--rebase",
+        };
+
+        let mut args = vec!["pr", "merge", method_flag, "--delete-branch=false"];
+        if admin {
+            args.push("--admin");
+        }
+
+        let output = Command::new("gh").args(&args).current_dir(path).output()?;
+
+        if output.status.success() {
+            Ok(())
+        } else {
+            Err(std::io::Error::other(format!(
+                "gh pr merge failed: {}",
+                String::from_utf8_lossy(&output.stderr).trim()
+            )))
+        }
+    }
+
     /// Generate the prompt for Claude Sonnet to create a PR
     pub fn generate_pr_prompt(preflight: &PrPreflightResult) -> String {
         let upstream_note = if preflight.has_upstream {
@@ -754,5 +864,116 @@ mod tests {
         // Paths with directories use the last component
         let name = PrManager::parse_repo_name_from_url("/home/user/projects/my-repo");
         assert_eq!(name, Some("my-repo".to_string()));
+    }
+
+    // --- gh-stub helpers ---
+
+    /// Serialize PATH mutations across all tests that swap in a fake `gh`.
+    static GH_STUB_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    #[cfg(unix)]
+    fn with_fake_gh<F: FnOnce() -> R, R>(script_body: &str, f: F) -> R {
+        use std::os::unix::fs::PermissionsExt;
+
+        let _guard = GH_STUB_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+
+        let bin_dir = tempdir().unwrap();
+        let gh_path = bin_dir.path().join("gh");
+        std::fs::write(&gh_path, format!("#!/bin/sh\n{}\n", script_body)).unwrap();
+        let mut perms = std::fs::metadata(&gh_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&gh_path, perms).unwrap();
+
+        let old_path = std::env::var("PATH").unwrap_or_default();
+        // SAFETY: single-threaded via mutex; no other threads read PATH during the closure
+        unsafe {
+            std::env::set_var("PATH", format!("{}:{}", bin_dir.path().display(), old_path));
+        }
+        let result = f();
+        unsafe {
+            std::env::set_var("PATH", &old_path);
+        }
+        result
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn pr_create_with_fill_returns_url_and_number() {
+        let dir = tempdir().unwrap();
+        init_git_repo(dir.path()).unwrap();
+
+        with_fake_gh(
+            r#"echo '{"url":"https://github.com/foo/bar/pull/42","number":42}'"#,
+            || {
+                let opts = PrCreateOpts {
+                    base_branch: "main".to_string(),
+                    title: None,
+                    body: None,
+                };
+                let info = PrManager::create(dir.path(), &opts).unwrap();
+                assert_eq!(info.number, 42);
+                assert_eq!(info.url, "https://github.com/foo/bar/pull/42");
+            },
+        );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn pr_create_with_title_body() {
+        let dir = tempdir().unwrap();
+        init_git_repo(dir.path()).unwrap();
+
+        with_fake_gh(
+            r#"echo '{"url":"https://github.com/foo/bar/pull/7","number":7}'"#,
+            || {
+                let opts = PrCreateOpts {
+                    base_branch: "main".to_string(),
+                    title: Some("My PR".to_string()),
+                    body: Some("Description".to_string()),
+                };
+                let info = PrManager::create(dir.path(), &opts).unwrap();
+                assert_eq!(info.number, 7);
+            },
+        );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn pr_create_propagates_gh_failure() {
+        let dir = tempdir().unwrap();
+        init_git_repo(dir.path()).unwrap();
+
+        with_fake_gh("echo 'error: no PR' >&2; exit 1", || {
+            let opts = PrCreateOpts {
+                base_branch: "main".to_string(),
+                title: None,
+                body: None,
+            };
+            let result = PrManager::create(dir.path(), &opts);
+            assert!(result.is_err());
+        });
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn pr_merge_squash_succeeds() {
+        let dir = tempdir().unwrap();
+        init_git_repo(dir.path()).unwrap();
+
+        with_fake_gh("exit 0", || {
+            PrManager::merge(dir.path(), MergeMethod::Squash, false).unwrap();
+        });
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn pr_merge_propagates_gh_failure() {
+        let dir = tempdir().unwrap();
+        init_git_repo(dir.path()).unwrap();
+
+        with_fake_gh("echo 'merge blocked' >&2; exit 1", || {
+            let result = PrManager::merge(dir.path(), MergeMethod::Squash, false);
+            assert!(result.is_err());
+        });
     }
 }

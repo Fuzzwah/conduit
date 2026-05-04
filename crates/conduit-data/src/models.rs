@@ -139,6 +139,10 @@ pub struct Workspace {
     pub archived_at: Option<DateTime<Utc>>,
     /// Commit SHA at the time of archive (if recorded)
     pub archived_commit_sha: Option<String>,
+    /// Linked OpenSpec change id (populated at creation or inferred at Work Complete preflight)
+    pub active_change_id: Option<String>,
+    /// Linked GitHub issue number (populated at creation or inferred at Work Complete preflight)
+    pub active_issue_number: Option<i32>,
 }
 
 impl Workspace {
@@ -161,7 +165,19 @@ impl Workspace {
             is_default: false,
             archived_at: None,
             archived_commit_sha: None,
+            active_change_id: None,
+            active_issue_number: None,
         }
+    }
+
+    pub fn with_active_change(mut self, id: impl Into<String>) -> Self {
+        self.active_change_id = Some(id.into());
+        self
+    }
+
+    pub fn with_active_issue(mut self, number: i32) -> Self {
+        self.active_issue_number = Some(number);
+        self
     }
 
     /// Create a default workspace (for the main branch)

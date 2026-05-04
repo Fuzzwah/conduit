@@ -249,8 +249,6 @@ pub struct AppState {
     pub busy_footer_message: Option<String>,
     /// Pending branch updates captured while workspaces are busy
     pub pending_branch_updates: HashMap<Uuid, Option<String>>,
-    /// Input mode to restore after the archive workspace dialog flow completes
-    pub archive_return_mode: Option<InputMode>,
     /// Pending Ctrl+N flow target while onboarding gates are being completed
     pub pending_new_project_target: Option<NewProjectTarget>,
     /// Current behavior context for the model picker
@@ -264,6 +262,10 @@ pub struct AppState {
     /// Active workspace-creation flow context (sync → issues → specs → naming).
     /// `None` when no flow is in progress.
     pub workspace_creation: Option<crate::workspace_creation::WorkspaceCreationSession>,
+
+    /// Active Work Complete dialog session.
+    /// `None` when the dialog is closed.
+    pub work_complete_session: Option<crate::work_complete::WorkCompleteSession>,
 
     /// Buffer for detecting malformed SGR mouse escape sequences (crossterm race condition).
     ///
@@ -454,13 +456,13 @@ impl AppState {
             busy_footer_message_active: false,
             busy_footer_message: None,
             pending_branch_updates: HashMap::new(),
-            archive_return_mode: None,
             pending_new_project_target: None,
             model_picker_context: ModelPickerContext::SessionSelection,
             settings_menu_return: false,
             base_dir_dialog_context: BaseDirDialogContext::ProjectDiscovery,
             last_sidebar_db_check: Instant::now(),
             workspace_creation: None,
+            work_complete_session: None,
             suspect_mouse_buf: None,
         }
     }

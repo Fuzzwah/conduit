@@ -40,7 +40,7 @@ interface WorkspaceItemProps {
   workspace: Workspace;
   isSelected?: boolean;
   onSelect?: () => void;
-  onArchive?: () => void;
+  onComplete?: () => void;
 }
 
 function parseGitHubRepo(repoUrl: string | null | undefined): string | null {
@@ -65,7 +65,7 @@ function WorkspaceItem({
   workspace,
   isSelected,
   onSelect,
-  onArchive,
+  onComplete,
 }: WorkspaceItemProps) {
   const [hasInitialStatus, setHasInitialStatus] = useState(false);
   const shouldPoll = !!isSelected || !hasInitialStatus;
@@ -168,17 +168,17 @@ function WorkspaceItem({
             </span>
           ) : null}
 
-          {onArchive && (
+          {onComplete && (
             <button
               onClick={(event) => {
                 event.stopPropagation();
-                onArchive();
+                onComplete();
               }}
               className={cn(
                 'flex items-center justify-center rounded p-1 text-text-muted transition-colors hover:bg-surface-elevated hover:text-text',
                 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
               )}
-              aria-label={`Archive workspace ${workspace.name}`}
+              aria-label={`Complete work for workspace ${workspace.name}`}
             >
               <Archive className="h-3.5 w-3.5" />
             </button>
@@ -194,7 +194,7 @@ interface RepositorySectionProps {
   workspaces: Workspace[];
   selectedWorkspaceId?: string | null;
   onSelectWorkspace?: (workspace: Workspace) => void;
-  onArchiveWorkspace?: (workspace: Workspace) => void;
+  onCompleteWorkspace?: (workspace: Workspace) => void;
   onNewWorkspace?: () => void;
   onRemoveRepository?: (repository: Repository) => void;
   dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
@@ -205,7 +205,7 @@ function RepositorySection({
   workspaces,
   selectedWorkspaceId,
   onSelectWorkspace,
-  onArchiveWorkspace,
+  onCompleteWorkspace,
   onNewWorkspace,
   onRemoveRepository,
   dragHandleProps,
@@ -284,7 +284,7 @@ function RepositorySection({
               workspace={workspace}
               isSelected={workspace.id === selectedWorkspaceId}
               onSelect={() => onSelectWorkspace?.(workspace)}
-              onArchive={onArchiveWorkspace ? () => onArchiveWorkspace(workspace) : undefined}
+              onComplete={onCompleteWorkspace ? () => onCompleteWorkspace(workspace) : undefined}
             />
           ))}
         </div>
@@ -321,7 +321,7 @@ interface SidebarProps {
   onSelectWorkspace?: (workspace: Workspace) => void;
   onCreateWorkspace?: (repository: Repository) => void;
   onModeRequired?: (repository: Repository) => void;
-  onArchiveWorkspace?: (workspace: Workspace) => void;
+  onCompleteWorkspace?: (workspace: Workspace) => void;
   onRemoveRepository?: (repository: Repository) => void;
   onAddProject?: () => void;
   onBrowseProjects?: () => void;
@@ -332,7 +332,7 @@ export function Sidebar({
   onSelectWorkspace,
   onCreateWorkspace,
   onModeRequired,
-  onArchiveWorkspace,
+  onCompleteWorkspace,
   onRemoveRepository,
   onAddProject,
   onBrowseProjects,
@@ -447,7 +447,7 @@ export function Sidebar({
                       workspaces={workspacesByRepo[repo.id] || []}
                       selectedWorkspaceId={selectedWorkspaceId}
                       onSelectWorkspace={onSelectWorkspace}
-                      onArchiveWorkspace={onArchiveWorkspace}
+                      onCompleteWorkspace={onCompleteWorkspace}
                       onRemoveRepository={onRemoveRepository}
                       onNewWorkspace={() => handleNewWorkspace(repo)}
                     />

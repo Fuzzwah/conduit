@@ -1,0 +1,23 @@
+---
+source: crates/conduit-ui/src/components/work_complete_dialog_snapshots.rs
+expression: output
+---
+
+
+
+
+
+
+
+
+
+
+
+    ╭ Work Complete ───────────────────────────────────────────────────────╮
+    │                                                                      │
+    │ Clean — ready to archive                                             │
+    │   branch: fuz/my-feature                                             │
+    │ ──────────────────────────────────────────────────────────────────── │
+    │ ❯ Archive Workspace  close and archive this workspace                │
+    │                                                                      │
+    ╰───────────────────↑↓ select │ Enter run │ Esc close──────────────────╯

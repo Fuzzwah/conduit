@@ -278,7 +278,7 @@ impl App {
                     use crate::components::NodeType;
                     match node.node_type {
                         NodeType::Workspace => {
-                            self.initiate_archive_workspace(node.id);
+                            self.initiate_work_complete(node.id);
                         }
                         NodeType::Repository => {
                             self.initiate_remove_project(node.id);
@@ -287,7 +287,7 @@ impl App {
                     }
                 }
             }
-            Action::ArchiveCurrentWorkspace => {
+            Action::CompleteWorkspaceWork => {
                 if matches!(
                     self.state.input_mode,
                     InputMode::Normal | InputMode::Scrolling
@@ -298,7 +298,7 @@ impl App {
                         .active_session()
                         .and_then(|s| s.workspace_id)
                     {
-                        self.initiate_archive_workspace(workspace_id);
+                        self.initiate_work_complete(workspace_id);
                     }
                 }
             }
