@@ -12,3 +12,7 @@
 /after-click-*.png
 /open-new-tab.png
 /web-ui.png
+
+# Editor / OS noise
+.DS_Store
+.vscode/
