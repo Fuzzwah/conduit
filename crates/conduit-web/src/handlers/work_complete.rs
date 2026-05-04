@@ -56,12 +56,14 @@ pub struct IssueSnapshotResponse {
 #[derive(Debug, Serialize)]
 pub struct WorkCompletePreflightResponse {
     pub branch_name: String,
+    pub base_branch: String,
     pub is_dirty: bool,
     pub dirty_files: Vec<DirtyFileResponse>,
     pub commits_ahead: usize,
     pub commits_behind: usize,
     pub is_merged: bool,
     pub has_upstream: bool,
+    pub remote_branch_exists: bool,
     pub pr: Option<PrSnapshotResponse>,
     pub spec: Option<SpecSnapshotResponse>,
     pub issue: Option<IssueSnapshotResponse>,
@@ -271,14 +273,27 @@ pub async fn get_work_complete_preflight(
         issue_classify.as_ref(),
     );
 
+    let remote_branch_exists = pr_preflight.has_upstream || {
+        // Check local remote-tracking ref without a network call
+        let refspec = format!("refs/remotes/origin/{}", pr_preflight.branch_name);
+        std::process::Command::new("git")
+            .args(["rev-parse", "--verify", &refspec])
+            .current_dir(&workspace.path)
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+    };
+
     Ok(Json(WorkCompletePreflightResponse {
         branch_name: pr_preflight.branch_name,
+        base_branch: pr_preflight.target_branch,
         is_dirty: branch_status.is_dirty,
         dirty_files,
         commits_ahead: branch_status.commits_ahead,
         commits_behind: branch_status.commits_behind,
         is_merged: branch_status.is_merged,
         has_upstream: pr_preflight.has_upstream,
+        remote_branch_exists,
         pr: pr_snapshot,
         spec: spec_snapshot,
         issue: issue_snapshot,
@@ -369,10 +384,7 @@ pub async fn post_work_complete_pr_merge(
     if !req.admin {
         let preflight = PrManager::preflight_check(&path);
         if let Some(pr) = &preflight.existing_pr {
-            if matches!(
-                pr.merge_readiness,
-                MergeReadiness::Blocked | MergeReadiness::HasConflicts
-            ) {
+            if !matches!(pr.merge_readiness, MergeReadiness::Ready) {
                 return Err(WebError::Conflict(format!(
                     "PR is not ready to merge ({})",
                     merge_readiness_label(&pr.merge_readiness)
@@ -619,6 +631,7 @@ fn label_to_merge_readiness(s: &str) -> MergeReadiness {
     match s {
         "ready" => MergeReadiness::Ready,
         "blocked" => MergeReadiness::Blocked,
+        "has_conflicts" => MergeReadiness::HasConflicts,
         _ => MergeReadiness::Unknown,
     }
 }

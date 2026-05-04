@@ -16,7 +16,7 @@ expression: output
     │                                                                      │
     │ Spec in progress                                                     │
     │   branch: fuz/my-feature                                             │
-    │   spec: my-feature  3/8 tasks                                        │
+    │   spec: my-feature (detected)  3 of 8 tasks complete                 │
     │ ──────────────────────────────────────────────────────────────────── │
     │ ❯ Show Remaining Tasks  ask agent to list incomplete tasks           │
     │   Archive Workspace  close and archive this workspace                │

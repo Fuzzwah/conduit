@@ -37,7 +37,15 @@ pub fn commit_all(path: &Path, message: &str) -> io::Result<String> {
             let inside = line.trim().strip_prefix('[')?.split(']').next()?;
             inside.split_whitespace().next_back().map(str::to_string)
         })
-        .unwrap_or_default();
+        .map(io::Result::Ok)
+        .unwrap_or_else(|| {
+            // Fallback: ask git directly
+            let out = Command::new("git")
+                .args(["rev-parse", "HEAD"])
+                .current_dir(path)
+                .output()?;
+            Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+        })?;
 
     Ok(sha)
 }

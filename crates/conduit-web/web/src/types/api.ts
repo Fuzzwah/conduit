@@ -394,12 +394,14 @@ export interface WorkCompleteIssueSnapshot {
 
 export interface WorkCompletePreflight {
   branch_name: string;
+  base_branch: string;
   is_dirty: boolean;
   dirty_files: WorkCompleteDirtyFile[];
   commits_ahead: number;
   commits_behind: number;
   is_merged: boolean;
   has_upstream: boolean;
+  remote_branch_exists: boolean;
   pr: WorkCompletePrSnapshot | null;
   spec: WorkCompleteSpecSnapshot | null;
   issue: WorkCompleteIssueSnapshot | null;

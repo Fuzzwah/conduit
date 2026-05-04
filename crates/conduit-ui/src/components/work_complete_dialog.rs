@@ -243,6 +243,10 @@ fn render_review(inner: Rect, buf: &mut Buffer, data: &WorkCompleteData, selecte
         } else {
             accent_warning()
         };
+        let source_label = match spec.source {
+            conduit_git::ContextSource::Linked => "linked",
+            conduit_git::ContextSource::Detected => "detected",
+        };
         let spec_line = Line::from(vec![
             Span::styled("  spec: ", Style::default().fg(text_muted())),
             Span::styled(
@@ -250,7 +254,11 @@ fn render_review(inner: Rect, buf: &mut Buffer, data: &WorkCompleteData, selecte
                 Style::default().fg(text_secondary()),
             ),
             Span::styled(
-                format!("  {}/{} tasks", spec.completed, spec.total),
+                format!(" ({source_label})"),
+                Style::default().fg(text_muted()),
+            ),
+            Span::styled(
+                format!("  {} of {} tasks complete", spec.completed, spec.total),
                 Style::default().fg(spec_color),
             ),
         ]);

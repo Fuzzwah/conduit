@@ -798,8 +798,9 @@ function AppContent() {
         onSelect: handleNewSession,
       },
       {
-        id: 'archive-workspace',
-        label: 'Archive Workspace...',
+        id: 'complete-work',
+        label: 'Complete Work...',
+        keywords: 'archive workspace done finish',
         disabled: !selectedWorkspace,
         onSelect: () => selectedWorkspace && handleCompleteWorkspace(selectedWorkspace),
       },

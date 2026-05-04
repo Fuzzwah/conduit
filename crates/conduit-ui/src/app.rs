@@ -12517,7 +12517,7 @@ fn run_work_complete_preflight(
     let (issue_number, issue_source) = if let Some(n) = workspace.active_issue_number {
         (Some(n), ContextSource::Linked)
     } else {
-        let inferred = infer_active_issue(&target_branch);
+        let inferred = infer_active_issue(&workspace.branch);
         if let Some(n) = inferred {
             let _ = workspace_dao.update_active_links(workspace.id, None, Some(n));
         }
@@ -12631,17 +12631,14 @@ fn run_work_complete_action(
         SuggestedAction::MergePr => {
             let preflight = PrManager::preflight_check(path);
             if let Some(pr) = &preflight.existing_pr {
-                if matches!(
-                    pr.merge_readiness,
-                    MergeReadiness::Blocked | MergeReadiness::HasConflicts
-                ) {
+                if !matches!(pr.merge_readiness, MergeReadiness::Ready) {
                     return Err(format!(
                         "PR is not ready to merge ({:?})",
                         pr.merge_readiness
                     ));
                 }
             }
-            PrManager::merge(path, MergeMethod::Merge, false)
+            PrManager::merge(path, MergeMethod::Squash, false)
                 .map_err(|e| format!("gh pr merge failed: {e}"))?;
             Ok(vec!["PR merged".to_string()])
         }

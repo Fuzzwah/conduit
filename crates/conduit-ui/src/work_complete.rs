@@ -230,7 +230,8 @@ pub fn transition(
             (P::Done, vec![C::Close])
         }
 
-        // Universal close
+        // Universal close — but not while an action is in flight
+        (P::Executing { action }, E::Close) => (P::Executing { action: *action }, vec![]),
         (_, E::Close) => (P::Done, vec![C::Close]),
 
         // Stale / invalid combos are no-ops.
@@ -550,15 +551,21 @@ mod tests {
     }
 
     #[test]
-    fn cancel_from_executing_closes() {
+    fn cancel_from_executing_is_noop() {
         let (phase, cmds) = transition(
             &WorkCompletePhase::Executing {
                 action: SuggestedAction::Push,
             },
             WorkCompleteEvent::Close,
         );
-        assert_eq!(phase, WorkCompletePhase::Done);
-        assert!(cmds.contains(&WorkCompleteCommand::Close));
+        // Close is ignored while an action is in flight
+        assert_eq!(
+            phase,
+            WorkCompletePhase::Executing {
+                action: SuggestedAction::Push
+            }
+        );
+        assert!(cmds.is_empty());
     }
 
     #[test]

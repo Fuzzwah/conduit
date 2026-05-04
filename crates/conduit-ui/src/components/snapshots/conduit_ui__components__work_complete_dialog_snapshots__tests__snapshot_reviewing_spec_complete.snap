@@ -16,7 +16,7 @@ expression: output
     │                                                                      │
     │ Spec complete                                                        │
     │   branch: fuz/my-feature                                             │
-    │   spec: my-feature  5/5 tasks                                        │
+    │   spec: my-feature (linked)  5 of 5 tasks complete                   │
     │ ──────────────────────────────────────────────────────────────────── │
     │ ❯ Archive Spec  mark spec as done                                    │
     │   Archive Workspace  close and archive this workspace                │

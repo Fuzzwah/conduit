@@ -117,7 +117,7 @@ pub fn git_diff_files(working_dir: &Path) -> Vec<DirtyFile> {
             if line.len() < 3 {
                 return None;
             }
-            let status = line[..2].trim().to_string();
+            let status = line[..2].to_string();
             let path = line[3..].trim_matches('"').to_string();
             Some(DirtyFile { status, path })
         })
