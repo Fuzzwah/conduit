@@ -51,10 +51,9 @@ use crate::components::{
 };
 use crate::effect::Effect;
 use crate::events::{
-    AppEvent, ArchiveWorkspaceDialogPreflightResult, ArchiveWorkspacePreflightResult,
-    ForkSessionDialogPreflightResult, ForkWorkspaceCreated, InputMode, ProjectDiscoveryEntry,
-    RemoveProjectDialogPreflightResult, RemoveProjectResult, TitleGeneratedResult, ViewMode,
-    WorkspaceArchived, WorkspaceCreated,
+    AppEvent, ForkSessionDialogPreflightResult, ForkWorkspaceCreated, InputMode,
+    ProjectDiscoveryEntry, RemoveProjectDialogPreflightResult, RemoveProjectResult,
+    TitleGeneratedResult, ViewMode, WorkspaceCreated,
 };
 use crate::session::AgentSession;
 use crate::terminal_guard::TerminalGuard;
@@ -470,8 +469,6 @@ impl App {
     /// Pre-open a UI overlay so VHS screenshot tapes don't need to drive keyboard input.
     /// Called immediately after `load_demo_data()` or `load_demo_data_splash()`.
     pub fn open_overlay_for_demo(&mut self, overlay: &str) {
-        use crate::components::{ConfirmationContext, ConfirmationType};
-
         match overlay {
             "help" => {
                 self.state.close_overlays();
@@ -547,25 +544,14 @@ impl App {
                 self.state.input_mode = InputMode::SelectingProviders;
             }
             "archive" => {
-                let workspace_id = self
+                if let Some(workspace_id) = self
                     .state
                     .tab_manager
                     .active_session()
                     .and_then(|s| s.workspace_id)
-                    .unwrap_or_default();
-                self.state.close_overlays();
-                self.state.confirmation_dialog_state.show(
-                    "Archive 'slow-fern'?",
-                    "This will remove the worktree. The local branch will be deleted.",
-                    vec![
-                        "Branch has 2 commits ahead of main".to_string(),
-                        "Branch is 0 commits behind main".to_string(),
-                    ],
-                    ConfirmationType::Danger,
-                    "Archive",
-                    Some(ConfirmationContext::ArchiveWorkspace(workspace_id)),
-                );
-                self.state.input_mode = InputMode::Confirming;
+                {
+                    self.initiate_work_complete(workspace_id);
+                }
             }
             "file-mention" => {
                 if let Some(session) = self.state.tab_manager.active_session_mut() {
@@ -2224,7 +2210,7 @@ impl App {
             | Action::AddRepository
             | Action::OpenSettings
             | Action::ArchiveOrRemove
-            | Action::ArchiveCurrentWorkspace
+            | Action::CompleteWorkspaceWork
             | Action::RenameProject
             | Action::ManageMcp => {
                 self.handle_dialog_action(action);
@@ -2833,12 +2819,18 @@ impl App {
                                 )
                                 .map_err(|e| format!("Failed to create workspace: {}", e))?;
 
-                            let workspace = conduit_data::Workspace::new(
+                            let mut workspace = conduit_data::Workspace::new(
                                 repo_id,
                                 &workspace_name,
                                 &branch_name,
                                 worktree_path,
                             );
+                            if let Some(ref s) = spec {
+                                workspace = workspace.with_active_change(s.change_id.clone());
+                            }
+                            if let Some(ref gh) = issue {
+                                workspace = workspace.with_active_issue(gh.number as i32);
+                            }
                             let workspace_id = workspace.id;
 
                             if let Err(e) = workspace_dao.create(&workspace) {
@@ -3025,211 +3017,6 @@ impl App {
                                 result,
                             },
                             "fork_workspace_created",
-                        );
-                    });
-                }
-                Effect::ArchiveWorkspacePreflight { workspace_id } => {
-                    let repo_dao = self.repo_dao_clone();
-                    let workspace_dao = self.workspace_dao_clone();
-                    let worktree_manager = self.worktree_manager().clone();
-                    let config = self.config().clone();
-                    let event_tx = self.event_tx.clone();
-
-                    tokio::task::spawn_blocking(move || {
-                        let result: Result<ArchiveWorkspacePreflightResult, String> = (|| {
-                            let workspace_dao = workspace_dao
-                                .ok_or_else(|| "No workspace DAO available".to_string())?;
-                            let workspace = workspace_dao
-                                .get_by_id(workspace_id)
-                                .map_err(|e| format!("Failed to load workspace: {}", e))?
-                                .ok_or_else(|| "Workspace not found".to_string())?;
-
-                            let repo = match repo_dao.as_ref() {
-                                Some(dao) => match dao.get_by_id(workspace.repository_id) {
-                                    Ok(repo) => repo,
-                                    Err(err) => {
-                                        tracing::warn!(
-                                            error = %err,
-                                            workspace_id = %workspace_id,
-                                            "Failed to load repository for archive preflight"
-                                        );
-                                        None
-                                    }
-                                },
-                                None => {
-                                    tracing::warn!(
-                                        workspace_id = %workspace_id,
-                                        "Repository DAO unavailable for archive preflight"
-                                    );
-                                    None
-                                }
-                            };
-
-                            let should_prompt_remote_delete = match repo {
-                                Some(repo) => {
-                                    let settings = resolve_repo_workspace_settings(&config, &repo);
-                                    if settings.archive_delete_branch
-                                        && settings.archive_remote_prompt
-                                    {
-                                        match repo.base_path {
-                                            Some(base_path) => {
-                                                match worktree_manager.remote_branch_exists(
-                                                    &base_path,
-                                                    &workspace.branch,
-                                                ) {
-                                                    Ok(exists) => exists,
-                                                    Err(err) => {
-                                                        tracing::warn!(
-                                                            error = %err,
-                                                            workspace_id = %workspace_id,
-                                                            branch = %workspace.branch,
-                                                            "Failed to check remote branch existence during archive preflight"
-                                                        );
-                                                        false
-                                                    }
-                                                }
-                                            }
-                                            None => false,
-                                        }
-                                    } else {
-                                        false
-                                    }
-                                }
-                                None => false,
-                            };
-
-                            Ok(ArchiveWorkspacePreflightResult {
-                                should_prompt_remote_delete,
-                            })
-                        })(
-                        );
-
-                        send_app_event(
-                            &event_tx,
-                            AppEvent::ArchiveWorkspacePreflightCompleted {
-                                workspace_id,
-                                result,
-                            },
-                            "archive_workspace_preflight_completed",
-                        );
-                    });
-                }
-                Effect::ArchiveWorkspace {
-                    workspace_id,
-                    delete_remote,
-                } => {
-                    let repo_dao = self.repo_dao_clone();
-                    let workspace_dao = self.workspace_dao_clone();
-                    let worktree_manager = self.worktree_manager().clone();
-                    let config = self.config().clone();
-                    let event_tx = self.event_tx.clone();
-
-                    tokio::task::spawn_blocking(move || {
-                        let result: Result<WorkspaceArchived, String> = (|| {
-                            let workspace_dao = workspace_dao
-                                .ok_or_else(|| "No workspace DAO available".to_string())?;
-                            let workspace = workspace_dao
-                                .get_by_id(workspace_id)
-                                .map_err(|e| format!("Failed to load workspace: {}", e))?
-                                .ok_or_else(|| "Workspace not found".to_string())?;
-
-                            let repo = match repo_dao.as_ref() {
-                                Some(dao) => match dao.get_by_id(workspace.repository_id) {
-                                    Ok(repo) => repo,
-                                    Err(err) => {
-                                        tracing::warn!(
-                                            error = %err,
-                                            workspace_id = %workspace_id,
-                                            "Failed to load repository for archive"
-                                        );
-                                        None
-                                    }
-                                },
-                                None => {
-                                    tracing::warn!(
-                                        workspace_id = %workspace_id,
-                                        "Repository DAO unavailable for archive"
-                                    );
-                                    None
-                                }
-                            };
-                            let repo_base_path =
-                                repo.as_ref().and_then(|repo| repo.base_path.clone());
-                            let settings = repo
-                                .as_ref()
-                                .map(|repo| resolve_repo_workspace_settings(&config, repo));
-
-                            let mut warnings = Vec::new();
-                            let mut archived_commit_sha = None;
-                            if let (Some(base_path), Some(settings)) = (repo_base_path, settings) {
-                                match worktree_manager.get_branch_sha(
-                                    settings.mode,
-                                    &base_path,
-                                    &workspace.path,
-                                    &workspace.branch,
-                                ) {
-                                    Ok(commit_sha) => {
-                                        archived_commit_sha = Some(commit_sha);
-                                    }
-                                    Err(e) => {
-                                        warnings.push(format!("Failed to read branch SHA: {}", e));
-                                    }
-                                }
-
-                                if let Err(e) = worktree_manager.remove_workspace(
-                                    settings.mode,
-                                    &base_path,
-                                    &workspace.path,
-                                ) {
-                                    warnings.push(format!("Failed to remove worktree: {}", e));
-                                }
-
-                                if settings.archive_delete_branch {
-                                    if let Err(e) = worktree_manager.delete_branch(
-                                        settings.mode,
-                                        &base_path,
-                                        &workspace.path,
-                                        &workspace.branch,
-                                    ) {
-                                        warnings.push(format!(
-                                            "Failed to delete branch '{}': {}",
-                                            workspace.branch, e
-                                        ));
-                                    }
-                                }
-
-                                if delete_remote && settings.archive_delete_branch {
-                                    if let Err(e) = worktree_manager
-                                        .delete_remote_branch(&base_path, &workspace.branch)
-                                    {
-                                        warnings.push(format!(
-                                            "Failed to delete remote branch '{}': {}",
-                                            workspace.branch, e
-                                        ));
-                                    }
-                                }
-                            }
-
-                            workspace_dao
-                                .archive(workspace_id, archived_commit_sha)
-                                .map_err(|e| {
-                                    format!("Failed to archive workspace in database: {}", e)
-                                })?;
-
-                            Ok(WorkspaceArchived {
-                                workspace_id,
-                                warnings,
-                            })
-                        })(
-                        );
-
-                        send_app_event(
-                            &event_tx,
-                            AppEvent::WorkspaceArchived {
-                                workspace_id,
-                                result,
-                            },
-                            "workspace_archived",
                         );
                     });
                 }
@@ -3492,6 +3279,41 @@ impl App {
                         ) {
                             tracing::debug!(%session_id, "Failed to send TitleGenerated event");
                         }
+                    });
+                }
+                Effect::WorkCompletePreflight { workspace_id } => {
+                    self.spawn_work_complete_preflight(workspace_id);
+                }
+                Effect::WorkCompleteAction {
+                    workspace_id,
+                    action,
+                    payload,
+                } => {
+                    let workspace_dao = self.workspace_dao_clone();
+                    let repo_dao = self.repo_dao_clone();
+                    let worktree_manager = self.worktree_manager().clone();
+                    let config = self.config().clone();
+                    let event_tx = self.event_tx.clone();
+
+                    tokio::task::spawn_blocking(move || {
+                        let result = run_work_complete_action(
+                            workspace_id,
+                            action,
+                            payload,
+                            workspace_dao,
+                            repo_dao,
+                            worktree_manager,
+                            &config,
+                        );
+                        send_app_event(
+                            &event_tx,
+                            AppEvent::WorkCompleteActionFinished {
+                                workspace_id,
+                                action,
+                                result,
+                            },
+                            "work_complete_action_finished",
+                        );
                     });
                 }
             }
@@ -5269,17 +5091,6 @@ impl App {
             | Some(ConfirmationContext::ForkSession { .. })
             | Some(ConfirmationContext::ForkSessionPreflightInProgress { .. })
             | Some(ConfirmationContext::SteerFallback { .. }) => InputMode::Normal,
-            // Sidebar operations return to the mode that was active when the
-            // archive was initiated (Normal if triggered from a workspace tab,
-            // SidebarNavigation if triggered from the sidebar).
-            Some(ConfirmationContext::ArchiveWorkspace(_))
-            | Some(ConfirmationContext::ArchiveWorkspaceRemoteDelete { .. })
-            | Some(ConfirmationContext::ArchiveWorkspacePreflightInProgress { .. })
-            | Some(ConfirmationContext::ArchiveWorkspaceInProgress { .. }) => self
-                .state
-                .archive_return_mode
-                .take()
-                .unwrap_or(InputMode::SidebarNavigation),
             Some(ConfirmationContext::RemoveProject(_))
             | Some(ConfirmationContext::RemoveProjectPreflightInProgress { .. })
             | Some(ConfirmationContext::SelectWorkspaceMode { .. }) => InputMode::SidebarNavigation,
@@ -5333,64 +5144,20 @@ impl App {
         });
     }
 
-    fn show_archive_progress_dialog(&mut self, workspace_id: uuid::Uuid) {
-        self.state.close_overlays();
-        self.state
-            .confirmation_dialog_state
-            .show_loading_with_context(
-                "Archive Workspace",
-                "Archiving workspace...",
-                Some(ConfirmationContext::ArchiveWorkspaceInProgress { workspace_id }),
-            );
-        self.state.input_mode = InputMode::Confirming;
-    }
-
-    fn hide_archive_progress_dialog(&mut self, workspace_id: uuid::Uuid) {
-        let is_matching_archive_progress = self.state.confirmation_dialog_state.loading
-            && matches!(
-                self.state.confirmation_dialog_state.context,
-                Some(ConfirmationContext::ArchiveWorkspaceInProgress {
-                    workspace_id: id
-                }) if id == workspace_id
-            );
-        if is_matching_archive_progress {
-            self.state.confirmation_dialog_state.hide();
-            self.state.input_mode = self
-                .state
-                .archive_return_mode
-                .take()
-                .unwrap_or(InputMode::SidebarNavigation);
-        }
-    }
-
-    /// Initiate the archive workspace flow - check git status and show confirmation dialog
-    fn initiate_archive_workspace(&mut self, workspace_id: uuid::Uuid) {
-        if self.state.busy_workspaces.contains(&workspace_id) {
-            self.state.set_timed_footer_message(
-                "Archive already in progress for this workspace".to_string(),
-                Duration::from_secs(3),
-            );
+    /// Open the Work Complete dialog for `workspace_id`.
+    pub(crate) fn initiate_work_complete(&mut self, workspace_id: uuid::Uuid) {
+        if self.state.work_complete_session.is_some() {
             return;
         }
 
-        // Refresh immediately so the sidebar shows current merge state before the preflight dialog.
-        if let Some(ref tracker) = self.git_tracker {
-            tracker.refresh_now(workspace_id);
-        }
+        let session = crate::work_complete::WorkCompleteSession::new(workspace_id);
+        self.state.work_complete_session = Some(session);
+        self.state.input_mode = InputMode::WorkCompleting;
 
-        // Save the current mode so we can restore it when the dialog flow ends.
-        // Only overwrite a previously-saved mode if none is set (avoids stomping
-        // if somehow called while another archive is in-flight).
-        if self.state.archive_return_mode.is_none() {
-            self.state.archive_return_mode = Some(self.state.input_mode);
-        }
+        self.spawn_work_complete_preflight(workspace_id);
+    }
 
-        self.show_blocking_confirmation_loading(
-            "Archive Workspace",
-            "Analyzing workspace...",
-            ConfirmationContext::ArchiveWorkspacePreflightInProgress { workspace_id },
-        );
-
+    fn spawn_work_complete_preflight(&mut self, workspace_id: uuid::Uuid) {
         let workspace_dao = self.workspace_dao_clone();
         let repo_dao = self.repo_dao_clone();
         let worktree_manager = self.worktree_manager().clone();
@@ -5398,191 +5165,122 @@ impl App {
 
         self.spawn_blocking_preflight(
             move || {
-                let workspace_dao =
-                    workspace_dao.ok_or_else(|| "Workspace database unavailable".to_string())?;
-                let repo_dao =
-                    repo_dao.ok_or_else(|| "Repository database unavailable".to_string())?;
-
-                let workspace = workspace_dao
-                    .get_by_id(workspace_id)
-                    .map_err(|e| format!("Failed to load workspace: {}", e))?
-                    .ok_or_else(|| "Workspace not found".to_string())?;
-
-                if worktree_manager.is_clean(&workspace.path) {
-                    return Ok(ArchiveWorkspaceDialogPreflightResult {
-                        workspace_name: workspace.name,
-                        message: String::new(),
-                        warnings: vec![],
-                        info_items: vec![],
-                        has_dirty: false,
-                        has_unmerged: false,
-                        skip_to_archive: true,
-                    });
-                }
-
-                let repo = repo_dao
-                    .get_by_id(workspace.repository_id)
-                    .map_err(|e| format!("Failed to load repository: {}", e))?
-                    .ok_or_else(|| "Repository not found for workspace".to_string())?;
-                let settings = resolve_repo_workspace_settings(&config, &repo);
-
-                let branch_status = worktree_manager.get_branch_status_with_gh_option(
-                    &workspace.path,
-                    config.workspaces.use_gh_cli_merge_status,
-                );
-                let mut warnings = Vec::new();
-                let mut info_items = Vec::new();
-                let mut has_dirty = false;
-                let mut has_unmerged = false;
-
-                if let Ok(status) = branch_status {
-                    if status.is_dirty {
-                        has_dirty = true;
-                        if let Some(desc) = &status.dirty_description {
-                            warnings.push(desc.clone());
-                        } else {
-                            warnings.push("Uncommitted changes".to_string());
-                        }
-                    }
-
-                    if let Some(pr_state) = status.pr_state {
-                        use conduit_git::PrState;
-                        match pr_state {
-                            PrState::Merged => {
-                                info_items.push("PR merged (via GitHub)".to_string());
-                            }
-                            PrState::Open => {
-                                info_items.push("PR is open".to_string());
-                            }
-                            PrState::Draft => {
-                                info_items.push("PR is a draft".to_string());
-                            }
-                            PrState::Closed => {
-                                warnings.push("PR closed without merging".to_string());
-                            }
-                            PrState::Unknown => {}
-                        }
-                    }
-
-                    if !status.is_merged {
-                        if status.likely_squash_merged {
-                            info_items.push(format!(
-                                "Squash-merged ({} {} ahead, diff already in main)",
-                                status.commits_ahead,
-                                if status.commits_ahead == 1 {
-                                    "commit"
-                                } else {
-                                    "commits"
-                                }
-                            ));
-                        } else {
-                            has_unmerged = true;
-                            if status.commits_ahead > 0 {
-                                warnings.push(format!(
-                                    "Branch not merged ({} {} ahead)",
-                                    status.commits_ahead,
-                                    if status.commits_ahead == 1 {
-                                        "commit"
-                                    } else {
-                                        "commits"
-                                    }
-                                ));
-                            } else {
-                                warnings.push("Branch not merged into main".to_string());
-                            }
-                        }
-                    }
-
-                    if status.commits_behind > 0 {
-                        warnings.push(format!(
-                            "Branch is {} {} behind main",
-                            status.commits_behind,
-                            if status.commits_behind == 1 {
-                                "commit"
-                            } else {
-                                "commits"
-                            }
-                        ));
-                    }
-
-                    if status.commits_ahead == 0 {
-                        info_items
-                            .push("Branch has no changes (0 commits ahead of main)".to_string());
-                    }
-                }
-
-                let count_incomplete_tasks = |tasks_path: std::path::PathBuf| -> usize {
-                    std::fs::read_to_string(&tasks_path)
-                        .map(|content| content.lines().filter(|l| l.contains("- [ ]")).count())
-                        .unwrap_or(0)
-                };
-
-                let openspec_n = count_incomplete_tasks(
-                    workspace
-                        .path
-                        .join("openspec")
-                        .join("changes")
-                        .join(&workspace.name)
-                        .join("tasks.md"),
-                );
-                if openspec_n > 0 {
-                    warnings.push(format!(
-                        "OpenSpec change has {} incomplete task(s)",
-                        openspec_n
-                    ));
-                }
-
-                let specify_n = count_incomplete_tasks(
-                    workspace
-                        .path
-                        .join(".specify")
-                        .join("specs")
-                        .join(&workspace.name)
-                        .join("tasks.md"),
-                );
-                if specify_n > 0 {
-                    warnings.push(format!("Specify spec has {} incomplete task(s)", specify_n));
-                }
-
-                let mut message = match settings.mode {
-                    WorkspaceMode::Worktree => "This will remove the worktree.".to_string(),
-                    WorkspaceMode::Checkout => "This will remove the checkout.".to_string(),
-                };
-
-                if settings.archive_delete_branch {
-                    message.push_str(" The local branch will be deleted.");
-                }
-                if settings.archive_delete_branch && settings.archive_remote_prompt {
-                    let remote_exists = repo
-                        .base_path
-                        .as_ref()
-                        .and_then(|base_path| {
-                            worktree_manager
-                                .remote_branch_exists(base_path, &workspace.branch)
-                                .ok()
-                        })
-                        .unwrap_or(false);
-                    if remote_exists {
-                        message.push_str(" You'll be asked about deleting the remote branch.");
-                    }
-                }
-
-                Ok(ArchiveWorkspaceDialogPreflightResult {
-                    workspace_name: workspace.name,
-                    message,
-                    warnings,
-                    info_items,
-                    has_dirty,
-                    has_unmerged,
-                    skip_to_archive: false,
-                })
+                run_work_complete_preflight(
+                    workspace_id,
+                    workspace_dao,
+                    repo_dao,
+                    worktree_manager,
+                    &config,
+                )
             },
-            move |result| AppEvent::ArchiveWorkspaceDialogPreflightCompleted {
+            move |result| AppEvent::WorkCompletePreflightLoaded {
                 workspace_id,
                 result,
             },
-            "archive_workspace_dialog_preflight_completed",
+            "work_complete_preflight",
         );
+    }
+
+    /// Dispatch a `WorkCompleteEvent` through the state machine and handle resulting commands.
+    pub(crate) fn dispatch_work_complete_event(
+        &mut self,
+        event: crate::work_complete::WorkCompleteEvent,
+    ) -> Vec<Effect> {
+        use crate::work_complete::{WorkCompleteCommand as C, WorkCompleteEvent as E};
+
+        let Some(session) = self.state.work_complete_session.as_ref() else {
+            return vec![];
+        };
+
+        let workspace_id = session.workspace_id;
+        let (next_phase, commands) =
+            crate::work_complete::transition(&session.phase, event.clone());
+
+        if let Some(session) = self.state.work_complete_session.as_mut() {
+            session.phase = next_phase;
+        }
+
+        let mut effects = vec![];
+        for cmd in commands {
+            match cmd {
+                C::FetchPreflight | C::RefreshPreflight => {
+                    effects.push(Effect::WorkCompletePreflight { workspace_id });
+                }
+                C::RequestCommitMessage { suggestion: _ } => {
+                    // Pre-fill from session data
+                    let suggestion = self
+                        .state
+                        .work_complete_session
+                        .as_ref()
+                        .and_then(|s| s.data.as_ref())
+                        .map(|d| {
+                            crate::work_complete::suggest_commit_message(
+                                &d.branch_name,
+                                &d.dirty_files,
+                                d.spec.as_ref().map(|s| s.change_id.as_str()),
+                                d.issue.as_ref().map(|i| i.number),
+                            )
+                        })
+                        .unwrap_or_default();
+                    if let Some(session) = self.state.work_complete_session.as_mut() {
+                        session.commit_message_input = suggestion;
+                    }
+                }
+                C::ExecuteAction(action) => {
+                    effects.push(Effect::WorkCompleteAction {
+                        workspace_id,
+                        action,
+                        payload: None,
+                    });
+                }
+                C::ExecuteCommit(msg) => {
+                    effects.push(Effect::WorkCompleteAction {
+                        workspace_id,
+                        action: conduit_git::SuggestedAction::Commit,
+                        payload: Some(msg),
+                    });
+                }
+                C::SendAgentPrompt(_) => {
+                    if let Some(change_id) = self
+                        .state
+                        .work_complete_session
+                        .as_ref()
+                        .and_then(|s| s.data.as_ref())
+                        .and_then(|d| d.spec.as_ref())
+                        .map(|s| s.change_id.clone())
+                    {
+                        let prompt = format!("show incomplete tasks in {}", change_id);
+                        if let Ok(mut e) = self.submit_prompt(prompt, vec![], vec![]) {
+                            effects.append(&mut e);
+                        }
+                    }
+                }
+                C::Close => {
+                    self.close_work_complete_dialog();
+                    return effects;
+                }
+            }
+        }
+
+        // Check if transition moved to Done
+        if matches!(
+            self.state.work_complete_session.as_ref().map(|s| &s.phase),
+            Some(crate::work_complete::WorkCompletePhase::Done)
+        ) {
+            self.close_work_complete_dialog();
+        }
+
+        // Special: if we get PreflightLoaded from an E::ActionCompleted, store data
+        if let E::ActionCompleted(_) = event {
+            // Phase was set to LoadingPreflight by transition; preflight effect already queued
+        }
+
+        effects
+    }
+
+    fn close_work_complete_dialog(&mut self) {
+        self.state.work_complete_session = None;
+        self.state.input_mode = InputMode::Normal;
     }
 
     /// Close the workspace creation progress dialog and open the created workspace (if successful).
@@ -5622,47 +5320,6 @@ impl App {
             .error_dialog_state
             .show_with_details(title, message, details);
         self.state.input_mode = InputMode::ShowingError;
-    }
-
-    /// Execute the archive workspace action after confirmation
-    fn execute_archive_workspace_preflight(&mut self, workspace_id: uuid::Uuid) -> Effect {
-        self.mark_workspace_busy(workspace_id);
-        self.show_archive_progress_dialog(workspace_id);
-        Effect::ArchiveWorkspacePreflight { workspace_id }
-    }
-
-    /// Execute the archive workspace action after confirmation
-    fn execute_archive_workspace(
-        &mut self,
-        workspace_id: uuid::Uuid,
-        delete_remote: bool,
-    ) -> Effect {
-        self.mark_workspace_busy(workspace_id);
-        self.show_archive_progress_dialog(workspace_id);
-        Effect::ArchiveWorkspace {
-            workspace_id,
-            delete_remote,
-        }
-    }
-
-    fn prompt_archive_remote_delete(&mut self, workspace: &conduit_data::Workspace) {
-        self.state.close_overlays();
-        self.state.confirmation_dialog_state.show(
-            format!("Delete remote branch for \"{}\"?", workspace.name),
-            format!(
-                "Delete branch '{}' from the remote repository?",
-                workspace.branch
-            ),
-            Vec::new(),
-            ConfirmationType::Warning,
-            "Delete Remote",
-            Some(ConfirmationContext::ArchiveWorkspaceRemoteDelete {
-                workspace_id: workspace.id,
-            }),
-        );
-        self.state.confirmation_dialog_state.cancel_text = "Keep Remote".to_string();
-        self.state.confirmation_dialog_state.select_confirm();
-        self.state.input_mode = InputMode::Confirming;
     }
 
     fn apply_repo_workspace_mode(
@@ -7419,59 +7076,6 @@ impl App {
                     }
                 }
             }
-            AppEvent::ArchiveWorkspaceDialogPreflightCompleted {
-                workspace_id,
-                result,
-            } => {
-                let is_active_preflight = self.state.confirmation_dialog_state.loading
-                    && matches!(
-                        self.state.confirmation_dialog_state.context,
-                        Some(ConfirmationContext::ArchiveWorkspacePreflightInProgress {
-                            workspace_id: id
-                        }) if id == workspace_id
-                    );
-                if !is_active_preflight {
-                    return Ok(effects);
-                }
-
-                match result {
-                    Ok(preflight) => {
-                        if preflight.skip_to_archive {
-                            effects.push(self.execute_archive_workspace(workspace_id, false));
-                            return Ok(effects);
-                        }
-
-                        let confirmation_type = match (preflight.has_dirty, preflight.has_unmerged)
-                        {
-                            (true, true) => ConfirmationType::Danger,
-                            (true, false) | (false, true) => ConfirmationType::Warning,
-                            (false, false) => {
-                                if preflight.warnings.is_empty() {
-                                    ConfirmationType::Info
-                                } else {
-                                    ConfirmationType::Warning
-                                }
-                            }
-                        };
-
-                        self.state.confirmation_dialog_state.show(
-                            format!("Archive \"{}\"?", preflight.workspace_name),
-                            preflight.message,
-                            preflight.warnings,
-                            confirmation_type,
-                            "Archive",
-                            Some(ConfirmationContext::ArchiveWorkspace(workspace_id)),
-                        );
-                        self.state.confirmation_dialog_state.info_items = preflight.info_items;
-                        self.state.confirmation_dialog_state.select_confirm();
-                        self.state.input_mode = InputMode::Confirming;
-                    }
-                    Err(err) => {
-                        self.state.confirmation_dialog_state.hide();
-                        self.show_error("Archive Failed", &err);
-                    }
-                }
-            }
             AppEvent::RemoveProjectDialogPreflightCompleted { repo_id, result } => {
                 let is_active_preflight = self.state.confirmation_dialog_state.loading
                     && matches!(
@@ -7605,96 +7209,77 @@ impl App {
                     }
                 }
             }
-            AppEvent::ArchiveWorkspacePreflightCompleted {
-                workspace_id,
-                result,
-            } => match result {
-                Ok(preflight) => {
-                    if preflight.should_prompt_remote_delete {
-                        self.clear_workspace_busy(workspace_id);
-                        self.hide_archive_progress_dialog(workspace_id);
-
-                        let Some(workspace_dao) = self.workspace_dao() else {
-                            self.show_error("Archive Failed", "Workspace database unavailable.");
-                            return Ok(effects);
-                        };
-
-                        match workspace_dao.get_by_id(workspace_id) {
-                            Ok(Some(workspace)) => {
-                                self.prompt_archive_remote_delete(&workspace);
-                            }
-                            Ok(None) => {
-                                self.show_error("Archive Failed", "Workspace not found.");
-                            }
-                            Err(err) => {
-                                self.show_error(
-                                    "Archive Failed",
-                                    &format!("Failed to load workspace: {}", err),
-                                );
-                            }
-                        }
-                    } else {
-                        effects.push(Effect::ArchiveWorkspace {
-                            workspace_id,
-                            delete_remote: false,
-                        });
-                    }
-                }
-                Err(err) => {
-                    self.clear_workspace_busy(workspace_id);
-                    self.hide_archive_progress_dialog(workspace_id);
-                    self.show_error("Archive Failed", &err);
-                }
-            },
-            AppEvent::WorkspaceArchived {
+            AppEvent::WorkCompletePreflightLoaded {
                 workspace_id,
                 result,
             } => {
-                self.clear_workspace_busy(workspace_id);
-                self.hide_archive_progress_dialog(workspace_id);
+                let is_our_session = self
+                    .state
+                    .work_complete_session
+                    .as_ref()
+                    .map(|s| s.workspace_id == workspace_id)
+                    .unwrap_or(false);
+                if !is_our_session {
+                    return Ok(effects);
+                }
                 match result {
-                    Ok(archived) => {
-                        if !archived.warnings.is_empty() {
-                            self.show_error_with_details(
-                                "Archive Warning",
-                                "Workspace archived with warnings",
-                                &archived.warnings.join("\n"),
-                            );
+                    Ok(data) => {
+                        if let Some(session) = self.state.work_complete_session.as_mut() {
+                            session.data = Some(data.clone());
                         }
-
-                        self.close_tabs_for_workspace(archived.workspace_id);
-
-                        let current_selection = self.state.sidebar_state.tree_state.selected;
-                        self.refresh_sidebar_data();
-
-                        if !self.state.tab_manager.is_empty() {
-                            self.sync_sidebar_to_active_tab();
-                            self.sync_theme_to_active_tab();
-                        } else {
-                            let visible_count = self.state.sidebar_data.visible_nodes().len();
-                            if visible_count > 0 {
-                                let new_selection = if current_selection > 0 {
-                                    current_selection - 1
-                                } else {
-                                    0
-                                };
-                                self.state.sidebar_state.tree_state.selected =
-                                    new_selection.min(visible_count - 1);
-                            } else {
-                                self.state.sidebar_state.tree_state.selected = 0;
-                            }
-                            self.sync_theme_to_sidebar_selection();
+                        let sub_effects = self.dispatch_work_complete_event(
+                            crate::work_complete::WorkCompleteEvent::PreflightLoaded(data),
+                        );
+                        effects.extend(sub_effects);
+                    }
+                    Err(err) => {
+                        let sub_effects = self.dispatch_work_complete_event(
+                            crate::work_complete::WorkCompleteEvent::PreflightFailed(err),
+                        );
+                        effects.extend(sub_effects);
+                    }
+                }
+            }
+            AppEvent::WorkCompleteActionFinished {
+                workspace_id,
+                action,
+                result,
+            } => {
+                let is_our_session = self
+                    .state
+                    .work_complete_session
+                    .as_ref()
+                    .map(|s| s.workspace_id == workspace_id)
+                    .unwrap_or(false);
+                if !is_our_session {
+                    return Ok(effects);
+                }
+                match result {
+                    Ok(log_lines) => {
+                        if let Some(session) = self.state.work_complete_session.as_mut() {
+                            session.log.extend(log_lines.clone());
                         }
-
-                        if archived.warnings.is_empty() {
+                        // Archive closes tabs (and kills agents) exactly like WorkspaceArchived
+                        if action == conduit_git::SuggestedAction::Archive {
+                            self.close_tabs_for_workspace(workspace_id);
+                            self.close_work_complete_dialog();
+                            self.refresh_sidebar_data();
                             self.state.set_timed_footer_message(
                                 "Workspace archived".to_string(),
                                 Duration::from_secs(3),
                             );
+                        } else {
+                            let sub_effects = self.dispatch_work_complete_event(
+                                crate::work_complete::WorkCompleteEvent::ActionCompleted(log_lines),
+                            );
+                            effects.extend(sub_effects);
                         }
                     }
                     Err(err) => {
-                        self.show_error("Archive Failed", &err);
+                        let sub_effects = self.dispatch_work_complete_event(
+                            crate::work_complete::WorkCompleteEvent::ActionFailed(err),
+                        );
+                        effects.extend(sub_effects);
                     }
                 }
             }
@@ -12857,6 +12442,277 @@ impl SessionPersistenceReport {
     }
 }
 
+/// Blocking helper that collects all inputs for the Work Complete preflight.
+fn run_work_complete_preflight(
+    workspace_id: uuid::Uuid,
+    workspace_dao: Option<conduit_data::WorkspaceStore>,
+    repo_dao: Option<conduit_data::RepositoryStore>,
+    worktree_manager: conduit_git::WorkspaceRepoManager,
+    config: &conduit_config::Config,
+) -> Result<crate::work_complete::WorkCompleteData, String> {
+    use conduit_git::{
+        classify, fetch_change_detail, git_diff_files, infer_active_change, infer_active_issue,
+        view_issue, ContextSource, GitState, IssueSnapshot, PrManager, PrSnapshot, PrState,
+        SpecSnapshot,
+    };
+
+    let workspace_dao = workspace_dao.ok_or("Workspace database unavailable")?;
+    let repo_dao = repo_dao.ok_or("Repository database unavailable")?;
+
+    let workspace = workspace_dao
+        .get_by_id(workspace_id)
+        .map_err(|e| format!("Failed to load workspace: {e}"))?
+        .ok_or("Workspace not found")?;
+
+    let _repo = repo_dao
+        .get_by_id(workspace.repository_id)
+        .map_err(|e| format!("Failed to load repository: {e}"))?
+        .ok_or("Repository not found")?;
+
+    let path = &workspace.path;
+
+    // --- Branch status ---
+    let branch_status = worktree_manager
+        .get_branch_status_with_gh_option(path, config.workspaces.use_gh_cli_merge_status)
+        .unwrap_or_default();
+    let dirty_files: Vec<String> = git_diff_files(path).into_iter().map(|f| f.path).collect();
+
+    // --- PR preflight ---
+    let pr_preflight = PrManager::preflight_check(path);
+    let target_branch = pr_preflight.target_branch.clone();
+
+    let pr = pr_preflight
+        .existing_pr
+        .as_ref()
+        .map(|p| crate::work_complete::PrData {
+            number: p.number.unwrap_or(0),
+            url: p.url.clone(),
+            title: p.title.clone(),
+            is_open: p.state == PrState::Open,
+            is_merged: p.state == PrState::Merged,
+            merge_readiness: p.merge_readiness,
+        });
+
+    // --- Spec resolution ---
+    let (spec_change_id, spec_source) = if let Some(ref id) = workspace.active_change_id {
+        (Some(id.clone()), ContextSource::Linked)
+    } else {
+        let inferred = infer_active_change(path, &target_branch);
+        if let Some(ref cid) = inferred {
+            let _ = workspace_dao.update_active_links(workspace.id, Some(cid.clone()), None);
+        }
+        (inferred, ContextSource::Detected)
+    };
+
+    let spec = spec_change_id.as_deref().and_then(|change_id| {
+        fetch_change_detail(path, change_id).map(|detail| crate::work_complete::SpecData {
+            change_id: change_id.to_string(),
+            total: detail.total,
+            completed: detail.completed,
+            source: spec_source,
+        })
+    });
+
+    // --- Issue resolution ---
+    let (issue_number, issue_source) = if let Some(n) = workspace.active_issue_number {
+        (Some(n), ContextSource::Linked)
+    } else {
+        let inferred = infer_active_issue(&workspace.branch);
+        if let Some(n) = inferred {
+            let _ = workspace_dao.update_active_links(workspace.id, None, Some(n));
+        }
+        (inferred, ContextSource::Detected)
+    };
+
+    let issue = issue_number.map(|n| {
+        let view = view_issue(path, n);
+        crate::work_complete::IssueData {
+            number: n,
+            title: view.as_ref().map(|v| v.title.clone()),
+            is_open: view.as_ref().map(|v| v.state == "OPEN").unwrap_or(true),
+            source: issue_source,
+        }
+    });
+
+    // --- Classify ---
+    let git_state = GitState {
+        is_dirty: branch_status.is_dirty,
+        commits_ahead: branch_status.commits_ahead as u32,
+        commits_behind: branch_status.commits_behind as u32,
+        is_merged: branch_status.is_merged,
+        has_upstream: pr_preflight.has_upstream,
+    };
+    let pr_snapshot = pr.as_ref().map(|p| PrSnapshot {
+        number: p.number,
+        is_open: p.is_open,
+        is_merged: p.is_merged,
+        merge_readiness: p.merge_readiness,
+    });
+    let spec_snapshot = spec.as_ref().map(|s| SpecSnapshot {
+        change_id: s.change_id.clone(),
+        total: s.total,
+        completed: s.completed,
+        source: s.source,
+    });
+    let issue_snapshot = issue.as_ref().map(|i| IssueSnapshot {
+        number: i.number,
+        is_open: i.is_open,
+        source: i.source,
+    });
+
+    let (scenario, suggested_actions) = classify(
+        &git_state,
+        pr_snapshot.as_ref(),
+        spec_snapshot.as_ref(),
+        issue_snapshot.as_ref(),
+    );
+
+    Ok(crate::work_complete::WorkCompleteData {
+        branch_name: workspace.branch.clone(),
+        is_dirty: branch_status.is_dirty,
+        dirty_files,
+        commits_ahead: git_state.commits_ahead,
+        commits_behind: git_state.commits_behind,
+        is_merged: git_state.is_merged,
+        has_upstream: git_state.has_upstream,
+        pr,
+        spec,
+        issue,
+        scenario,
+        suggested_actions,
+    })
+}
+
+/// Blocking helper that executes a single Work Complete action.
+fn run_work_complete_action(
+    workspace_id: uuid::Uuid,
+    action: conduit_git::SuggestedAction,
+    payload: Option<String>,
+    workspace_dao: Option<conduit_data::WorkspaceStore>,
+    repo_dao: Option<conduit_data::RepositoryStore>,
+    worktree_manager: conduit_git::WorkspaceRepoManager,
+    config: &conduit_config::Config,
+) -> Result<Vec<String>, String> {
+    use conduit_git::{
+        archive_change, close_issue, commit_all, infer_active_issue, push_branch, MergeMethod,
+        MergeReadiness, PrCreateOpts, PrManager, SuggestedAction,
+    };
+
+    let workspace_dao = workspace_dao.ok_or("Workspace database unavailable")?;
+    let workspace = workspace_dao
+        .get_by_id(workspace_id)
+        .map_err(|e| format!("Failed to load workspace: {e}"))?
+        .ok_or("Workspace not found")?;
+    let path = &workspace.path;
+
+    match action {
+        SuggestedAction::Commit => {
+            let message = payload.ok_or("Commit message required")?;
+            let sha = commit_all(path, &message).map_err(|e| format!("Commit failed: {e}"))?;
+            Ok(vec![format!("Committed {}", sha)])
+        }
+        SuggestedAction::Push => {
+            let set_upstream = !workspace.branch.is_empty();
+            push_branch(path, &workspace.branch, set_upstream)
+                .map_err(|e| format!("Push failed: {e}"))?;
+            Ok(vec![format!("Pushed {}", workspace.branch)])
+        }
+        SuggestedAction::OpenPr => {
+            let preflight = PrManager::preflight_check(path);
+            let opts = PrCreateOpts {
+                base_branch: preflight.target_branch.clone(),
+                title: None,
+                body: None,
+            };
+            let pr =
+                PrManager::create(path, &opts).map_err(|e| format!("gh pr create failed: {e}"))?;
+            Ok(vec![format!("Created PR #{}: {}", pr.number, pr.url)])
+        }
+        SuggestedAction::MergePr => {
+            let preflight = PrManager::preflight_check(path);
+            if let Some(pr) = &preflight.existing_pr {
+                if !matches!(pr.merge_readiness, MergeReadiness::Ready) {
+                    return Err(format!(
+                        "PR is not ready to merge ({:?})",
+                        pr.merge_readiness
+                    ));
+                }
+            }
+            PrManager::merge(path, MergeMethod::Squash, false)
+                .map_err(|e| format!("gh pr merge failed: {e}"))?;
+            Ok(vec!["PR merged".to_string()])
+        }
+        SuggestedAction::CloseIssue => {
+            let issue_number = workspace
+                .active_issue_number
+                .or_else(|| infer_active_issue(&workspace.branch));
+            let number = issue_number.ok_or("No linked issue found for this workspace")?;
+            close_issue(path, number).map_err(|e| format!("gh issue close failed: {e}"))?;
+            Ok(vec![format!("Closed issue #{}", number)])
+        }
+        SuggestedAction::ArchiveSpec => {
+            let change_id = workspace
+                .active_change_id
+                .ok_or("No linked spec found for this workspace")?;
+            let today = chrono::Local::now().date_naive();
+            let result = archive_change(path, &change_id, today)
+                .map_err(|e| format!("Spec archive failed: {e}"))?;
+            Ok(vec![format!(
+                "Archived spec to {}",
+                result.new_path.display()
+            )])
+        }
+        SuggestedAction::Archive => {
+            let repo_dao = repo_dao.ok_or("Repository database unavailable")?;
+            let repo = repo_dao
+                .get_by_id(workspace.repository_id)
+                .map_err(|e| format!("Failed to load repository: {e}"))?
+                .ok_or("Repository not found")?;
+            let settings = resolve_repo_workspace_settings(config, &repo);
+            let mut warnings = Vec::new();
+            let mut archived_commit_sha = None;
+
+            if let Some(base_path) = repo.base_path {
+                match worktree_manager.get_branch_sha(
+                    settings.mode,
+                    &base_path,
+                    path,
+                    &workspace.branch,
+                ) {
+                    Ok(sha) => archived_commit_sha = Some(sha),
+                    Err(e) => warnings.push(format!("Failed to read branch SHA: {e}")),
+                }
+
+                if let Err(e) = worktree_manager.remove_workspace(settings.mode, &base_path, path) {
+                    warnings.push(format!("Failed to remove worktree: {e}"));
+                }
+
+                if settings.archive_delete_branch {
+                    if let Err(e) = worktree_manager.delete_branch(
+                        settings.mode,
+                        &base_path,
+                        path,
+                        &workspace.branch,
+                    ) {
+                        warnings.push(format!("Failed to delete branch: {e}"));
+                    }
+                }
+            }
+
+            workspace_dao
+                .archive(workspace_id, archived_commit_sha)
+                .map_err(|e| format!("Failed to archive workspace in database: {e}"))?;
+
+            let mut log = vec!["Workspace archived".to_string()];
+            log.extend(warnings);
+            Ok(log)
+        }
+        SuggestedAction::ShowRemainingTasks => Err(
+            "ShowRemainingTasks is handled by the TUI and should not be executed here".to_string(),
+        ),
+    }
+}
+
 /// Async helper for generating title and branch name
 async fn generate_title_and_branch_impl(
     tools: ToolAvailability,
@@ -14062,125 +13918,6 @@ mod tests {
     }
 
     #[test]
-    fn test_handle_confirmation_action_archive_workspace_remote_delete() {
-        let mut app = build_test_app_with_sessions(&[]);
-        let workspace_id = Uuid::new_v4();
-        app.state.input_mode = InputMode::Confirming;
-        app.state.confirmation_dialog_state.visible = true;
-        app.state.confirmation_dialog_state.context =
-            Some(ConfirmationContext::ArchiveWorkspaceRemoteDelete { workspace_id });
-
-        let mut effects = Vec::new();
-        app.handle_confirmation_action(Action::ConfirmYes, &mut effects)
-            .unwrap();
-
-        assert!(matches!(
-            effects.as_slice(),
-            [Effect::ArchiveWorkspace { workspace_id: id, delete_remote: true }] if *id == workspace_id
-        ));
-        assert_eq!(app.state.input_mode, InputMode::Confirming);
-        assert!(app.state.confirmation_dialog_state.visible);
-        assert!(app.state.confirmation_dialog_state.loading);
-        assert!(matches!(
-            app.state.confirmation_dialog_state.context,
-            Some(ConfirmationContext::ArchiveWorkspaceInProgress {
-                workspace_id: id
-            }) if id == workspace_id
-        ));
-        assert!(app.state.busy_workspaces.contains(&workspace_id));
-    }
-
-    #[test]
-    fn test_handle_confirmation_action_cancel_archive_workspace() {
-        let mut app = build_test_app_with_sessions(&[]);
-        let workspace_id = Uuid::new_v4();
-        app.state.input_mode = InputMode::Confirming;
-        app.state.confirmation_dialog_state.visible = true;
-        app.state.confirmation_dialog_state.context =
-            Some(ConfirmationContext::ArchiveWorkspace(workspace_id));
-
-        let mut effects = Vec::new();
-        app.handle_confirmation_action(Action::ConfirmNo, &mut effects)
-            .unwrap();
-
-        assert!(effects.is_empty());
-        assert_eq!(app.state.input_mode, InputMode::SidebarNavigation);
-        assert!(!app.state.confirmation_dialog_state.visible);
-        assert!(app.state.confirmation_dialog_state.context.is_none());
-    }
-
-    #[test]
-    fn test_handle_confirmation_action_archive_workspace_starts_async_preflight() {
-        let mut app = build_test_app_with_sessions(&[]);
-        let workspace_id = Uuid::new_v4();
-        app.state.input_mode = InputMode::Confirming;
-        app.state.confirmation_dialog_state.visible = true;
-        app.state.confirmation_dialog_state.context =
-            Some(ConfirmationContext::ArchiveWorkspace(workspace_id));
-
-        let mut effects = Vec::new();
-        app.handle_confirmation_action(Action::ConfirmYes, &mut effects)
-            .unwrap();
-
-        assert!(matches!(
-            effects.as_slice(),
-            [Effect::ArchiveWorkspacePreflight { workspace_id: id }] if *id == workspace_id
-        ));
-        assert_eq!(app.state.input_mode, InputMode::Confirming);
-        assert!(app.state.confirmation_dialog_state.visible);
-        assert!(app.state.confirmation_dialog_state.loading);
-        assert!(matches!(
-            app.state.confirmation_dialog_state.context,
-            Some(ConfirmationContext::ArchiveWorkspaceInProgress {
-                workspace_id: id
-            }) if id == workspace_id
-        ));
-    }
-
-    #[test]
-    fn test_handle_confirmation_action_ignores_archive_confirm_while_loading() {
-        let mut app = build_test_app_with_sessions(&[]);
-        let workspace_id = Uuid::new_v4();
-        app.state.input_mode = InputMode::Confirming;
-        app.state
-            .confirmation_dialog_state
-            .show_loading_with_context(
-                "Archive Workspace",
-                "Archiving workspace...",
-                Some(ConfirmationContext::ArchiveWorkspaceInProgress { workspace_id }),
-            );
-
-        let mut effects = Vec::new();
-        app.handle_confirmation_action(Action::ConfirmYes, &mut effects)
-            .unwrap();
-
-        assert!(effects.is_empty());
-        assert!(app.state.confirmation_dialog_state.visible);
-        assert!(app.state.confirmation_dialog_state.loading);
-        assert_eq!(app.state.input_mode, InputMode::Confirming);
-    }
-
-    #[test]
-    fn test_handle_dialog_cancel_keeps_archive_loading_visible() {
-        let mut app = build_test_app_with_sessions(&[]);
-        let workspace_id = Uuid::new_v4();
-        app.state.input_mode = InputMode::Confirming;
-        app.state
-            .confirmation_dialog_state
-            .show_loading_with_context(
-                "Archive Workspace",
-                "Archiving workspace...",
-                Some(ConfirmationContext::ArchiveWorkspaceInProgress { workspace_id }),
-            );
-
-        app.handle_dialog_action(Action::Cancel);
-
-        assert!(app.state.confirmation_dialog_state.visible);
-        assert!(app.state.confirmation_dialog_state.loading);
-        assert_eq!(app.state.input_mode, InputMode::Confirming);
-    }
-
-    #[test]
     fn test_handle_dialog_cancel_keeps_remove_project_preflight_loading_visible() {
         let mut app = build_test_app_with_sessions(&[]);
         let repo_id = Uuid::new_v4();
@@ -14232,43 +13969,6 @@ mod tests {
             }) if id == parent_workspace_id
         ));
         assert_eq!(app.state.input_mode, InputMode::Confirming);
-    }
-
-    #[tokio::test]
-    async fn test_archive_workspace_dialog_preflight_completed_shows_confirmation() {
-        let mut app = build_test_app_with_sessions(&[]);
-        let workspace_id = Uuid::new_v4();
-        app.state.input_mode = InputMode::Confirming;
-        app.state
-            .confirmation_dialog_state
-            .show_loading_with_context(
-                "Archive Workspace",
-                "Analyzing workspace...",
-                Some(ConfirmationContext::ArchiveWorkspacePreflightInProgress { workspace_id }),
-            );
-
-        let event = AppEvent::ArchiveWorkspaceDialogPreflightCompleted {
-            workspace_id,
-            result: Ok(ArchiveWorkspaceDialogPreflightResult {
-                workspace_name: "free-rain".to_string(),
-                message: "This will remove the worktree.".to_string(),
-                warnings: vec!["Uncommitted changes".to_string()],
-                info_items: vec![],
-                has_dirty: true,
-                has_unmerged: false,
-                skip_to_archive: false,
-            }),
-        };
-
-        let effects = app.handle_app_event(event).await.unwrap();
-        assert!(effects.is_empty());
-        assert!(app.state.confirmation_dialog_state.visible);
-        assert!(!app.state.confirmation_dialog_state.loading);
-        assert_eq!(app.state.input_mode, InputMode::Confirming);
-        assert!(matches!(
-            app.state.confirmation_dialog_state.context,
-            Some(ConfirmationContext::ArchiveWorkspace(id)) if id == workspace_id
-        ));
     }
 
     #[tokio::test]
@@ -14787,50 +14487,6 @@ mod tests {
         assert_eq!(app.state.input_mode, InputMode::Normal);
         assert!(!app.state.error_dialog_state.is_visible());
         assert!(effects.is_empty());
-    }
-
-    #[test]
-    fn test_handle_confirm_action_archive_workspace_starts_async_preflight() {
-        let mut app = build_test_app_with_sessions(&[]);
-        let workspace_id = Uuid::new_v4();
-        app.state.input_mode = InputMode::Confirming;
-        app.state.confirmation_dialog_state.visible = true;
-        app.state.confirmation_dialog_state.context =
-            Some(ConfirmationContext::ArchiveWorkspace(workspace_id));
-        app.state.confirmation_dialog_state.select_confirm();
-
-        let mut effects = Vec::new();
-        app.handle_confirm_action(&mut effects).unwrap();
-
-        assert!(matches!(
-            effects.as_slice(),
-            [Effect::ArchiveWorkspacePreflight { workspace_id: id }] if *id == workspace_id
-        ));
-        assert_eq!(app.state.input_mode, InputMode::Confirming);
-        assert!(app.state.confirmation_dialog_state.visible);
-        assert!(app.state.confirmation_dialog_state.loading);
-    }
-
-    #[test]
-    fn test_handle_confirm_action_ignores_archive_progress_dialog() {
-        let mut app = build_test_app_with_sessions(&[]);
-        let workspace_id = Uuid::new_v4();
-        app.state.input_mode = InputMode::Confirming;
-        app.state
-            .confirmation_dialog_state
-            .show_loading_with_context(
-                "Archive Workspace",
-                "Archiving workspace...",
-                Some(ConfirmationContext::ArchiveWorkspaceInProgress { workspace_id }),
-            );
-
-        let mut effects = Vec::new();
-        app.handle_confirm_action(&mut effects).unwrap();
-
-        assert!(effects.is_empty());
-        assert!(app.state.confirmation_dialog_state.visible);
-        assert!(app.state.confirmation_dialog_state.loading);
-        assert_eq!(app.state.input_mode, InputMode::Confirming);
     }
 
     #[test]

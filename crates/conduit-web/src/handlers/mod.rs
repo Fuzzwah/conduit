@@ -10,4 +10,5 @@ pub mod sessions;
 pub mod settings;
 pub mod themes;
 pub mod ui_state;
+pub mod work_complete;
 pub mod workspaces;

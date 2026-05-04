@@ -7,7 +7,7 @@ use axum::{
 
 use crate::handlers::{
     bootstrap, external_sessions, models, onboarding, queue, repositories, sessions, settings,
-    themes, ui_state, workspaces,
+    themes, ui_state, work_complete, workspaces,
 };
 use crate::state::WebAppState;
 
@@ -61,16 +61,41 @@ pub fn api_routes() -> Router<WebAppState> {
         .route("/workspaces/{id}", get(workspaces::get_workspace))
         .route("/workspaces/{id}", delete(workspaces::delete_workspace))
         .route(
-            "/workspaces/{id}/archive",
-            post(workspaces::archive_workspace),
-        )
-        .route(
             "/workspaces/{id}/status",
             get(workspaces::get_workspace_status),
         )
+        // Work Complete routes
         .route(
-            "/workspaces/{id}/archive/preflight",
-            get(workspaces::get_workspace_archive_preflight),
+            "/workspaces/{id}/work-complete/preflight",
+            get(work_complete::get_work_complete_preflight),
+        )
+        .route(
+            "/workspaces/{id}/work-complete/commit",
+            post(work_complete::post_work_complete_commit),
+        )
+        .route(
+            "/workspaces/{id}/work-complete/push",
+            post(work_complete::post_work_complete_push),
+        )
+        .route(
+            "/workspaces/{id}/work-complete/pr",
+            post(work_complete::post_work_complete_pr),
+        )
+        .route(
+            "/workspaces/{id}/work-complete/pr/merge",
+            post(work_complete::post_work_complete_pr_merge),
+        )
+        .route(
+            "/workspaces/{id}/work-complete/issue/close",
+            post(work_complete::post_work_complete_issue_close),
+        )
+        .route(
+            "/workspaces/{id}/work-complete/spec/archive",
+            post(work_complete::post_work_complete_spec_archive),
+        )
+        .route(
+            "/workspaces/{id}/work-complete/archive",
+            post(work_complete::post_work_complete_archive),
         )
         .route(
             "/workspaces/{id}/pr/preflight",

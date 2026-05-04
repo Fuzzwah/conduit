@@ -1,0 +1,24 @@
+---
+source: crates/conduit-ui/src/components/work_complete_dialog_snapshots.rs
+expression: output
+---
+
+
+
+
+
+
+
+
+
+
+    ╭ Work Complete ───────────────────────────────────────────────────────╮
+    │                                                                      │
+    │ Spec complete                                                        │
+    │   branch: fuz/my-feature                                             │
+    │   spec: my-feature (linked)  5 of 5 tasks complete                   │
+    │ ──────────────────────────────────────────────────────────────────── │
+    │ ❯ Archive Spec  mark spec as done                                    │
+    │   Archive Workspace  close and archive this workspace                │
+    │                                                                      │
+    ╰───────────────────↑↓ select │ Enter run │ Esc close──────────────────╯

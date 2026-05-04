@@ -29,8 +29,6 @@ pub enum ConfirmationType {
 /// Context for what action the confirmation dialog is for
 #[derive(Debug, Clone)]
 pub enum ConfirmationContext {
-    /// Archiving a single workspace
-    ArchiveWorkspace(Uuid),
     /// Removing a project (archives all workspaces and deletes repository)
     RemoveProject(Uuid),
     /// Creating a pull request
@@ -54,12 +52,6 @@ pub enum ConfirmationContext {
     },
     /// Selecting workspace mode for a repository
     SelectWorkspaceMode { repo_id: Uuid },
-    /// Confirm whether to delete a remote branch after archive
-    ArchiveWorkspaceRemoteDelete { workspace_id: Uuid },
-    /// Archive confirmation preflight is running.
-    ArchiveWorkspacePreflightInProgress { workspace_id: Uuid },
-    /// Archive is currently running; dialog is informational and non-interactive.
-    ArchiveWorkspaceInProgress { workspace_id: Uuid },
     /// Remove-project confirmation preflight is running.
     RemoveProjectPreflightInProgress { repo_id: Uuid },
     /// Fork-session confirmation preflight is running.
@@ -73,9 +65,7 @@ impl ConfirmationContext {
     pub fn is_blocking_loading(&self) -> bool {
         matches!(
             self,
-            ConfirmationContext::ArchiveWorkspacePreflightInProgress { .. }
-                | ConfirmationContext::ArchiveWorkspaceInProgress { .. }
-                | ConfirmationContext::RemoveProjectPreflightInProgress { .. }
+            ConfirmationContext::RemoveProjectPreflightInProgress { .. }
                 | ConfirmationContext::ForkSessionPreflightInProgress { .. }
         )
     }

@@ -89,6 +89,41 @@ impl GitDiffStats {
     }
 }
 
+/// A single dirty file entry from `git status --porcelain`.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct DirtyFile {
+    /// XY status codes (e.g. " M", "??", "A ")
+    pub status: String,
+    pub path: String,
+}
+
+/// List dirty files using `git status --porcelain`.
+pub fn git_diff_files(working_dir: &Path) -> Vec<DirtyFile> {
+    let output = Command::new("git")
+        .args(["--no-optional-locks", "status", "--porcelain"])
+        .current_dir(working_dir)
+        .output();
+
+    let Ok(output) = output else {
+        return Vec::new();
+    };
+    if !output.status.success() {
+        return Vec::new();
+    }
+
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(|line| {
+            if line.len() < 3 {
+                return None;
+            }
+            let status = line[..2].to_string();
+            let path = line[3..].trim_matches('"').to_string();
+            Some(DirtyFile { status, path })
+        })
+        .collect()
+}
+
 /// Get the number of commits HEAD is ahead/behind its origin main branch.
 ///
 /// Returns `(commits_ahead, commits_behind)`. Both are 0 on any failure (e.g., no
@@ -196,5 +231,89 @@ mod tests {
             files_changed: 1,
         };
         assert!(with_deletions.has_changes());
+    }
+
+    #[test]
+    fn git_diff_files_returns_dirty_entries() {
+        use std::process::Command as Cmd;
+        use tempfile::tempdir;
+
+        let dir = tempdir().unwrap();
+        let path = dir.path();
+        Cmd::new("git")
+            .args(["init", "-q"])
+            .current_dir(path)
+            .output()
+            .unwrap();
+        Cmd::new("git")
+            .args(["config", "user.email", "t@t"])
+            .current_dir(path)
+            .output()
+            .unwrap();
+        Cmd::new("git")
+            .args(["config", "user.name", "T"])
+            .current_dir(path)
+            .output()
+            .unwrap();
+        // Initial commit
+        std::fs::write(path.join("a.txt"), "init").unwrap();
+        Cmd::new("git")
+            .args(["add", "."])
+            .current_dir(path)
+            .output()
+            .unwrap();
+        Cmd::new("git")
+            .args(["commit", "-q", "-m", "init"])
+            .current_dir(path)
+            .output()
+            .unwrap();
+
+        // Modify a tracked file and add an untracked file
+        std::fs::write(path.join("a.txt"), "changed").unwrap();
+        std::fs::write(path.join("b.txt"), "new").unwrap();
+
+        let files = git_diff_files(path);
+        assert!(!files.is_empty(), "should report dirty files");
+        let paths: Vec<&str> = files.iter().map(|f| f.path.as_str()).collect();
+        assert!(paths.contains(&"a.txt"), "a.txt should appear as modified");
+        assert!(paths.contains(&"b.txt"), "b.txt should appear as untracked");
+    }
+
+    #[test]
+    fn git_diff_files_empty_on_clean_repo() {
+        use std::process::Command as Cmd;
+        use tempfile::tempdir;
+
+        let dir = tempdir().unwrap();
+        let path = dir.path();
+        Cmd::new("git")
+            .args(["init", "-q"])
+            .current_dir(path)
+            .output()
+            .unwrap();
+        Cmd::new("git")
+            .args(["config", "user.email", "t@t"])
+            .current_dir(path)
+            .output()
+            .unwrap();
+        Cmd::new("git")
+            .args(["config", "user.name", "T"])
+            .current_dir(path)
+            .output()
+            .unwrap();
+        std::fs::write(path.join("a.txt"), "init").unwrap();
+        Cmd::new("git")
+            .args(["add", "."])
+            .current_dir(path)
+            .output()
+            .unwrap();
+        Cmd::new("git")
+            .args(["commit", "-q", "-m", "init"])
+            .current_dir(path)
+            .output()
+            .unwrap();
+
+        let files = git_diff_files(path);
+        assert!(files.is_empty(), "clean repo should have no dirty files");
     }
 }

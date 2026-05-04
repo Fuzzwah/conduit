@@ -49,6 +49,8 @@ pub use conduit_theme as theme;
 mod theme_picker;
 mod thinking_indicator;
 mod tree_view;
+mod work_complete_dialog;
+mod work_complete_dialog_snapshots;
 mod workspace_defaults_dialog;
 mod workspace_progress_dialog;
 
@@ -226,6 +228,7 @@ pub use tree_view::{
     ActionType, NodeType, SidebarData, SidebarGitDisplay, TreeNode, TreeView, TreeViewState,
     SIDEBAR_GIT_DISPLAY,
 };
+pub use work_complete_dialog::WorkCompleteDialog;
 pub use workspace_defaults_dialog::{
     WorkspaceDefaultsDialog, WorkspaceDefaultsDialogState, WorkspaceDefaultsDraft,
 };

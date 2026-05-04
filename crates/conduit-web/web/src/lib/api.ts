@@ -34,8 +34,6 @@ import type {
   ForkSessionResponse,
   PrPreflightResponse,
   PrCreateResponse,
-  ArchivePreflightResponse,
-  ArchiveWorkspaceRequest,
   RepositoryRemovePreflightResponse,
   RepositoryRemoveResponse,
   OnboardingBaseDirResponse,
@@ -43,6 +41,11 @@ import type {
   AddOnboardingProjectRequest,
   AddOnboardingProjectResponse,
   FileContentResponse,
+  WorkCompletePreflight,
+  WorkCompleteActionResponse,
+  WorkCompleteCommitResponse,
+  WorkCompletePrCreateResponse,
+  WorkCompleteSpecArchiveResponse,
 } from '../types';
 import type { Theme, ThemeListResponse } from './themes';
 
@@ -178,20 +181,6 @@ export async function createWorkspace(repositoryId: string, data: CreateWorkspac
     method: 'POST',
     body: JSON.stringify(data),
   });
-}
-
-export async function archiveWorkspace(
-  id: string,
-  data?: ArchiveWorkspaceRequest
-): Promise<void> {
-  await request(`/workspaces/${id}/archive`, {
-    method: 'POST',
-    body: JSON.stringify(data ?? {}),
-  });
-}
-
-export async function getWorkspaceArchivePreflight(id: string): Promise<ArchivePreflightResponse> {
-  return request(`/workspaces/${id}/archive/preflight`);
 }
 
 export async function deleteWorkspace(id: string): Promise<void> {
@@ -521,4 +510,63 @@ export async function getFileContent(
     method: 'POST',
     body: JSON.stringify({ path: filePath }),
   });
+}
+
+// Work Complete flow
+
+export async function getWorkCompletePreflight(id: string): Promise<WorkCompletePreflight> {
+  return request(`/workspaces/${id}/work-complete/preflight`);
+}
+
+export async function workCompleteCommit(
+  id: string,
+  message: string
+): Promise<WorkCompleteCommitResponse> {
+  return request(`/workspaces/${id}/work-complete/commit`, {
+    method: 'POST',
+    body: JSON.stringify({ message }),
+  });
+}
+
+export async function workCompletePush(id: string): Promise<WorkCompleteActionResponse> {
+  return request(`/workspaces/${id}/work-complete/push`, { method: 'POST' });
+}
+
+export async function workCompleteOpenPr(
+  id: string,
+  opts?: { title?: string; body?: string }
+): Promise<WorkCompletePrCreateResponse> {
+  return request(`/workspaces/${id}/work-complete/pr`, {
+    method: 'POST',
+    body: JSON.stringify(opts ?? {}),
+  });
+}
+
+export async function workCompleteMergePr(
+  id: string,
+  method = 'squash',
+  admin = false
+): Promise<WorkCompleteActionResponse> {
+  return request(`/workspaces/${id}/work-complete/pr/merge`, {
+    method: 'POST',
+    body: JSON.stringify({ method, admin }),
+  });
+}
+
+export async function workCompleteCloseIssue(id: string): Promise<WorkCompleteActionResponse> {
+  return request(`/workspaces/${id}/work-complete/issue/close`, { method: 'POST' });
+}
+
+export async function workCompleteArchiveSpec(
+  id: string,
+  changeId: string
+): Promise<WorkCompleteSpecArchiveResponse> {
+  return request(`/workspaces/${id}/work-complete/spec/archive`, {
+    method: 'POST',
+    body: JSON.stringify({ change_id: changeId }),
+  });
+}
+
+export async function workCompleteArchive(id: string): Promise<WorkCompleteActionResponse> {
+  return request(`/workspaces/${id}/work-complete/archive`, { method: 'POST' });
 }

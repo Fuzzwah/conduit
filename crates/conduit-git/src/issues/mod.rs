@@ -11,6 +11,8 @@ mod forgejo;
 mod gitea;
 mod github;
 
+pub use github::{close_issue, infer_active_issue, view_issue, IssueView};
+
 use std::path::Path;
 use std::process::Command;
 

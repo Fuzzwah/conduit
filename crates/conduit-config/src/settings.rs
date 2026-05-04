@@ -568,7 +568,8 @@ pub fn parse_action(name: &str) -> Option<Action> {
 
         // Actions added for keybindings editor coverage
         "new_workspace_under_cursor" => Some(Action::NewWorkspaceUnderCursor),
-        "archive_current_workspace" => Some(Action::ArchiveCurrentWorkspace),
+        "complete_workspace_work" => Some(Action::CompleteWorkspaceWork),
+        "archive_current_workspace" => Some(Action::CompleteWorkspaceWork), // legacy alias
         "toggle_agent_mode" => Some(Action::ToggleAgentMode),
         "copy_workspace_path" => Some(Action::CopyWorkspacePath),
         "copy_code_block" => Some(Action::CopyCodeBlock),
@@ -677,7 +678,7 @@ pub fn action_to_name(action: &Action) -> Option<&'static str> {
         Action::AddRepository => Some("add_repository"),
         Action::OpenSettings => Some("open_settings"),
         Action::ArchiveOrRemove => Some("archive_or_remove"),
-        Action::ArchiveCurrentWorkspace => Some("archive_current_workspace"),
+        Action::CompleteWorkspaceWork => Some("complete_workspace_work"),
         Action::ProjectMoveUp => Some("project_move_up"),
         Action::ProjectMoveDown => Some("project_move_down"),
         Action::ManageMcp => Some("manage_mcp"),

@@ -1,0 +1,24 @@
+---
+source: crates/conduit-ui/src/components/work_complete_dialog_snapshots.rs
+expression: output
+---
+
+
+
+
+
+
+
+
+
+
+    ╭ Work Complete — Confirm ─────────────────────────────────────────────╮
+    │                                                                      │
+    │ Action: Archive Workspace                                            │
+    │                                                                      │
+    │ The linked spec still has incomplete tasks.                          │
+    │ Are you sure you want to proceed?                                    │
+    │                                                                      │
+    │                                                                      │
+    │                                                                      │
+    ╰──────────────────────Enter confirm │ Esc cancel──────────────────────╯

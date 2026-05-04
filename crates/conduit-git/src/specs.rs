@@ -12,6 +12,95 @@ pub struct OpenSpec {
     pub total_tasks: usize,
 }
 
+/// Task completion counts for a single OpenSpec change (used by Work Complete preflight).
+#[derive(Debug, Clone)]
+pub struct SpecDetail {
+    pub change_id: String,
+    pub total: usize,
+    pub completed: usize,
+}
+
+/// Return task completion counts for a specific change, reading from the working tree.
+///
+/// Returns `None` when `openspec/changes/<change_id>/tasks.md` is absent or unreadable.
+pub fn fetch_change_detail(repo_path: &Path, change_id: &str) -> Option<SpecDetail> {
+    let tasks_path = repo_path
+        .join("openspec")
+        .join("changes")
+        .join(change_id)
+        .join("tasks.md");
+    let content = fs::read_to_string(&tasks_path).ok()?;
+    let (remaining, completed) = parse_tasks(&content);
+    Some(SpecDetail {
+        change_id: change_id.to_string(),
+        total: remaining + completed,
+        completed,
+    })
+}
+
+/// Infer the OpenSpec change id created on this branch by inspecting `git log`.
+///
+/// Runs `git log --diff-filter=A --name-only origin/<base_branch>..HEAD -- openspec/changes/`
+/// and returns the basename of the most-recently-added change directory, if any.
+/// When multiple directories were added, picks the most recently modified one on disk.
+pub fn infer_active_change(repo_path: &Path, base_branch: &str) -> Option<String> {
+    let range = format!("origin/{}..HEAD", base_branch);
+    let output = Command::new("git")
+        .args([
+            "log",
+            "--diff-filter=A",
+            "--name-only",
+            "--format=",
+            &range,
+            "--",
+            "openspec/changes/",
+        ])
+        .current_dir(repo_path)
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let changes_prefix = "openspec/changes/";
+    let mut candidates: Vec<String> = stdout
+        .lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            if line.is_empty() {
+                return None;
+            }
+            // Match paths like "openspec/changes/<id>/..." or "openspec/changes/<id>"
+            let rest = line.strip_prefix(changes_prefix)?;
+            let id = rest.split('/').next()?;
+            if id.is_empty() || id == "archive" {
+                return None;
+            }
+            Some(id.to_string())
+        })
+        .collect();
+
+    candidates.dedup();
+
+    if candidates.is_empty() {
+        return None;
+    }
+
+    if candidates.len() == 1 {
+        return Some(candidates.remove(0));
+    }
+
+    // Multiple candidates: pick the most recently modified directory
+    candidates.into_iter().max_by_key(|id| {
+        let dir = repo_path.join("openspec").join("changes").join(id);
+        fs::metadata(&dir)
+            .and_then(|m| m.modified())
+            .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
+    })
+}
+
 fn parse_tasks(content: &str) -> (usize, usize) {
     let mut remaining = 0usize;
     let mut completed = 0usize;
@@ -270,5 +359,86 @@ mod tests {
         init(dir.path());
         let specs = fetch_open_specs_from_ref(dir.path(), "origin/does-not-exist");
         assert!(specs.is_empty());
+    }
+
+    // --- infer_active_change tests ---
+
+    fn setup_feature_branch(dir: &Path) -> (PathBuf, String) {
+        let (local, _seed, base) = make_seed_remote_local(dir);
+        // Create a feature branch
+        run_git(&local, &["checkout", "-q", "-b", "fuz/my-feature"]);
+        (local, base)
+    }
+
+    #[test]
+    fn infer_returns_single_added_change() {
+        let dir = tempdir().unwrap();
+        let (local, base) = setup_feature_branch(dir.path());
+
+        write_change(&local, "my-feature", "- [ ] step\n");
+        run_git(&local, &["add", "."]);
+        run_git(&local, &["commit", "-q", "-m", "add change"]);
+
+        let result = infer_active_change(&local, &base);
+        assert_eq!(result.as_deref(), Some("my-feature"));
+    }
+
+    #[test]
+    fn infer_returns_none_when_no_dirs_added() {
+        let dir = tempdir().unwrap();
+        let (local, base) = setup_feature_branch(dir.path());
+
+        // Commit something unrelated
+        std::fs::write(local.join("some.txt"), "x").unwrap();
+        run_git(&local, &["add", "."]);
+        run_git(&local, &["commit", "-q", "-m", "no change dir"]);
+
+        let result = infer_active_change(&local, &base);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn infer_picks_most_recently_modified_for_multiple_dirs() {
+        let dir = tempdir().unwrap();
+        let (local, base) = setup_feature_branch(dir.path());
+
+        write_change(&local, "first-change", "- [ ] a\n");
+        run_git(&local, &["add", "."]);
+        run_git(&local, &["commit", "-q", "-m", "add first"]);
+
+        write_change(&local, "second-change", "- [ ] b\n");
+        run_git(&local, &["add", "."]);
+        run_git(&local, &["commit", "-q", "-m", "add second"]);
+
+        // Touch second-change to make it the most recently modified
+        let second_dir = local.join("openspec/changes/second-change");
+        std::fs::write(second_dir.join("extra.txt"), "touch").unwrap();
+
+        let result = infer_active_change(&local, &base);
+        // Should pick second-change (most recently modified)
+        assert_eq!(result.as_deref(), Some("second-change"));
+    }
+
+    // --- fetch_change_detail tests ---
+
+    #[test]
+    fn fetch_detail_returns_counts() {
+        let dir = tempdir().unwrap();
+        write_change(
+            dir.path(),
+            "my-change",
+            "- [x] done\n- [ ] todo\n- [ ] todo2\n",
+        );
+
+        let detail = fetch_change_detail(dir.path(), "my-change").unwrap();
+        assert_eq!(detail.total, 3);
+        assert_eq!(detail.completed, 1);
+    }
+
+    #[test]
+    fn fetch_detail_returns_none_for_missing_change() {
+        let dir = tempdir().unwrap();
+        let result = fetch_change_detail(dir.path(), "nonexistent");
+        assert!(result.is_none());
     }
 }

@@ -16,3 +16,4 @@ export * from './onboarding/OnboardingEmptyState';
 export * from './onboarding/BaseDirDialog';
 export * from './onboarding/ProjectPickerDialog';
 export * from './onboarding/AddProjectDialog';
+export * from './WorkCompleteDialog';

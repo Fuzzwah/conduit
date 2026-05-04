@@ -598,3 +598,37 @@ When `false`, `Alt+Tab` wraps only between workspace tabs, restoring the previou
 ## 60. Correct Prompt Wrap Width to Match Chat Area Margins
 
 The `prompt_render_width` calculation was subtracting 6/4 columns instead of the correct 10/8 (matching the left margin + right margin applied by `ChatView`). The result was wrap points 4 columns too wide, clipping the last few characters of wrapped lines. The subtracted values now mirror `ChatView::content_area` exactly.
+
+---
+
+## 61. Work Complete Dialog Replaces Archive Flow
+
+The archive workspace action (previously `Alt+Shift+X` in the TUI and the trash icon in the web UI) is replaced by a **Work Complete** dialog that guides you through finishing a branch before archiving it.
+
+The dialog runs a preflight check and classifies the workspace into one of six scenarios:
+
+| Scenario | Description |
+|---|---|
+| `clean_ready` | Branch clean and merged — ready to archive |
+| `edits_no_link` | Uncommitted changes, no linked PR/issue |
+| `spec_complete` | Linked spec with all tasks done |
+| `spec_incomplete` | Linked spec with remaining tasks |
+| `issue_open` | Linked issue still open |
+| `issue_closed` | Linked issue already closed |
+
+Based on the scenario, the dialog suggests one or more actions:
+
+- **Commit** — stage + commit (prompts for a message, pre-filled from the branch name)
+- **Push** — push the branch to origin
+- **Open PR** — create a GitHub pull request via `gh pr create`
+- **Merge PR** — merge via `gh pr merge --squash`; shows an admin-force confirmation if the PR is not yet merge-ready
+- **Close Issue** — close the linked GitHub issue
+- **Archive Spec** — archive the linked OpenSpec change
+- **Archive** — remove the worktree and mark the workspace archived
+- **Show Remaining Tasks** — sends a prompt to the agent asking it to list incomplete spec tasks
+
+After each action the preflight is re-fetched and the suggested actions update automatically.
+
+**TUI:** `Alt+Shift+X` — available from within any workspace tab and from the sidebar. Accessible via the command palette.
+
+**Web UI:** "Complete work" button in the workspace list sidebar (replaces the old archive button).
