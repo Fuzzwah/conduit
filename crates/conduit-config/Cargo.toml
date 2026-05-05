@@ -11,7 +11,7 @@ description = "Conduit user configuration, keybindings, and tool/path resolution
 path = "src/lib.rs"
 
 [dependencies]
-conduit-agent = { workspace = true }
+conduit-agent = { workspace = true } # kept for ModelRegistry; AgentType lives in conduit-types
 conduit-git = { workspace = true }
 conduit-types = { workspace = true }
 conduit-util = { workspace = true }

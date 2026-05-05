@@ -5,9 +5,10 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 use toml_edit::{Array, DocumentMut, Item, Table};
 
-use conduit_agent::{AgentType, ModelRegistry};
+use conduit_agent::ModelRegistry;
 use conduit_git::WorkspaceMode;
 use conduit_types::Action;
+use conduit_types::AgentType;
 use conduit_util::paths::config_path;
 use conduit_util::tools::{Tool, ToolAvailability, ToolPaths};
 

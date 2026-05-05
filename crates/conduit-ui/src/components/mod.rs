@@ -45,7 +45,6 @@ mod spinner;
 mod status_bar;
 mod tab_bar;
 mod text_input;
-pub use conduit_theme as theme;
 mod theme_picker;
 mod thinking_indicator;
 mod tree_view;
@@ -59,6 +58,7 @@ pub use agent_selector::{AgentSelector, AgentSelectorState};
 pub use base_dir_dialog::{BaseDirDialog, BaseDirDialogState};
 pub use chat_view::{ChatView, HoveredFilePath};
 pub use command_palette::{CommandPalette, CommandPaletteEntry, CommandPaletteState};
+pub use conduit_theme as theme;
 pub use conduit_types::{ChatMessage, MessageRole};
 pub use confirmation_dialog::{
     ConfirmationContext, ConfirmationDialog, ConfirmationDialogState, ConfirmationType,
