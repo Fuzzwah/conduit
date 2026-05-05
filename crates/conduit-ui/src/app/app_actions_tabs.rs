@@ -50,6 +50,7 @@ impl App {
                     }
                     self.sync_input_mode_for_active_tab();
                     self.sync_sidebar_to_active_tab();
+                    self.sync_theme_to_active_tab();
                     self.sync_footer_spinner();
                 }
                 effects.push(Effect::SaveSessionState);
