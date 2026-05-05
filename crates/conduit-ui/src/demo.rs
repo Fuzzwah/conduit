@@ -139,7 +139,7 @@ pub fn populate_sidebar(sidebar: &mut SidebarData, repos: &[DemoRepo]) {
             .iter()
             .map(|ws| (ws.id, ws.name.clone(), ws.branch.clone()))
             .collect();
-        sidebar.add_repository(repo.id, &repo.name, workspaces);
+        sidebar.add_repository(repo.id, &repo.name, workspaces, None);
         sidebar.expand_repo(repo.id);
     }
 
