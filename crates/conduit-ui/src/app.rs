@@ -11910,6 +11910,14 @@ impl App {
             RemoteSyncDialog::new(&self.state.remote_sync_dialog_state)
                 .render(right_area, f.buffer_mut());
         }
+
+        // Draw Work Complete dialog
+        if let Some(ref session) = self.state.work_complete_session {
+            use crate::components::WorkCompleteDialog;
+            use ratatui::widgets::Widget;
+            WorkCompleteDialog::new(session, self.state.spinner_frame)
+                .render(right_area, f.buffer_mut());
+        }
     }
 
     /// Render file viewer tab content
