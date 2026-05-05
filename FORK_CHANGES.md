@@ -368,6 +368,7 @@ Conduit now supports a full spec-driven development workflow using OpenSpec and 
 - **Conditional display with remote sync (#142):** The picker only appears when incomplete specs exist. The flow now syncs from remote (`git fetch origin`) first, then fetches GitHub issues and scans specs in parallel — skipping both pickers when nothing is relevant.
 - **Spec-kit (specify) picker support (#145):** Conduit also detects `.specify/specs/*/tasks.md` files. When both OpenSpec and Specify specs are present, specify takes priority.
 - **Auto-send context-load message (#153):** When a workspace is first opened after being created from a spec, Conduit automatically sends a prompt asking the agent to read the spec files and summarise remaining work.
+- **Work Complete closes the loop (§61):** The archive action is replaced by a **Work Complete** dialog that reads the linked spec, surfaces remaining tasks, and offers an **Archive Spec** action alongside the usual commit/push/PR steps — completing the full spec-driven lifecycle from creation to closure.
 
 ---
 
@@ -603,7 +604,7 @@ The `prompt_render_width` calculation was subtracting 6/4 columns instead of the
 
 ## 61. Work Complete Dialog Replaces Archive Flow
 
-The archive workspace action (previously `Alt+Shift+X` in the TUI and the trash icon in the web UI) is replaced by a **Work Complete** dialog that guides you through finishing a branch before archiving it.
+The archive workspace action (previously `Alt+Shift+X` in the TUI and the trash icon in the web UI) is replaced by a **Work Complete** dialog that guides you through finishing a branch before archiving it. When the workspace was created from an OpenSpec or Specify spec (§36), the dialog integrates with that spec: it checks for incomplete tasks, surfaces them as a warning, and offers an **Archive Spec** action to close out the change.
 
 The dialog runs a preflight check and classifies the workspace into one of six scenarios:
 
@@ -632,3 +633,32 @@ After each action the preflight is re-fetched and the suggested actions update a
 **TUI:** `Alt+Shift+X` — available from within any workspace tab and from the sidebar. Accessible via the command palette.
 
 **Web UI:** "Complete work" button in the workspace list sidebar (replaces the old archive button).
+
+---
+
+## 62. Per-Server MCP Configuration with Project/Workspace Scope
+
+The global MCP on/off toggle is replaced by a per-server enable/disable list with separate **Project** and **Workspace** scope tabs.
+
+**`Alt+Shift+M`** opens the MCP dialog from chat, scrolling, or sidebar contexts:
+
+- **Project scope** — shows all MCP servers discovered in `.codex` / `.mcp.json` with a `[✓]` / `[✗]` toggle per server; saved to the repository's `mcp_disabled_servers` column.
+- **Workspace scope** — same list with an inherited-config hint when no workspace override has been saved. A workspace override is only written on the first explicit save; `NULL` means "inherit from project".
+- **Source column** — each server shows whether it originates from `.codex` or `.mcp.json`.
+
+Opening from a repository sidebar node defaults to Project scope; opening from a workspace node or active session tab defaults to Workspace scope.
+
+Agent enforcement (Claude, Codex) now blocks only the specifically disabled servers rather than all MCP tools.
+
+---
+
+## 63. Configurable Tab-Switch Modifier Prefix
+
+The `Alt+1`–`Alt+9` tab-switching shortcuts are now remappable via a single `switch_to_tab_prefix` key in `config.toml`:
+
+```toml
+[keys]
+switch_to_tab_prefix = "C-"   # use Ctrl+1–9 instead of Alt+1–9
+```
+
+A **"Switch to tab (1–9)"** row appears in the Global group of the keybindings editor and can be reset to the default `Alt` prefix with **Del** like any other binding.
