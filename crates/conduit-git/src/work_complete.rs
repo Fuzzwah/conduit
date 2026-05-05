@@ -125,7 +125,8 @@ pub fn classify(
         }
     } else if git.is_dirty {
         Scenario::EditsNoLink
-    } else if git.commits_ahead > 0 {
+    } else if git.commits_ahead > 0 && !pr_merged {
+        // commits_ahead after a squash-merge are artifacts; treat as clean if PR is done.
         Scenario::UnpushedCommits
     } else {
         Scenario::CleanReady
@@ -277,14 +278,15 @@ mod tests {
     }
 
     #[test]
-    fn merged_pr_with_commits_ahead_suppresses_push() {
+    fn merged_pr_with_commits_ahead_is_clean_ready_and_suppresses_push() {
         let pr = PrSnapshot {
             number: 1,
             is_open: false,
             is_merged: true,
             merge_readiness: crate::MergeReadiness::Ready,
         };
-        let (_, actions) = classify(&git(false, 2, false, true), Some(&pr), None, None);
+        let (scenario, actions) = classify(&git(false, 2, false, true), Some(&pr), None, None);
+        assert_eq!(scenario, Scenario::CleanReady);
         assert!(!actions.contains(&SuggestedAction::Push));
         assert!(actions.contains(&SuggestedAction::Archive));
     }
