@@ -7798,6 +7798,7 @@ impl App {
         for session in self.state.tab_manager.sessions_mut() {
             if session.workspace_id == Some(workspace_id) {
                 session.status_bar.set_branch_name(branch.clone());
+                session.branch_name = branch.clone();
             }
         }
         self.state
