@@ -20,8 +20,10 @@ pub enum ContextSource {
 pub enum Scenario {
     /// Worktree is clean, nothing pending — ready to archive.
     CleanReady,
-    /// Uncommitted edits or unpushed commits, but no spec/issue linked.
+    /// Uncommitted edits, no spec/issue linked.
     EditsNoLink,
+    /// Commits ahead of remote but worktree is clean, no spec/issue linked.
+    UnpushedCommits,
     /// Linked spec has all tasks checked.
     SpecComplete,
     /// Linked spec has at least one unchecked task.
@@ -98,7 +100,6 @@ pub fn classify(
     spec: Option<&SpecSnapshot>,
     issue: Option<&IssueSnapshot>,
 ) -> (Scenario, Vec<SuggestedAction>) {
-    let has_work = git.is_dirty || git.commits_ahead > 0;
     let pr_open = pr.map(|p| p.is_open).unwrap_or(false);
     let pr_merged = pr.map(|p| p.is_merged).unwrap_or(false) || git.is_merged;
 
@@ -122,8 +123,10 @@ pub fn classify(
         } else {
             Scenario::IssueClosed
         }
-    } else if has_work {
+    } else if git.is_dirty {
         Scenario::EditsNoLink
+    } else if git.commits_ahead > 0 {
+        Scenario::UnpushedCommits
     } else {
         Scenario::CleanReady
     };
@@ -136,7 +139,7 @@ pub fn classify(
         actions.push(SuggestedAction::Commit);
     }
 
-    if git.commits_ahead > 0 || (git.is_dirty && !git.has_upstream) {
+    if !pr_merged && (git.commits_ahead > 0 || (git.is_dirty && !git.has_upstream)) {
         actions.push(SuggestedAction::Push);
     }
 
@@ -262,9 +265,28 @@ mod tests {
     }
 
     #[test]
-    fn commits_ahead_no_links_is_edits_no_link() {
+    fn commits_ahead_no_links_is_unpushed_commits() {
         let (scenario, _) = classify(&git(false, 3, false, true), None, None, None);
+        assert_eq!(scenario, Scenario::UnpushedCommits);
+    }
+
+    #[test]
+    fn dirty_and_commits_ahead_is_edits_no_link() {
+        let (scenario, _) = classify(&git(true, 3, false, true), None, None, None);
         assert_eq!(scenario, Scenario::EditsNoLink);
+    }
+
+    #[test]
+    fn merged_pr_with_commits_ahead_suppresses_push() {
+        let pr = PrSnapshot {
+            number: 1,
+            is_open: false,
+            is_merged: true,
+            merge_readiness: crate::MergeReadiness::Ready,
+        };
+        let (_, actions) = classify(&git(false, 2, false, true), Some(&pr), None, None);
+        assert!(!actions.contains(&SuggestedAction::Push));
+        assert!(actions.contains(&SuggestedAction::Archive));
     }
 
     #[test]
