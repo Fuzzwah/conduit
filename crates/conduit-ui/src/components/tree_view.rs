@@ -102,6 +102,8 @@ pub struct TreeNode {
     pub commits_behind: usize,
     /// Whether this node is busy (operation in progress)
     pub is_busy: bool,
+    /// Per-repository theme override (repository nodes only)
+    pub theme_name: Option<String>,
 }
 
 impl TreeNode {
@@ -122,6 +124,7 @@ impl TreeNode {
             commits_ahead: 0,
             commits_behind: 0,
             is_busy: false,
+            theme_name: None,
         }
     }
 
@@ -141,6 +144,7 @@ impl TreeNode {
             commits_ahead: 0,
             commits_behind: 0,
             is_busy: false,
+            theme_name: None,
         }
     }
 
@@ -163,6 +167,7 @@ impl TreeNode {
             commits_ahead: 0,
             commits_behind: 0,
             is_busy: false,
+            theme_name: None,
         }
     }
 
@@ -637,6 +642,7 @@ impl SidebarData {
         repo_id: Uuid,
         repo_name: &str,
         workspaces: Vec<(Uuid, String, String)>, // (id, name, branch)
+        theme_name: Option<String>,
     ) {
         tracing::debug!(
             repo_id = %repo_id,
@@ -646,6 +652,7 @@ impl SidebarData {
         );
 
         let mut repo_node = TreeNode::parent(repo_id, repo_name);
+        repo_node.theme_name = theme_name;
 
         // Add action node as first child
         let action_node = TreeNode::action(repo_id, ActionType::NewWorkspace);
@@ -665,6 +672,27 @@ impl SidebarData {
         }
 
         self.nodes.push(repo_node);
+    }
+
+    /// Update the cached theme name on a repository node.
+    pub fn set_repo_theme(&mut self, repo_id: Uuid, theme_name: Option<String>) {
+        for node in &mut self.nodes {
+            if node.node_type == NodeType::Repository && node.id == repo_id {
+                node.theme_name = theme_name;
+                return;
+            }
+        }
+    }
+
+    /// Return the cached theme name for a repository node, if any.
+    pub fn get_repo_theme(&self, repo_id: Uuid) -> Option<&String> {
+        self.nodes.iter().find_map(|n| {
+            if n.node_type == NodeType::Repository && n.id == repo_id {
+                n.theme_name.as_ref()
+            } else {
+                None
+            }
+        })
     }
 
     /// Mark a repository node as busy.
@@ -1331,6 +1359,7 @@ mod tests {
             repo_id,
             "test-repo",
             vec![(ws_id, "my-workspace-name".to_string(), "main".to_string())],
+            None,
         );
         sidebar
     }

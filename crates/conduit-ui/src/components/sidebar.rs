@@ -225,6 +225,7 @@ mod tests {
                     "feature/x".to_string(),
                 ),
             ],
+            None,
         );
 
         assert_eq!(data.nodes.len(), 1);

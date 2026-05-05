@@ -916,7 +916,7 @@ impl App {
         let expanded_repos = self.state.sidebar_data.expanded_repo_ids();
 
         // Collect all repo/workspace data first to avoid borrow conflicts
-        type RepoWorkspaceData = Vec<(Uuid, String, Vec<(Uuid, String, String)>)>;
+        type RepoWorkspaceData = Vec<(Uuid, String, Option<String>, Vec<(Uuid, String, String)>)>;
 
         let repo_workspace_data: RepoWorkspaceData = {
             let Some(repo_dao) = self.repo_dao() else {
@@ -936,7 +936,7 @@ impl App {
                             .into_iter()
                             .map(|ws| (ws.id, ws.name, ws.branch))
                             .collect();
-                        data.push((repo.id, repo.name, workspace_info));
+                        data.push((repo.id, repo.name, repo.theme_name, workspace_info));
                     }
                 }
             }
@@ -945,10 +945,10 @@ impl App {
 
         // Now update state (no more borrows on self.core)
         self.state.sidebar_data = SidebarData::new();
-        for (repo_id, repo_name, workspace_info) in repo_workspace_data {
+        for (repo_id, repo_name, theme_name, workspace_info) in repo_workspace_data {
             self.state
                 .sidebar_data
-                .add_repository(repo_id, &repo_name, workspace_info);
+                .add_repository(repo_id, &repo_name, workspace_info, theme_name);
         }
 
         // Restore expansion state
@@ -3615,6 +3615,9 @@ impl App {
                     if let Some(session) = self.state.tab_manager.active_session_mut() {
                         session.project_theme = name.clone();
                     }
+                    self.state
+                        .sidebar_data
+                        .set_repo_theme(repo_id, name.clone());
                 }
                 self.state.set_timed_footer_message(
                     format!("Project theme: {}", display_name),
@@ -3680,6 +3683,7 @@ impl App {
         if let Some(session) = self.state.tab_manager.active_session_mut() {
             session.project_theme = None;
         }
+        self.state.sidebar_data.set_repo_theme(repo_id, None);
         self.state.theme_picker_state.hide(true); // Close picker and restore original
         if !self.return_to_settings_menu_if_needed() {
             self.state.input_mode = InputMode::Normal;
@@ -5037,24 +5041,19 @@ impl App {
         use crate::components::{ActionType, NodeType};
 
         let selected = self.state.sidebar_state.tree_state.selected;
-        let repo_id =
+        let theme_name =
             self.state
                 .sidebar_data
                 .get_at(selected)
                 .and_then(|node| match node.node_type {
-                    NodeType::Repository => Some(node.id),
-                    NodeType::Workspace | NodeType::Action(ActionType::NewWorkspace) => {
-                        node.parent_id
-                    }
+                    NodeType::Repository => node.theme_name.as_deref(),
+                    NodeType::Workspace | NodeType::Action(ActionType::NewWorkspace) => node
+                        .parent_id
+                        .and_then(|id| self.state.sidebar_data.get_repo_theme(id))
+                        .map(String::as_str),
                 });
 
-        let theme_name = repo_id.and_then(|id| {
-            self.repo_dao()
-                .and_then(|dao| dao.get_by_id(id).ok().flatten())
-                .and_then(|repo| repo.theme_name)
-        });
-
-        if let Some(name) = theme_name.as_deref() {
+        if let Some(name) = theme_name {
             if !crate::components::load_theme_by_name(name) {
                 tracing::warn!(theme = %name, "Failed to apply sidebar selection theme");
             }
