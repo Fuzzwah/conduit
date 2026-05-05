@@ -495,6 +495,7 @@ fn scenario_label(scenario: Scenario) -> &'static str {
     match scenario {
         Scenario::CleanReady => "Clean — ready to archive",
         Scenario::EditsNoLink => "Uncommitted edits",
+        Scenario::UnpushedCommits => "Unpushed commits",
         Scenario::SpecComplete => "Spec complete",
         Scenario::SpecIncomplete => "Spec in progress",
         Scenario::IssueOpen => "Issue open",
@@ -505,7 +506,10 @@ fn scenario_label(scenario: Scenario) -> &'static str {
 fn scenario_color(scenario: Scenario) -> ratatui::style::Color {
     match scenario {
         Scenario::CleanReady | Scenario::SpecComplete | Scenario::IssueClosed => accent_success(),
-        Scenario::EditsNoLink | Scenario::SpecIncomplete | Scenario::IssueOpen => accent_warning(),
+        Scenario::EditsNoLink
+        | Scenario::UnpushedCommits
+        | Scenario::SpecIncomplete
+        | Scenario::IssueOpen => accent_warning(),
     }
 }
 

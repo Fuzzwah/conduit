@@ -12480,6 +12480,9 @@ fn run_work_complete_preflight(
     let path = &workspace.path;
 
     // --- Branch status ---
+    let branch_name = worktree_manager
+        .get_current_branch(path)
+        .unwrap_or_else(|_| workspace.branch.clone());
     let branch_status = worktree_manager
         .get_branch_status_with_gh_option(path, config.workspaces.use_gh_cli_merge_status)
         .unwrap_or_default();
@@ -12576,7 +12579,7 @@ fn run_work_complete_preflight(
     );
 
     Ok(crate::work_complete::WorkCompleteData {
-        branch_name: workspace.branch.clone(),
+        branch_name,
         is_dirty: branch_status.is_dirty,
         dirty_files,
         commits_ahead: git_state.commits_ahead,
