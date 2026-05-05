@@ -915,6 +915,16 @@ impl App {
         // Capture current expansion state before rebuild
         let expanded_repos = self.state.sidebar_data.expanded_repo_ids();
 
+        // Preserve runtime PR statuses (not stored in DB)
+        let pr_statuses: Vec<(uuid::Uuid, conduit_git::PrStatus)> = self
+            .state
+            .sidebar_data
+            .nodes
+            .iter()
+            .flat_map(|repo| &repo.children)
+            .filter_map(|ws| ws.pr_status.clone().map(|s| (ws.id, s)))
+            .collect();
+
         // Collect all repo/workspace data first to avoid borrow conflicts
         type RepoWorkspaceData = Vec<(Uuid, String, Option<String>, Vec<(Uuid, String, String)>)>;
 
@@ -954,6 +964,13 @@ impl App {
         // Restore expansion state
         for repo_id in expanded_repos {
             self.state.sidebar_data.expand_repo(repo_id);
+        }
+
+        // Restore runtime PR statuses
+        for (workspace_id, status) in pr_statuses {
+            self.state
+                .sidebar_data
+                .update_workspace_pr_status(workspace_id, Some(status));
         }
 
         self.sync_sidebar_busy_state();

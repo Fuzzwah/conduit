@@ -600,14 +600,18 @@ impl StatefulWidget for TreeView<'_> {
                 visual_row += 1;
             }
 
-            // Re-apply selection background to ensure it covers the text
+            // Re-apply selection background to ensure it covers the text,
+            // but preserve explicit badge colors (e.g. PR state) already rendered.
             if node_idx == state.selected {
+                let sel_bg = self.selected_style.bg.unwrap_or(Color::Reset);
                 for row in 0..item_height {
                     let sel_y = y + row;
                     if sel_y < inner.y + inner.height {
                         for x in inner.x..inner.x + inner.width {
                             let cell = &mut buf[(x, sel_y)];
-                            cell.set_bg(self.selected_style.bg.unwrap_or(Color::Reset));
+                            if cell.bg == Color::Reset || cell.bg == sel_bg {
+                                cell.set_bg(sel_bg);
+                            }
                         }
                     }
                 }
