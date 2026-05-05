@@ -2790,6 +2790,11 @@ impl App {
                                 .ok_or_else(|| "Repository has no base path".to_string())?;
                             let settings = resolve_repo_workspace_settings(&config, &repo);
 
+                            // Sync with remote immediately before cutting the worktree so
+                            // create_workspace can branch from the freshest origin/<default>.
+                            send_progress("Syncing with remote...");
+                            conduit_git::sync_remote(&base_path);
+
                             // Get ALL workspace names (including archived) to prevent resurrection
                             // of old workspace names when creating new ones
                             let existing_names: Vec<String> = workspace_dao
