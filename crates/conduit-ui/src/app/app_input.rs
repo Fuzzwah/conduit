@@ -588,6 +588,13 @@ impl App {
             return Ok(Vec::new());
         }
 
+        // Work Complete dialog intercepts keys before general action dispatch
+        if self.state.work_complete_session.is_some() {
+            if let Some(effects) = self.handle_work_complete_key(key) {
+                return Ok(effects);
+            }
+        }
+
         // Get the current context from input mode and active tab type
         let context = self.key_context_for_active_tab();
 
@@ -606,6 +613,140 @@ impl App {
         }
 
         Ok(Vec::new())
+    }
+
+    /// Handle a key event when the Work Complete dialog is open.
+    /// Returns `Some(effects)` if the key was consumed, `None` to fall through.
+    fn handle_work_complete_key(&mut self, key: KeyEvent) -> Option<Vec<Effect>> {
+        use crate::work_complete::WorkCompletePhase as P;
+        use crossterm::event::{KeyCode, KeyModifiers};
+
+        let session = self.state.work_complete_session.as_ref()?;
+        let phase = session.phase.clone();
+
+        match phase {
+            P::LoadingPreflight => {
+                if key.code == KeyCode::Esc {
+                    let effects = self.dispatch_work_complete_event(
+                        crate::work_complete::WorkCompleteEvent::Close,
+                    );
+                    return Some(effects);
+                }
+                Some(Vec::new()) // swallow all other keys while loading
+            }
+
+            P::ReviewingState { .. } => match key.code {
+                KeyCode::Up | KeyCode::Char('k') if key.modifiers.is_empty() => {
+                    if let Some(s) = self.state.work_complete_session.as_mut() {
+                        s.selected_action_idx = s.selected_action_idx.saturating_sub(1);
+                    }
+                    Some(Vec::new())
+                }
+                KeyCode::Down | KeyCode::Char('j') if key.modifiers.is_empty() => {
+                    if let Some(s) = self.state.work_complete_session.as_mut() {
+                        let n = s
+                            .data
+                            .as_ref()
+                            .map(|d| d.suggested_actions.len())
+                            .unwrap_or(0);
+                        if n > 0 {
+                            s.selected_action_idx =
+                                (s.selected_action_idx + 1).min(n.saturating_sub(1));
+                        }
+                    }
+                    Some(Vec::new())
+                }
+                KeyCode::Enter => {
+                    let action = self.state.work_complete_session.as_ref().and_then(|s| {
+                        s.data
+                            .as_ref()
+                            .and_then(|d| d.suggested_actions.get(s.selected_action_idx).copied())
+                    });
+                    if let Some(action) = action {
+                        let effects = self.dispatch_work_complete_event(
+                            crate::work_complete::WorkCompleteEvent::ActionSelected(action),
+                        );
+                        return Some(effects);
+                    }
+                    Some(Vec::new())
+                }
+                KeyCode::Esc => {
+                    let effects = self.dispatch_work_complete_event(
+                        crate::work_complete::WorkCompleteEvent::Close,
+                    );
+                    Some(effects)
+                }
+                _ => Some(Vec::new()), // swallow unhandled keys
+            },
+
+            P::AwaitingCommitMessage => match key.code {
+                KeyCode::Enter => {
+                    let msg = self
+                        .state
+                        .work_complete_session
+                        .as_ref()
+                        .map(|s| s.commit_message_input.clone())
+                        .unwrap_or_default();
+                    if !msg.trim().is_empty() {
+                        let effects = self.dispatch_work_complete_event(
+                            crate::work_complete::WorkCompleteEvent::CommitMessageSubmitted(msg),
+                        );
+                        return Some(effects);
+                    }
+                    Some(Vec::new())
+                }
+                KeyCode::Esc => {
+                    let effects = self.dispatch_work_complete_event(
+                        crate::work_complete::WorkCompleteEvent::Close,
+                    );
+                    Some(effects)
+                }
+                KeyCode::Backspace => {
+                    if let Some(s) = self.state.work_complete_session.as_mut() {
+                        s.commit_message_input.pop();
+                    }
+                    Some(Vec::new())
+                }
+                KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    if let Some(s) = self.state.work_complete_session.as_mut() {
+                        s.commit_message_input.clear();
+                    }
+                    Some(Vec::new())
+                }
+                KeyCode::Char(c)
+                    if key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT =>
+                {
+                    if let Some(s) = self.state.work_complete_session.as_mut() {
+                        s.commit_message_input.push(c);
+                    }
+                    Some(Vec::new())
+                }
+                _ => Some(Vec::new()),
+            },
+
+            P::ConfirmingForce { .. } => match key.code {
+                KeyCode::Enter | KeyCode::Char('y') if key.modifiers.is_empty() => {
+                    let effects = self.dispatch_work_complete_event(
+                        crate::work_complete::WorkCompleteEvent::ForceConfirmed,
+                    );
+                    Some(effects)
+                }
+                KeyCode::Esc | KeyCode::Char('n') if key.modifiers.is_empty() => {
+                    let effects = self.dispatch_work_complete_event(
+                        crate::work_complete::WorkCompleteEvent::Close,
+                    );
+                    Some(effects)
+                }
+                _ => Some(Vec::new()),
+            },
+
+            P::Executing { .. } => {
+                // All keys are ignored while an action is in flight
+                Some(Vec::new())
+            }
+
+            P::Done => None, // dialog should already be closed; let key fall through
+        }
     }
 
     pub(super) fn should_handle_first_time_splash_shortcuts(
