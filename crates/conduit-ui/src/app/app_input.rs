@@ -182,211 +182,220 @@ impl App {
         }
 
         // Handle inline prompt input (AskUserQuestion, ExitPlanMode)
-        if let Some(session) = self.state.tab_manager.active_session_mut() {
-            if let Some(ref mut prompt) = session.inline_prompt {
-                use crate::components::{PromptAction, PromptResponse};
+        // When sidebar has focus, keys belong to the sidebar — skip the inline
+        // prompt so it doesn't swallow arrows/Enter while the user navigates.
+        let sidebar_has_focus = self.state.input_mode == InputMode::SidebarNavigation;
+        if !sidebar_has_focus {
+            if let Some(session) = self.state.tab_manager.active_session_mut() {
+                if let Some(ref mut prompt) = session.inline_prompt {
+                    use crate::components::{PromptAction, PromptResponse};
 
-                match prompt.handle_key(key) {
-                    PromptAction::Submit(response) => {
-                        let tool_id = prompt.tool_id.clone();
-                        let response_clone = response.clone();
-                        let prompt_snapshot = prompt.clone();
-                        let pending_request_id = session.pending_tool_permissions.remove(&tool_id);
-                        let agent_type = session.agent_type;
+                    match prompt.handle_key(key) {
+                        PromptAction::Submit(response) => {
+                            let tool_id = prompt.tool_id.clone();
+                            let response_clone = response.clone();
+                            let prompt_snapshot = prompt.clone();
+                            let pending_request_id =
+                                session.pending_tool_permissions.remove(&tool_id);
+                            let agent_type = session.agent_type;
 
-                        // Clear the inline prompt
-                        session.inline_prompt = None;
+                            // Clear the inline prompt
+                            session.inline_prompt = None;
 
-                        // Handle the response - format as natural language for the model
-                        let effects = if let (AgentType::Claude, true, Some(request_id)) = (
-                            agent_type,
-                            session.agent_input_tx.is_some(),
-                            pending_request_id.as_ref(),
-                        ) {
-                            match response_clone {
-                                PromptResponse::AskUserAnswers { answers } => {
-                                    let updated_input = Self::build_ask_user_updated_input(
-                                        &prompt_snapshot,
-                                        &answers,
-                                    );
-                                    let response_payload = Self::build_permission_allow_response(
-                                        updated_input,
-                                        Some(&tool_id),
-                                    );
-                                    self.send_control_response(request_id, response_payload)
-                                }
-                                PromptResponse::ExitPlanApprove => {
-                                    // Switch to Build mode
-                                    session.agent_mode = AgentMode::Build;
-                                    session.update_status();
-                                    let updated_input =
-                                        Self::build_exit_plan_updated_input(&prompt_snapshot);
-                                    let response_payload = Self::build_permission_allow_response(
-                                        updated_input,
-                                        Some(&tool_id),
-                                    );
-                                    self.send_control_response(request_id, response_payload)
-                                }
-                                PromptResponse::ExitPlanFeedback(feedback) => {
-                                    let response_payload = Self::build_permission_deny_response(
-                                        format!("User feedback on plan: {}", feedback),
-                                        Some(&tool_id),
-                                    );
-                                    self.send_control_response(request_id, response_payload)
-                                }
-                            }
-                        } else if agent_type == AgentType::Claude
-                            && session.agent_input_tx.is_some()
-                        {
-                            let response_payload = match response_clone {
-                                PromptResponse::AskUserAnswers { answers } => {
-                                    let updated_input = Self::build_ask_user_updated_input(
-                                        &prompt_snapshot,
-                                        &answers,
-                                    );
-                                    Self::build_permission_allow_response(
-                                        updated_input,
-                                        Some(&tool_id),
-                                    )
-                                }
-                                PromptResponse::ExitPlanApprove => {
-                                    // Switch to Build mode
-                                    session.agent_mode = AgentMode::Build;
-                                    session.update_status();
-                                    let updated_input =
-                                        Self::build_exit_plan_updated_input(&prompt_snapshot);
-                                    Self::build_permission_allow_response(
-                                        updated_input,
-                                        Some(&tool_id),
-                                    )
-                                }
-                                PromptResponse::ExitPlanFeedback(feedback) => {
-                                    Self::build_permission_deny_response(
-                                        format!("User feedback on plan: {}", feedback),
-                                        Some(&tool_id),
-                                    )
-                                }
-                            };
-                            session
-                                .pending_tool_permission_responses
-                                .insert(tool_id.clone(), response_payload);
-                            Vec::new()
-                        } else if agent_type == AgentType::Opencode {
-                            match response_clone {
-                                PromptResponse::AskUserAnswers { answers } => {
-                                    let answers_payload = Self::build_opencode_question_answers(
-                                        &prompt_snapshot,
-                                        &answers,
-                                    );
-                                    self.send_opencode_question_response(
-                                        &tool_id,
-                                        Some(answers_payload),
-                                    )
-                                }
-                                PromptResponse::ExitPlanApprove => {
-                                    session.agent_mode = AgentMode::Build;
-                                    session.update_status();
-                                    let (content, tool_use_result) =
-                                        Self::build_exit_plan_tool_result(
-                                            &prompt_snapshot,
-                                            true,
-                                            None,
-                                        );
-                                    self.send_tool_result(&tool_id, content, tool_use_result)
-                                }
-                                PromptResponse::ExitPlanFeedback(feedback) => {
-                                    let (content, tool_use_result) =
-                                        Self::build_exit_plan_tool_result(
-                                            &prompt_snapshot,
-                                            false,
-                                            Some(feedback),
-                                        );
-                                    self.send_tool_result(&tool_id, content, tool_use_result)
-                                }
-                            }
-                        } else {
-                            match response_clone {
-                                PromptResponse::AskUserAnswers { answers } => {
-                                    let (content, tool_use_result) =
-                                        Self::build_ask_user_tool_result(
+                            // Handle the response - format as natural language for the model
+                            let effects = if let (AgentType::Claude, true, Some(request_id)) = (
+                                agent_type,
+                                session.agent_input_tx.is_some(),
+                                pending_request_id.as_ref(),
+                            ) {
+                                match response_clone {
+                                    PromptResponse::AskUserAnswers { answers } => {
+                                        let updated_input = Self::build_ask_user_updated_input(
                                             &prompt_snapshot,
                                             &answers,
                                         );
-                                    self.send_tool_result(&tool_id, content, tool_use_result)
-                                }
-                                PromptResponse::ExitPlanApprove => {
-                                    // Switch to Build mode
-                                    session.agent_mode = AgentMode::Build;
-                                    session.update_status();
-                                    let (content, tool_use_result) =
-                                        Self::build_exit_plan_tool_result(
-                                            &prompt_snapshot,
-                                            true,
-                                            None,
+                                        let response_payload =
+                                            Self::build_permission_allow_response(
+                                                updated_input,
+                                                Some(&tool_id),
+                                            );
+                                        self.send_control_response(request_id, response_payload)
+                                    }
+                                    PromptResponse::ExitPlanApprove => {
+                                        // Switch to Build mode
+                                        session.agent_mode = AgentMode::Build;
+                                        session.update_status();
+                                        let updated_input =
+                                            Self::build_exit_plan_updated_input(&prompt_snapshot);
+                                        let response_payload =
+                                            Self::build_permission_allow_response(
+                                                updated_input,
+                                                Some(&tool_id),
+                                            );
+                                        self.send_control_response(request_id, response_payload)
+                                    }
+                                    PromptResponse::ExitPlanFeedback(feedback) => {
+                                        let response_payload = Self::build_permission_deny_response(
+                                            format!("User feedback on plan: {}", feedback),
+                                            Some(&tool_id),
                                         );
-                                    self.send_tool_result(&tool_id, content, tool_use_result)
+                                        self.send_control_response(request_id, response_payload)
+                                    }
                                 }
-                                PromptResponse::ExitPlanFeedback(feedback) => {
-                                    let (content, tool_use_result) =
-                                        Self::build_exit_plan_tool_result(
+                            } else if agent_type == AgentType::Claude
+                                && session.agent_input_tx.is_some()
+                            {
+                                let response_payload = match response_clone {
+                                    PromptResponse::AskUserAnswers { answers } => {
+                                        let updated_input = Self::build_ask_user_updated_input(
                                             &prompt_snapshot,
-                                            false,
-                                            Some(feedback),
+                                            &answers,
                                         );
-                                    self.send_tool_result(&tool_id, content, tool_use_result)
+                                        Self::build_permission_allow_response(
+                                            updated_input,
+                                            Some(&tool_id),
+                                        )
+                                    }
+                                    PromptResponse::ExitPlanApprove => {
+                                        // Switch to Build mode
+                                        session.agent_mode = AgentMode::Build;
+                                        session.update_status();
+                                        let updated_input =
+                                            Self::build_exit_plan_updated_input(&prompt_snapshot);
+                                        Self::build_permission_allow_response(
+                                            updated_input,
+                                            Some(&tool_id),
+                                        )
+                                    }
+                                    PromptResponse::ExitPlanFeedback(feedback) => {
+                                        Self::build_permission_deny_response(
+                                            format!("User feedback on plan: {}", feedback),
+                                            Some(&tool_id),
+                                        )
+                                    }
+                                };
+                                session
+                                    .pending_tool_permission_responses
+                                    .insert(tool_id.clone(), response_payload);
+                                Vec::new()
+                            } else if agent_type == AgentType::Opencode {
+                                match response_clone {
+                                    PromptResponse::AskUserAnswers { answers } => {
+                                        let answers_payload = Self::build_opencode_question_answers(
+                                            &prompt_snapshot,
+                                            &answers,
+                                        );
+                                        self.send_opencode_question_response(
+                                            &tool_id,
+                                            Some(answers_payload),
+                                        )
+                                    }
+                                    PromptResponse::ExitPlanApprove => {
+                                        session.agent_mode = AgentMode::Build;
+                                        session.update_status();
+                                        let (content, tool_use_result) =
+                                            Self::build_exit_plan_tool_result(
+                                                &prompt_snapshot,
+                                                true,
+                                                None,
+                                            );
+                                        self.send_tool_result(&tool_id, content, tool_use_result)
+                                    }
+                                    PromptResponse::ExitPlanFeedback(feedback) => {
+                                        let (content, tool_use_result) =
+                                            Self::build_exit_plan_tool_result(
+                                                &prompt_snapshot,
+                                                false,
+                                                Some(feedback),
+                                            );
+                                        self.send_tool_result(&tool_id, content, tool_use_result)
+                                    }
                                 }
-                            }
-                        };
-                        return Ok(effects);
-                    }
-                    PromptAction::Cancel => {
-                        let tool_id = prompt.tool_id.clone();
-                        let pending_request_id = session.pending_tool_permissions.remove(&tool_id);
-                        let agent_type = session.agent_type;
-                        session.inline_prompt = None;
-                        // Send cancellation as clear message
-                        let effects = if let (AgentType::Claude, true, Some(request_id)) = (
-                            agent_type,
-                            session.agent_input_tx.is_some(),
-                            pending_request_id.as_ref(),
-                        ) {
-                            let response_payload = Self::build_permission_deny_response(
-                                "User cancelled the prompt.".to_string(),
-                                Some(&tool_id),
-                            );
-                            self.send_control_response(request_id, response_payload)
-                        } else if agent_type == AgentType::Claude
-                            && session.agent_input_tx.is_some()
-                        {
-                            let response_payload = Self::build_permission_deny_response(
-                                "User cancelled the prompt.".to_string(),
-                                Some(&tool_id),
-                            );
-                            session
-                                .pending_tool_permission_responses
-                                .insert(tool_id.clone(), response_payload);
-                            Vec::new()
-                        } else if agent_type == AgentType::Opencode {
-                            self.send_opencode_question_response(&tool_id, None)
-                        } else {
-                            self.send_tool_result(
-                                &tool_id,
-                                "User cancelled the prompt.".to_string(),
-                                None,
-                            )
-                        };
-                        return Ok(effects);
-                    }
-                    PromptAction::Consumed => {
-                        // Key was handled but no action yet
-                        return Ok(Vec::new());
-                    }
-                    PromptAction::NotHandled => {
-                        // Fall through to normal handling
+                            } else {
+                                match response_clone {
+                                    PromptResponse::AskUserAnswers { answers } => {
+                                        let (content, tool_use_result) =
+                                            Self::build_ask_user_tool_result(
+                                                &prompt_snapshot,
+                                                &answers,
+                                            );
+                                        self.send_tool_result(&tool_id, content, tool_use_result)
+                                    }
+                                    PromptResponse::ExitPlanApprove => {
+                                        // Switch to Build mode
+                                        session.agent_mode = AgentMode::Build;
+                                        session.update_status();
+                                        let (content, tool_use_result) =
+                                            Self::build_exit_plan_tool_result(
+                                                &prompt_snapshot,
+                                                true,
+                                                None,
+                                            );
+                                        self.send_tool_result(&tool_id, content, tool_use_result)
+                                    }
+                                    PromptResponse::ExitPlanFeedback(feedback) => {
+                                        let (content, tool_use_result) =
+                                            Self::build_exit_plan_tool_result(
+                                                &prompt_snapshot,
+                                                false,
+                                                Some(feedback),
+                                            );
+                                        self.send_tool_result(&tool_id, content, tool_use_result)
+                                    }
+                                }
+                            };
+                            return Ok(effects);
+                        }
+                        PromptAction::Cancel => {
+                            let tool_id = prompt.tool_id.clone();
+                            let pending_request_id =
+                                session.pending_tool_permissions.remove(&tool_id);
+                            let agent_type = session.agent_type;
+                            session.inline_prompt = None;
+                            // Send cancellation as clear message
+                            let effects = if let (AgentType::Claude, true, Some(request_id)) = (
+                                agent_type,
+                                session.agent_input_tx.is_some(),
+                                pending_request_id.as_ref(),
+                            ) {
+                                let response_payload = Self::build_permission_deny_response(
+                                    "User cancelled the prompt.".to_string(),
+                                    Some(&tool_id),
+                                );
+                                self.send_control_response(request_id, response_payload)
+                            } else if agent_type == AgentType::Claude
+                                && session.agent_input_tx.is_some()
+                            {
+                                let response_payload = Self::build_permission_deny_response(
+                                    "User cancelled the prompt.".to_string(),
+                                    Some(&tool_id),
+                                );
+                                session
+                                    .pending_tool_permission_responses
+                                    .insert(tool_id.clone(), response_payload);
+                                Vec::new()
+                            } else if agent_type == AgentType::Opencode {
+                                self.send_opencode_question_response(&tool_id, None)
+                            } else {
+                                self.send_tool_result(
+                                    &tool_id,
+                                    "User cancelled the prompt.".to_string(),
+                                    None,
+                                )
+                            };
+                            return Ok(effects);
+                        }
+                        PromptAction::Consumed => {
+                            // Key was handled but no action yet
+                            return Ok(Vec::new());
+                        }
+                        PromptAction::NotHandled => {
+                            // Fall through to normal handling
+                        }
                     }
                 }
             }
-        }
+        } // end !sidebar_has_focus
 
         // Esc exits shell mode back to normal input
         if key.code == KeyCode::Esc
