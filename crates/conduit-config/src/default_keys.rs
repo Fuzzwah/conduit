@@ -33,6 +33,7 @@ pub fn default_keybindings() -> KeybindingConfig {
     bind(&mut config.global, "C-M-p", Action::OpenPr); // Ctrl+Alt+P for PR
     bind(&mut config.global, "M-S-f", Action::ForkSession); // Alt+Shift+F for fork
     bind(&mut config.global, "M-S-h", Action::HandoffSession); // Alt+Shift+H for handoff
+    bind(&mut config.global, "M-o", Action::ShowOrchestrationSelector); // Alt+O for orchestration toggle (M-S-o = ESC O conflicts with SS3 prefix)
     bind(&mut config.global, "C-z", Action::Suspend);
 
     // Note: Ctrl+C is handled specially in app.rs for double-press detection
@@ -400,6 +401,7 @@ pub fn default_keybindings() -> KeybindingConfig {
     bind(sidebar, "?", Action::ShowHelp);
     bind(sidebar, "M-S-r", Action::RenameProject);
     bind(sidebar, "M-S-m", Action::ManageMcp);
+    bind(sidebar, "M-o", Action::ToggleOrchestrationDefault);
     bind(sidebar, "M-S-x", Action::ArchiveOrRemove);
     sidebar.insert(
         KeyCombo::new(KeyCode::PageUp, KeyModifiers::NONE),

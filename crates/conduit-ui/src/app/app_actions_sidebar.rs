@@ -2,6 +2,7 @@ use crate::action::Action;
 use crate::app::App;
 use crate::components::{ActionType, NodeType};
 use crate::events::InputMode;
+use std::time::Duration;
 
 impl App {
     pub(super) fn handle_sidebar_action(
@@ -158,7 +159,61 @@ impl App {
                         }
                     }
                 }
+            Action::ToggleOrchestrationDefault
+                if self.state.input_mode == InputMode::SidebarNavigation =>
+            {
+                let selected = self.state.sidebar_state.tree_state.selected;
+                if let Some(node) = self.state.sidebar_data.get_at(selected) {
+                    match node.node_type {
+                        NodeType::Workspace => {
+                            let workspace_id = node.id;
+                            if let Some(ws_dao) = self.workspace_dao_clone() {
+                                if let Ok(Some(mut ws)) = ws_dao.get_by_id(workspace_id) {
+                                    ws.orchestration_enabled = cycle_orchestration(ws.orchestration_enabled);
+                                    let label = orchestration_label(ws.orchestration_enabled);
+                                    let _ = ws_dao.update(&ws);
+                                    self.state.set_timed_footer_message(
+                                        format!("Workspace orchestration default: {label}"),
+                                        Duration::from_secs(4),
+                                    );
+                                }
+                            }
+                        }
+                        NodeType::Repository => {
+                            let repo_id = node.id;
+                            if let Some(repo_dao) = self.repo_dao_clone() {
+                                if let Ok(Some(mut repo)) = repo_dao.get_by_id(repo_id) {
+                                    repo.orchestration_enabled = cycle_orchestration(repo.orchestration_enabled);
+                                    let label = orchestration_label(repo.orchestration_enabled);
+                                    let _ = repo_dao.update(&repo);
+                                    self.state.set_timed_footer_message(
+                                        format!("Project orchestration default: {label}"),
+                                        Duration::from_secs(4),
+                                    );
+                                }
+                            }
+                        }
+                        NodeType::Action(_) => {}
+                    }
+                }
+            }
             _ => {}
         }
+    }
+}
+
+fn cycle_orchestration(current: Option<bool>) -> Option<bool> {
+    match current {
+        None => Some(true),
+        Some(true) => Some(false),
+        Some(false) => None,
+    }
+}
+
+fn orchestration_label(value: Option<bool>) -> &'static str {
+    match value {
+        None => "inherit (global config)",
+        Some(true) => "enabled",
+        Some(false) => "disabled",
     }
 }
