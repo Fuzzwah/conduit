@@ -102,7 +102,7 @@ impl Widget for WorkspaceProgressDialog<'_> {
         }
 
         let instructions = if self.state.complete {
-            vec![("Enter", "Close"), ("Esc", "Close")]
+            vec![("Enter", "Continue"), ("Esc", "Continue")]
         } else {
             vec![]
         };
@@ -197,7 +197,7 @@ impl Widget for WorkspaceProgressDialog<'_> {
             let button_y = status_y + 2;
             if button_y < inner.y + inner.height {
                 let button = Span::styled(
-                    " Close ",
+                    " Continue ",
                     Style::default()
                         .fg(ratatui::style::Color::Black)
                         .bg(if self.state.failed() {
