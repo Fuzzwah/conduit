@@ -27,8 +27,7 @@ cleanup_local() {
   rm -rf "$DATA_DIR"
 }
 
-mkdir -p "$DATA_DIR/workspaces/conduit/kind-mist"
-mkdir -p "$DATA_DIR/workspaces/conduit/live-jade"
+mkdir -p "$DATA_DIR/workspaces/conduit"
 
 (
   cd "$DATA_DIR/workspaces/conduit"
@@ -38,9 +37,10 @@ mkdir -p "$DATA_DIR/workspaces/conduit/live-jade"
   touch .gitkeep
   git add .gitkeep
   git commit -m "initial"
-  git checkout -b test/kind-mist
-  git checkout -b test/live-jade
-  git checkout test/kind-mist
+  git branch test/kind-mist
+  git branch test/live-jade
+  git worktree add kind-mist test/kind-mist
+  git worktree add live-jade test/live-jade
 ) >/dev/null 2>&1
 
 cat > "$DATA_DIR/config.toml" <<EOF_CONFIG
@@ -168,7 +168,7 @@ assert_contains "$sock" "live-jade" "live-jade workspace visible in sidebar"
 ctrl "$sock" "t"
 wait_idle "$sock" 300 3000 > /dev/null
 
-assert_not_contains "$sock" "conduit" "Project name hidden after Ctrl+T toggle off"
+assert_not_contains "$sock" "+ New workspace" "Sidebar hidden after Ctrl+T toggle off"
 
 # Toggle sidebar back on
 ctrl "$sock" "t"
