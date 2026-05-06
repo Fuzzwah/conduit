@@ -4,6 +4,7 @@ use crate::app_state::{ModelPickerContext, SelectionDragTarget};
 use crate::components::{ConfirmationContext, ConfirmationType};
 use crate::effect::Effect;
 use crate::events::{InputMode, ViewMode};
+use conduit_agent::AgentType;
 use std::time::Duration;
 
 impl App {
@@ -157,6 +158,21 @@ impl App {
                             .reasoning_selector_state
                             .show(agent_type, reasoning_effort);
                         self.state.input_mode = InputMode::SelectingReasoning;
+                    }
+                }
+            }
+            Action::ShowOrchestrationSelector => {
+                if let Some(session) = self.state.tab_manager.active_session() {
+                    if session.agent_type != AgentType::Claude {
+                        self.state.set_timed_footer_message(
+                            "Orchestration mode is only available for Claude sessions".to_string(),
+                            Duration::from_secs(3),
+                        );
+                    } else {
+                        let current = session.orchestration_enabled;
+                        self.state.close_overlays();
+                        self.state.orchestration_selector_state.show(current);
+                        self.state.input_mode = InputMode::SelectingOrchestration;
                     }
                 }
             }

@@ -67,6 +67,8 @@ pub struct StatusBar {
     supports_plan_mode: bool,
     /// Spinner frame index (shared animation tick)
     spinner_frame: usize,
+    /// Active sub-agent delegation override: (display_label, model_id)
+    delegated_agent: Option<(String, String)>,
 }
 
 impl StatusBar {
@@ -97,6 +99,7 @@ impl StatusBar {
             queue_count: 0,
             supports_plan_mode: false,
             spinner_frame: 0,
+            delegated_agent: None,
         }
     }
 
@@ -135,6 +138,11 @@ impl StatusBar {
 
     pub fn set_supports_plan_mode(&mut self, supports: bool) {
         self.supports_plan_mode = supports;
+    }
+
+    /// Set the active sub-agent delegation for status bar override display
+    pub fn set_delegated_agent(&mut self, label: Option<String>, model: Option<String>) {
+        self.delegated_agent = label.zip(model);
     }
 
     /// Set current spinner frame (shared animation tick)
@@ -234,8 +242,15 @@ impl StatusBar {
                 Style::default().fg(accent_secondary()),
             ));
         } else {
-            // Mode indicator - only when plan mode is supported
-            if self.supports_plan_mode {
+            // Mode indicator - use delegated agent label when delegation is active,
+            // otherwise show agent mode (only when plan mode is supported)
+            if let Some((ref label, _)) = self.delegated_agent {
+                spans.push(Span::styled(
+                    label.clone(),
+                    Style::default().fg(accent_primary()),
+                ));
+                spans.push(Span::raw("  "));
+            } else if self.supports_plan_mode {
                 spans.push(Span::styled(
                     self.agent_mode.display_name(),
                     Style::default().fg(accent_primary()),
@@ -244,11 +259,14 @@ impl StatusBar {
                 spans.push(Span::raw("  "));
             }
 
-            // Model name first - bright/primary color
-            let model_id = self
-                .model
-                .clone()
-                .unwrap_or_else(|| ModelRegistry::default_model(self.agent_type));
+            // Model name - use delegated agent's model when delegation is active
+            let model_id = if let Some((_, ref delegated_model)) = self.delegated_agent {
+                delegated_model.clone()
+            } else {
+                self.model
+                    .clone()
+                    .unwrap_or_else(|| ModelRegistry::default_model(self.agent_type))
+            };
             let model_display = ModelRegistry::find_model(self.agent_type, &model_id)
                 .map(|m| m.display_name)
                 .unwrap_or(model_id);

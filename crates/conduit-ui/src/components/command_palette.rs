@@ -114,6 +114,7 @@ impl CommandPaletteState {
             Action::ToggleViewMode,
             Action::ShowModelSelector,
             Action::ShowReasoningSelector,
+            Action::ShowOrchestrationSelector,
             Action::ShowProvidersSelector,
             Action::ToggleMetrics,
             Action::DumpDebugState,

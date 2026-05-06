@@ -43,11 +43,11 @@ use crate::components::{
     ChatMessage, CommandPalette, ConfirmationContext, ConfirmationDialog, ConfirmationType,
     DefaultModelSelection, ErrorDialog, EventDirection, GlobalFooter, HelpDialog,
     InlinePromptState, InlinePromptType, KeybindingsEditor, McpDialog, McpServer, McpSource,
-    MessageRole, MissingToolDialog, ModelSelector, ProcessingState, ProjectEntry, ProjectPicker,
-    PromptAnswer, ProviderSelector, RawEventsClick, ReasoningSelector, RenameProjectDialog,
-    SessionHeader, SessionImportPicker, SettingsMenu, SettingsMenuEntry, SettingsMenuEntryId,
-    Sidebar, SidebarData, SlashMenu, TabBar, TabBarHitTarget, ThemePicker, WorkspaceDefaultsDialog,
-    WorkspaceDefaultsDraft, SIDEBAR_HEADER_ROWS,
+    MessageRole, MissingToolDialog, ModelSelector, OrchestrationSelector, ProcessingState,
+    ProjectEntry, ProjectPicker, PromptAnswer, ProviderSelector, RawEventsClick, ReasoningSelector,
+    RenameProjectDialog, SessionHeader, SessionImportPicker, SettingsMenu, SettingsMenuEntry,
+    SettingsMenuEntryId, Sidebar, SidebarData, SlashMenu, TabBar, TabBarHitTarget, ThemePicker,
+    WorkspaceDefaultsDialog, WorkspaceDefaultsDraft, SIDEBAR_HEADER_ROWS,
 };
 use crate::effect::Effect;
 use crate::events::{
@@ -2008,6 +2008,7 @@ impl App {
             | Action::ToggleViewMode
             | Action::ShowModelSelector
             | Action::ShowReasoningSelector
+            | Action::ShowOrchestrationSelector
             | Action::ShowThemePicker
             | Action::ShowProvidersSelector
             | Action::OpenSessionImport
@@ -5669,10 +5670,14 @@ impl App {
 
         self.state.tab_manager.new_tab(target_provider);
         let model_id = self.config().default_model_for(target_provider);
+        let orchestration_default = self.config().orchestration.enabled_by_default;
         if let Some(session) = self.state.tab_manager.active_session_mut() {
             session.model = Some(model_id);
             session.model_invalid = false;
             session.init_context_for_model();
+            if session.agent_type == AgentType::Claude {
+                session.orchestration_enabled = orchestration_default;
+            }
             session.update_status();
         }
         self.state.input_mode = InputMode::Normal;
@@ -5918,6 +5923,13 @@ impl App {
             && self.state.reasoning_selector_state.is_visible()
         {
             self.handle_reasoning_selector_click(x, y);
+            return Ok(effects);
+        }
+
+        if self.state.input_mode == InputMode::SelectingOrchestration
+            && self.state.orchestration_selector_state.is_visible()
+        {
+            self.handle_orchestration_selector_click(x, y);
             return Ok(effects);
         }
 
@@ -6696,6 +6708,68 @@ impl App {
                     }
                 }
                 self.state.reasoning_selector_state.hide();
+                self.state.input_mode = InputMode::Normal;
+            }
+        }
+    }
+
+    fn handle_orchestration_selector_click(&mut self, x: u16, y: u16) {
+        const DIALOG_WIDTH: u16 = 58;
+        const DIALOG_HEIGHT: u16 = 9;
+
+        let terminal_size = crossterm::terminal::size().unwrap_or((80, 24));
+        let screen = Rect::new(0, 0, terminal_size.0, terminal_size.1);
+        let dialog_width = DIALOG_WIDTH.min(screen.width);
+        let dialog_height = DIALOG_HEIGHT.min(screen.height);
+        let dialog_x = (screen.width.saturating_sub(dialog_width)) / 2;
+        let dialog_y = (screen.height.saturating_sub(dialog_height)) / 2;
+        let dialog_area = Rect {
+            x: dialog_x,
+            y: dialog_y,
+            width: dialog_width,
+            height: dialog_height,
+        };
+
+        if !Self::point_in_rect(x, y, dialog_area) {
+            self.state.orchestration_selector_state.hide();
+            self.state.input_mode = InputMode::Normal;
+            return;
+        }
+
+        let inner = dialog_content_area(dialog_area);
+        if inner.height < 3 {
+            return;
+        }
+
+        // Layout: list, hint — list occupies all but the last row
+        let list_y = inner.y;
+        let list_height = inner.height.saturating_sub(1);
+
+        if y >= list_y && y < list_y + list_height {
+            let clicked_row = (y - list_y) as usize;
+            if self
+                .state
+                .orchestration_selector_state
+                .select_at_row(clicked_row)
+            {
+                let enabled = self
+                    .state
+                    .orchestration_selector_state
+                    .selected_option()
+                    .enabled;
+                if let Some(session) = self.state.tab_manager.active_session_mut() {
+                    session.orchestration_enabled = enabled;
+                    let msg = if enabled {
+                        "Orchestration mode enabled — sub-agents will be used for exploration and review"
+                    } else {
+                        "Orchestration mode disabled"
+                    };
+                    let display = MessageDisplay::System {
+                        content: msg.to_string(),
+                    };
+                    session.chat_view.push(display.to_chat_message());
+                }
+                self.state.orchestration_selector_state.hide();
                 self.state.input_mode = InputMode::Normal;
             }
         }
@@ -8084,6 +8158,24 @@ impl App {
                         false
                     };
 
+                    // Detect orchestration sub-agent delegation
+                    if tool.tool_name == "Agent" && session.orchestration_enabled {
+                        let subagent = tool.arguments.get("subagent_type").and_then(|v| v.as_str());
+                        let delegation = match subagent {
+                            Some("conduit-explore") => Some(("Explore", "claude-haiku-4-5")),
+                            Some("conduit-review") => Some(("Review", "claude-haiku-4-5")),
+                            _ => None,
+                        };
+                        if let Some((label, model)) = delegation {
+                            session.delegated_agent = Some(crate::session::DelegatedAgent {
+                                tool_id: tool.tool_id.clone(),
+                                display_label: label.to_string(),
+                                model: model.to_string(),
+                            });
+                            session.update_status();
+                        }
+                    }
+
                     // Skip normal tool processing for inline prompt tools
                     if !is_inline_prompt_tool {
                         // Update processing state to show tool name
@@ -8214,6 +8306,17 @@ impl App {
                         tool.success,
                         tool.result.as_ref().map(|r| r.len()).unwrap_or(0)
                     );
+
+                    // Clear sub-agent delegation if this tool result matches
+                    if session
+                        .delegated_agent
+                        .as_ref()
+                        .map(|d| d.tool_id == tool.tool_id)
+                        .unwrap_or(false)
+                    {
+                        session.delegated_agent = None;
+                        session.update_status();
+                    }
 
                     // Return to thinking state
                     session.set_processing_state(ProcessingState::Thinking);
@@ -8983,6 +9086,7 @@ impl App {
             model,
             reasoning_effort,
             model_invalid,
+            orchestration_enabled,
             session_id_to_use,
             working_dir,
             is_new_session_for_title,
@@ -9005,6 +9109,7 @@ impl App {
             let agent_mode = session.agent_mode;
             let model = session.model.clone();
             let reasoning_effort = session.reasoning_effort;
+            let orchestration_enabled = session.orchestration_enabled;
             let model_invalid = session.model_invalid;
             // Use agent_session_id if available (set by agent after first prompt)
             // Fall back to resume_session_id (clone, don't take - we consume it later)
@@ -9039,6 +9144,7 @@ impl App {
                 model,
                 reasoning_effort,
                 model_invalid,
+                orchestration_enabled,
                 session_id_to_use,
                 working_dir,
                 !has_visible_user_message,
@@ -9359,6 +9465,9 @@ impl App {
         }
         if let Some(effort) = reasoning_effort {
             config = config.with_reasoning_effort(effort);
+        }
+        if agent_type == AgentType::Claude {
+            config = config.with_orchestration(orchestration_enabled);
         }
 
         // Structured stdin payload (used for tool results / stream-json input)
@@ -11194,6 +11303,13 @@ impl App {
                                 f.buffer_mut(),
                                 &self.state.reasoning_selector_state,
                             );
+                        } else if self.state.orchestration_selector_state.is_visible() {
+                            let selector = OrchestrationSelector::new();
+                            selector.render(
+                                right_area,
+                                f.buffer_mut(),
+                                &self.state.orchestration_selector_state,
+                            );
                         } else if self.state.theme_picker_state.is_visible() {
                             self.render_theme_picker(right_area, f.buffer_mut());
                         }
@@ -11733,6 +11849,15 @@ impl App {
                 right_area,
                 f.buffer_mut(),
                 &self.state.reasoning_selector_state,
+            );
+        }
+
+        if self.state.orchestration_selector_state.is_visible() {
+            let selector = OrchestrationSelector::new();
+            selector.render(
+                right_area,
+                f.buffer_mut(),
+                &self.state.orchestration_selector_state,
             );
         }
 

@@ -20,6 +20,9 @@ impl App {
                 InputMode::SelectingReasoning => {
                     self.state.reasoning_selector_state.select_next();
                 }
+                InputMode::SelectingOrchestration => {
+                    self.state.orchestration_selector_state.select_next();
+                }
                 InputMode::SelectingTheme => {
                     self.state.theme_picker_state.select_next();
                 }
@@ -77,6 +80,9 @@ impl App {
                 }
                 InputMode::SelectingReasoning => {
                     self.state.reasoning_selector_state.select_previous();
+                }
+                InputMode::SelectingOrchestration => {
+                    self.state.orchestration_selector_state.select_previous();
                 }
                 InputMode::SelectingTheme => {
                     self.state.theme_picker_state.select_prev();

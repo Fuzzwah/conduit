@@ -35,6 +35,10 @@ impl App {
                     self.state.reasoning_selector_state.hide();
                     self.state.input_mode = InputMode::Normal;
                 }
+                InputMode::SelectingOrchestration => {
+                    self.state.orchestration_selector_state.hide();
+                    self.state.input_mode = InputMode::Normal;
+                }
                 InputMode::SelectingTheme => {
                     self.state.theme_picker_state.hide(true); // Cancelled - restore original
                     if !self.return_to_settings_menu_if_needed() {
