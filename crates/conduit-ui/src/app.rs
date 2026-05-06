@@ -7043,7 +7043,7 @@ impl App {
             AppEvent::WorkspaceCreationProgress { message } => {
                 let is_generic = matches!(
                     message.as_str(),
-                    "Fetching from remote..."
+                    "Syncing with remote..."
                         | "Creating worktree..."
                         | "Running workspace setup..."
                 );
