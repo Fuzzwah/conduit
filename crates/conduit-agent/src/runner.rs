@@ -80,6 +80,9 @@ pub struct AgentStartConfig {
     pub skill: Option<SkillReference>,
     /// Optional per-session config overrides for providers that support them.
     pub session_config_overrides: std::collections::HashMap<String, Value>,
+    /// Enable model orchestration (Claude only): write sub-agent definitions and inject
+    /// delegation instructions so the orchestrator delegates cheap ops to Haiku.
+    pub orchestration_enabled: bool,
 }
 
 impl AgentStartConfig {
@@ -99,6 +102,7 @@ impl AgentStartConfig {
             stdin_payload: None,
             skill: None,
             session_config_overrides: std::collections::HashMap::new(),
+            orchestration_enabled: false,
         }
     }
 
@@ -154,6 +158,11 @@ impl AgentStartConfig {
 
     pub fn with_session_config_override(mut self, key: impl Into<String>, value: Value) -> Self {
         self.session_config_overrides.insert(key.into(), value);
+        self
+    }
+
+    pub fn with_orchestration(mut self, enabled: bool) -> Self {
+        self.orchestration_enabled = enabled;
         self
     }
 }

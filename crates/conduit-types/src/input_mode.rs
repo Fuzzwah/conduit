@@ -18,6 +18,8 @@ pub enum InputMode {
     SelectingModel,
     /// Selecting reasoning effort for current session
     SelectingReasoning,
+    /// Selecting orchestration mode for current session
+    SelectingOrchestration,
     /// Selecting theme
     SelectingTheme,
     /// Selecting enabled providers

@@ -16,6 +16,10 @@ impl App {
             && self.state.input_mode != InputMode::SelectingModel
         {
             self.state.input_mode = InputMode::SelectingModel;
+        } else if self.state.orchestration_selector_state.is_visible()
+            && self.state.input_mode != InputMode::SelectingOrchestration
+        {
+            self.state.input_mode = InputMode::SelectingOrchestration;
         } else if self.state.provider_selector_state.is_visible()
             && self.state.input_mode != InputMode::SelectingProviders
         {
@@ -152,6 +156,27 @@ impl App {
                     }
                 }
                 self.state.reasoning_selector_state.hide();
+                self.state.input_mode = InputMode::Normal;
+            }
+            InputMode::SelectingOrchestration => {
+                let enabled = self
+                    .state
+                    .orchestration_selector_state
+                    .selected_option()
+                    .enabled;
+                if let Some(session) = self.state.tab_manager.active_session_mut() {
+                    session.orchestration_enabled = enabled;
+                    let msg = if enabled {
+                        "Orchestration mode enabled — sub-agents will be used for exploration and review"
+                    } else {
+                        "Orchestration mode disabled"
+                    };
+                    let display = MessageDisplay::System {
+                        content: msg.to_string(),
+                    };
+                    session.chat_view.push(display.to_chat_message());
+                }
+                self.state.orchestration_selector_state.hide();
                 self.state.input_mode = InputMode::Normal;
             }
             InputMode::SelectingTheme => {

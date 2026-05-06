@@ -371,7 +371,16 @@ impl AgentRunner for ClaudeCodeRunner {
         AgentType::Claude
     }
 
-    async fn start(&self, config: AgentStartConfig) -> Result<AgentHandle, AgentError> {
+    async fn start(&self, mut config: AgentStartConfig) -> Result<AgentHandle, AgentError> {
+        if config.orchestration_enabled {
+            crate::orchestration::ensure_orchestration_agents()?;
+            let instructions = crate::orchestration::orchestration_instructions();
+            if !config.prompt.is_empty() {
+                config.prompt.push_str("\n\n---\n");
+                config.prompt.push_str(instructions);
+            }
+        }
+
         let mut cmd = self.build_command(&config);
         conduit_util::process::configure_command_process_group(&mut cmd);
         let mut child = cmd.spawn()?;

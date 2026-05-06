@@ -36,6 +36,8 @@ pub enum Action {
     ShowModelSelector,
     /// Show reasoning selector dialog
     ShowReasoningSelector,
+    /// Show orchestration mode selector dialog
+    ShowOrchestrationSelector,
     /// Show theme picker dialog
     ShowThemePicker,
     /// Show providers selector dialog
@@ -279,6 +281,7 @@ impl Action {
             Action::ToggleViewMode => "Toggle view mode",
             Action::ShowModelSelector => "Select model",
             Action::ShowReasoningSelector => "Select reasoning effort",
+            Action::ShowOrchestrationSelector => "Toggle orchestration mode",
             Action::ShowThemePicker => "Change theme",
             Action::ShowProvidersSelector => "Select providers",
             Action::ToggleMetrics => "Toggle metrics",
@@ -415,6 +418,7 @@ impl Action {
             Action::NewProject
                 | Action::ShowModelSelector
                 | Action::ShowReasoningSelector
+                | Action::ShowOrchestrationSelector
                 | Action::ShowThemePicker
                 | Action::ShowProvidersSelector
                 | Action::OpenQueueEditor
@@ -450,6 +454,7 @@ impl Action {
                 | Action::ToggleViewMode
                 | Action::ShowModelSelector
                 | Action::ShowReasoningSelector
+                | Action::ShowOrchestrationSelector
                 | Action::ShowThemePicker
                 | Action::ShowProvidersSelector
                 | Action::ToggleMetrics

@@ -94,6 +94,10 @@ pub struct AgentSession {
     pub context_state: ContextWindowState,
     /// Pending context warning to display (cleared after display)
     pub pending_context_warning: Option<ContextWarning>,
+    /// Whether model orchestration is enabled for this session (Claude only)
+    pub orchestration_enabled: bool,
+    /// Active sub-agent delegation (set during Agent tool call, cleared on completion)
+    pub delegated_agent: Option<DelegatedAgent>,
     /// Fork seed ID (if this tab was created via fork)
     pub fork_seed_id: Option<Uuid>,
     /// Whether the fork welcome message has been shown (one-shot)
@@ -116,6 +120,17 @@ pub struct AgentSession {
     pub pending_tool_permissions: HashMap<String, String>,
     /// Pending control responses waiting for a permission request
     pub pending_tool_permission_responses: HashMap<String, serde_json::Value>,
+}
+
+/// Tracks an active sub-agent delegation (Agent tool call in flight)
+#[derive(Debug, Clone)]
+pub struct DelegatedAgent {
+    /// Tool use ID used to match the corresponding ToolCompleted event
+    pub tool_id: String,
+    /// Short label to display in the status bar mode chip (e.g. "Explore", "Review")
+    pub display_label: String,
+    /// Model ID of the sub-agent (e.g. "claude-haiku-4-5")
+    pub model: String,
 }
 
 /// Context warning notification
@@ -166,6 +181,8 @@ impl AgentSession {
             queued_messages: Vec::new(),
             queue_selection: None,
             capabilities: AgentCapabilities::for_agent(agent_type),
+            orchestration_enabled: false,
+            delegated_agent: None,
             fork_seed_id: None,
             fork_welcome_shown: false,
             suppress_next_assistant_reply: false,
@@ -236,6 +253,12 @@ impl AgentSession {
         self.status_bar.set_queue_count(self.queued_messages.len());
         self.status_bar
             .set_supports_plan_mode(self.capabilities.supports_plan_mode);
+        self.status_bar.set_delegated_agent(
+            self.delegated_agent
+                .as_ref()
+                .map(|d| d.display_label.clone()),
+            self.delegated_agent.as_ref().map(|d| d.model.clone()),
+        );
 
         // Update project info for right side of status bar
         if let Some(working_dir) = &self.working_dir {
@@ -316,6 +339,7 @@ impl AgentSession {
     /// Stop processing and finalize turn summary
     pub fn stop_processing(&mut self) {
         self.is_processing = false;
+        self.delegated_agent = None;
         // Finalize the turn summary with duration and tokens
         let duration = self.thinking_indicator.elapsed();
         self.current_turn_summary.duration_secs = duration.as_secs();

@@ -63,6 +63,8 @@ pub struct Config {
     pub workspaces: WorkspacesConfig,
     /// Remote issue provider configuration
     pub issues: IssuesConfig,
+    /// Model orchestration configuration
+    pub orchestration: OrchestrationConfig,
 }
 
 pub use conduit_git::IssuesConfig;
@@ -71,6 +73,17 @@ pub use conduit_git::IssuesConfig;
 pub struct TomlIssuesConfig {
     pub gitea_hosts: Option<Vec<String>>,
     pub forgejo_hosts: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct OrchestrationConfig {
+    #[serde(default)]
+    pub enabled_by_default: bool,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct TomlOrchestrationConfig {
+    pub enabled_by_default: Option<bool>,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
@@ -277,6 +290,7 @@ impl Default for Config {
                 use_gh_cli_merge_status: false,
             },
             issues: IssuesConfig::default(),
+            orchestration: OrchestrationConfig::default(),
         }
     }
 }
@@ -355,6 +369,8 @@ pub struct TomlConfig {
     pub workspaces: Option<TomlWorkspacesConfig>,
     /// Remote issue provider configuration
     pub issues: Option<TomlIssuesConfig>,
+    /// Model orchestration configuration
+    pub orchestration: Option<TomlOrchestrationConfig>,
 }
 
 impl TomlKeybindings {
@@ -465,6 +481,7 @@ pub fn parse_action(name: &str) -> Option<Action> {
         "toggle_view_mode" => Some(Action::ToggleViewMode),
         "show_model_selector" => Some(Action::ShowModelSelector),
         "show_reasoning_selector" => Some(Action::ShowReasoningSelector),
+        "show_orchestration_selector" => Some(Action::ShowOrchestrationSelector),
         "show_theme_picker" => Some(Action::ShowThemePicker),
         "show_providers_selector" => Some(Action::ShowProvidersSelector),
         "toggle_metrics" => Some(Action::ToggleMetrics),
@@ -612,6 +629,7 @@ pub fn action_to_name(action: &Action) -> Option<&'static str> {
         Action::ToggleViewMode => Some("toggle_view_mode"),
         Action::ShowModelSelector => Some("show_model_selector"),
         Action::ShowReasoningSelector => Some("show_reasoning_selector"),
+        Action::ShowOrchestrationSelector => Some("show_orchestration_selector"),
         Action::ShowThemePicker => Some("show_theme_picker"),
         Action::ShowProvidersSelector => Some("show_providers_selector"),
         Action::ToggleMetrics => Some("toggle_metrics"),
@@ -741,6 +759,7 @@ pub const COMMAND_NAMES: &[&str] = &[
     "toggle_view_mode",
     "show_model_selector",
     "show_reasoning_selector",
+    "show_orchestration_selector",
     "show_theme_picker",
     "show_providers_selector",
     "toggle_metrics",
@@ -983,6 +1002,12 @@ impl Config {
                         }
                         if let Some(hosts) = issues.forgejo_hosts {
                             config.issues.forgejo_hosts = hosts;
+                        }
+                    }
+                    // Load orchestration configuration
+                    if let Some(orchestration) = toml_config.orchestration {
+                        if let Some(enabled) = orchestration.enabled_by_default {
+                            config.orchestration.enabled_by_default = enabled;
                         }
                     }
                     // Load workspace defaults

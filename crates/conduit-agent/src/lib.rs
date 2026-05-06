@@ -10,6 +10,7 @@ pub mod history;
 pub mod mock;
 pub mod models;
 pub mod opencode;
+pub mod orchestration;
 pub mod pi;
 pub mod runner;
 pub mod session;

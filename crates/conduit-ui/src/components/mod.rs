@@ -23,6 +23,7 @@ mod mcp_dialog;
 mod missing_tool_dialog;
 mod model_selector;
 mod multi_select_dialog;
+mod orchestration_selector;
 mod path_input;
 mod project_picker;
 mod provider_selector;
@@ -92,6 +93,9 @@ pub use model_selector::{
     DefaultModelSelection, ModelSelector, ModelSelectorItem, ModelSelectorState,
 };
 pub use multi_select_dialog::{MultiSelectDialog, MultiSelectDialogState, MultiSelectItem};
+pub use orchestration_selector::{
+    OrchestrationOption, OrchestrationSelector, OrchestrationSelectorState,
+};
 pub use path_input::PathInputState;
 pub use project_picker::{ProjectEntry, ProjectPicker, ProjectPickerState};
 pub use provider_selector::{ProviderSelector, ProviderSelectorState};

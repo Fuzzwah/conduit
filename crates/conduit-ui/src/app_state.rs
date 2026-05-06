@@ -9,11 +9,11 @@ use crate::components::{
     AddRepoDialogState, AgentSelectorState, BaseDirDialogState, CommandPaletteState,
     ConfirmationDialogState, ErrorDialogState, FilePickerDialogState, HelpDialogState,
     IssuePickerState, KeybindingsEditorState, KnightRiderSpinner, LogoShineAnimation,
-    McpDialogState, MissingToolDialogState, ModelSelectorState, ProjectPickerState,
-    ProviderSelectorState, ReasoningSelectorState, RemoteSyncDialogState, RenameProjectDialogState,
-    ScpCommandDialogState, SessionImportPickerState, SettingsMenuState, SidebarData, SidebarState,
-    SlashMenuState, SpecPickerState, SpecifyPickerState, ThemePickerState,
-    WorkspaceDefaultsDialogState, WorkspaceProgressDialogState,
+    McpDialogState, MissingToolDialogState, ModelSelectorState, OrchestrationSelectorState,
+    ProjectPickerState, ProviderSelectorState, ReasoningSelectorState, RemoteSyncDialogState,
+    RenameProjectDialogState, ScpCommandDialogState, SessionImportPickerState, SettingsMenuState,
+    SidebarData, SidebarState, SlashMenuState, SpecPickerState, SpecifyPickerState,
+    ThemePickerState, WorkspaceDefaultsDialogState, WorkspaceProgressDialogState,
 };
 use crate::events::{InputMode, ViewMode};
 use crate::tab_manager::TabManager;
@@ -170,6 +170,7 @@ pub struct AppState {
     pub add_repo_dialog_state: AddRepoDialogState,
     pub model_selector_state: ModelSelectorState,
     pub reasoning_selector_state: ReasoningSelectorState,
+    pub orchestration_selector_state: OrchestrationSelectorState,
     pub theme_picker_state: ThemePickerState,
     pub agent_selector_state: AgentSelectorState,
     pub provider_selector_state: ProviderSelectorState,
@@ -396,6 +397,7 @@ impl AppState {
             add_repo_dialog_state: AddRepoDialogState::new(),
             model_selector_state: ModelSelectorState::default(),
             reasoning_selector_state: ReasoningSelectorState::default(),
+            orchestration_selector_state: OrchestrationSelectorState::default(),
             theme_picker_state: ThemePickerState::default(),
             agent_selector_state: AgentSelectorState::new(),
             provider_selector_state: ProviderSelectorState::new(),
@@ -476,6 +478,7 @@ impl AppState {
         self.model_selector_state.hide();
         self.model_picker_context = ModelPickerContext::SessionSelection;
         self.reasoning_selector_state.hide();
+        self.orchestration_selector_state.hide();
         self.theme_picker_state.hide(true); // cancelled=true since we're closing all overlays
         self.agent_selector_state.hide();
         self.provider_selector_state.hide();
@@ -503,6 +506,7 @@ impl AppState {
             || self.add_repo_dialog_state.is_visible()
             || self.model_selector_state.is_visible()
             || self.reasoning_selector_state.is_visible()
+            || self.orchestration_selector_state.is_visible()
             || self.theme_picker_state.is_visible()
             || self.agent_selector_state.is_visible()
             || self.provider_selector_state.is_visible()
