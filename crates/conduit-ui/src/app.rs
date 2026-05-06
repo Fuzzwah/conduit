@@ -5513,6 +5513,8 @@ impl App {
         if self.state.tab_manager.is_empty() && self.state.input_mode != InputMode::ShowingError {
             self.state.sidebar_state.visible = true;
             self.state.input_mode = InputMode::SidebarNavigation;
+        } else {
+            self.sync_theme_to_active_tab();
         }
     }
 
