@@ -30,10 +30,9 @@ cleanup_local() {
 }
 
 # Build data dir structure
-mkdir -p "$DATA_DIR/workspaces/conduit/kind-mist"
-mkdir -p "$DATA_DIR/workspaces/conduit/live-jade"
+mkdir -p "$DATA_DIR/workspaces/conduit"
 
-# Initialize git repo at the repository base_path with an initial commit
+# Initialize git repo at the repository base_path with worktrees for each workspace
 (
   cd "$DATA_DIR/workspaces/conduit"
   git init
@@ -42,10 +41,10 @@ mkdir -p "$DATA_DIR/workspaces/conduit/live-jade"
   touch .gitkeep
   git add .gitkeep
   git commit -m "initial"
-  # Create branches that match workspace branches
-  git checkout -b test/kind-mist
-  git checkout -b test/live-jade
-  git checkout test/kind-mist
+  git branch test/kind-mist
+  git branch test/live-jade
+  git worktree add kind-mist test/kind-mist
+  git worktree add live-jade test/live-jade
 ) >/dev/null 2>&1
 
 cat > "$DATA_DIR/workspaces/conduit/kind-mist/README.md" <<'EOF_FILE'

@@ -41,9 +41,21 @@ trap cleanup EXIT
 
 # Build data dir structure
 mkdir -p "$DATA_DIR/workspaces/conduit"
-for ws in kind-mist live-jade pale-snow trim-moss; do
-  mkdir -p "$DATA_DIR/workspaces/conduit/$ws"
-done
+
+# Initialize git repo with worktrees so each workspace has an independent HEAD
+(
+  cd "$DATA_DIR/workspaces/conduit"
+  git init
+  git config user.email "test@test.com"
+  git config user.name "Test"
+  touch .gitkeep
+  git add .gitkeep
+  git commit -m "initial"
+  for ws in kind-mist live-jade pale-snow trim-moss; do
+    git branch "test/$ws"
+    git worktree add "$ws" "test/$ws"
+  done
+) >/dev/null 2>&1
 
 # Provide a dummy codex executable to satisfy tool detection via PATH
 mkdir -p "$DATA_DIR/bin"
@@ -138,7 +150,7 @@ INSERT INTO repositories (
 ) VALUES (
     '11111111-1111-1111-1111-111111111111',
     'conduit',
-    '/tmp/conduit-test',
+    'DATA_DIR_PLACEHOLDER/workspaces/conduit',
     NULL,
     'checkout',
     0,
@@ -180,6 +192,7 @@ data_dir = Path("$DATA_DIR")
 conn = sqlite3.connect(db)
 cur = conn.cursor()
 cur.execute("UPDATE workspaces SET path = REPLACE(path, 'DATA_DIR_PLACEHOLDER', ?)", (str(data_dir),))
+cur.execute("UPDATE repositories SET base_path = REPLACE(base_path, 'DATA_DIR_PLACEHOLDER', ?)", (str(data_dir),))
 conn.commit()
 conn.close()
 PY

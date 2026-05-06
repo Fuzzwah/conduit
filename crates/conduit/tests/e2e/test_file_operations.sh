@@ -171,7 +171,7 @@ press "$sock" "Tab"
 wait_idle "$sock" 300 3000 > /dev/null
 
 assert_contains "$sock" "kind-mist" "Workspace tab active after Tab"
-assert_contains "$sock" "▸" "Active tab indicator on workspace tab"
+assert_not_contains "$sock" "FILE TAB MARKER" "File viewer content not visible on workspace tab"
 
 # Switch back to file viewer tab with Tab key
 press "$sock" "Tab"

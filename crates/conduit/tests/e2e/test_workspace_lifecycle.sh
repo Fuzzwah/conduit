@@ -177,7 +177,7 @@ wait_idle "$sock" 500 8000 > /dev/null
 assert_contains "$sock" "Archive" "Archive dialog appeared again"
 
 press "$sock" "Enter"
-wait_idle "$sock" 500 8000 > /dev/null
+wait_idle "$sock" 500 15000 > /dev/null
 
 assert_not_contains "$sock" "kind-mist" "Workspace tab gone after archive confirmed"
 

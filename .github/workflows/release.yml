@@ -15,10 +15,47 @@ jobs:
     name: Verify (CI gate)
     uses: ./.github/workflows/ci.yml
 
+  e2e:
+    name: E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: crates/conduit-web/web/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxcb-shape0-dev libxcb-xfixes0-dev libfontconfig1-dev socat jq sqlite3
+
+      - name: Install termwright
+        run: |
+          curl -fsSL https://github.com/fcoury/termwright/releases/latest/download/termwright-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          sudo mv termwright /usr/local/bin/
+
+      - name: Run E2E tests
+        run: crates/conduit/tests/e2e/run_all.sh
+
+      - name: Upload E2E artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-failure-artifacts
+          path: crates/conduit/tests/e2e/screenshots/
+          retention-days: 7
+
   # ── Stage 2: Build 4 targets ────────────────────────────────────────────────
   build:
     name: Build ${{ matrix.target }}
-    needs: verify
+    needs: [verify, e2e]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
