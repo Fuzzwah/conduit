@@ -1155,19 +1155,21 @@ impl InputBox {
             }
         }
 
-        // Render scrollbar
-        render_minimal_scrollbar(
-            Rect {
-                x: area.x + area.width.saturating_sub(1),
-                y: area.y + padding_top,
-                width: 1,
-                height: content_height,
-            },
-            buf,
-            total_lines,
-            visible_lines,
-            self.scroll_offset,
-        );
+        // Render scrollbar only when content exceeds visible area
+        if show_scrollbar {
+            render_minimal_scrollbar(
+                Rect {
+                    x: area.x + area.width.saturating_sub(1),
+                    y: area.y + padding_top,
+                    width: 1,
+                    height: content_height,
+                },
+                buf,
+                total_lines,
+                visible_lines,
+                self.scroll_offset,
+            );
+        }
     }
 }
 
