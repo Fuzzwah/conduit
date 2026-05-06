@@ -14,11 +14,15 @@ use ratatui::{
 use super::{
     accent_error, accent_primary, accent_success, accent_warning, bg_highlight, dialog_bg,
     ensure_contrast_fg, text_muted, text_primary, text_secondary, DialogFrame,
+    DIALOG_CONTENT_PADDING_X,
 };
-use crate::work_complete::{ForceKind, WorkCompleteData, WorkCompletePhase, WorkCompleteSession};
+use crate::work_complete::{
+    ForceKind, IssueData, PrData, WorkCompleteData, WorkCompletePhase, WorkCompleteSession,
+};
 use conduit_git::{Scenario, SuggestedAction};
 
 const DIALOG_WIDTH: u16 = 72;
+const CONTENT_WIDTH: u16 = DIALOG_WIDTH - 2 - DIALOG_CONTENT_PADDING_X * 2;
 const SPINNER_FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 /// Widget rendering the Work Complete dialog from a `WorkCompleteSession`.
@@ -224,16 +228,17 @@ fn render_review(inner: Rect, buf: &mut Buffer, data: &WorkCompleteData, selecte
                 Style::default().fg(text_muted()),
             ),
         ]);
-        Paragraph::new(pr_line).render(
+        let pr_height = text_height(pr_display_len(pr), w);
+        Paragraph::new(pr_line).wrap(Wrap { trim: false }).render(
             Rect {
                 x: inner.x,
                 y,
                 width: w,
-                height: 1,
+                height: pr_height,
             },
             buf,
         );
-        y += 1;
+        y += pr_height;
     }
 
     // --- Spec line ---
@@ -299,16 +304,19 @@ fn render_review(inner: Rect, buf: &mut Buffer, data: &WorkCompleteData, selecte
                 Style::default().fg(text_muted()),
             ),
         ]);
-        Paragraph::new(issue_line).render(
-            Rect {
-                x: inner.x,
-                y,
-                width: w,
-                height: 1,
-            },
-            buf,
-        );
-        y += 1;
+        let issue_height = text_height(issue_display_len(issue), w);
+        Paragraph::new(issue_line)
+            .wrap(Wrap { trim: false })
+            .render(
+                Rect {
+                    x: inner.x,
+                    y,
+                    width: w,
+                    height: issue_height,
+                },
+                buf,
+            );
+        y += issue_height;
     }
 
     // --- Separator ---
@@ -382,17 +390,44 @@ fn render_review(inner: Rect, buf: &mut Buffer, data: &WorkCompleteData, selecte
     }
 }
 
+fn text_height(len: usize, width: u16) -> u16 {
+    if width == 0 || len == 0 {
+        return 1;
+    }
+    (len as u16).div_ceil(width)
+}
+
+fn pr_display_len(pr: &PrData) -> usize {
+    let state = if pr.is_merged {
+        "merged"
+    } else if pr.is_open {
+        "open"
+    } else {
+        "closed"
+    };
+    let title = pr.title.as_deref().unwrap_or("");
+    let title_part = if title.is_empty() { 0 } else { 2 + title.len() };
+    6 + pr.number.to_string().len() + 3 + state.len() + title_part
+}
+
+fn issue_display_len(issue: &IssueData) -> usize {
+    let state = if issue.is_open { "open" } else { "closed" };
+    let title = issue.title.as_deref().unwrap_or("");
+    let title_part = if title.is_empty() { 0 } else { 2 + title.len() };
+    9 + issue.number.to_string().len() + 3 + state.len() + title_part
+}
+
 fn compute_review_height(data: &WorkCompleteData) -> u16 {
     let mut rows: u16 = 1; // scenario
     rows += 1; // branch
-    if data.pr.is_some() {
-        rows += 1;
+    if let Some(pr) = &data.pr {
+        rows += text_height(pr_display_len(pr), CONTENT_WIDTH);
     }
     if data.spec.is_some() {
         rows += 1;
     }
-    if data.issue.is_some() {
-        rows += 1;
+    if let Some(issue) = &data.issue {
+        rows += text_height(issue_display_len(issue), CONTENT_WIDTH);
     }
     rows += 1; // separator
     rows += data.suggested_actions.len() as u16;
