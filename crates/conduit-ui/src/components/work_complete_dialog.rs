@@ -214,31 +214,43 @@ fn render_review(inner: Rect, buf: &mut Buffer, data: &WorkCompleteData, selecte
         } else {
             "closed"
         };
-        let pr_title = pr.title.as_deref().unwrap_or("");
-        let pr_line = Line::from(vec![
+        let pr_header = Line::from(vec![
             Span::styled("  PR #", Style::default().fg(text_muted())),
             Span::styled(pr.number.to_string(), Style::default().fg(pr_color)),
-            Span::styled(format!(" ({pr_state})"), Style::default().fg(pr_color)),
-            Span::styled(
-                if pr_title.is_empty() {
-                    String::new()
-                } else {
-                    format!("  {}", pr_title)
-                },
-                Style::default().fg(text_muted()),
-            ),
+            Span::styled(format!(" ({pr_state}):"), Style::default().fg(pr_color)),
         ]);
-        let pr_height = text_height(pr_display_len(pr), w);
-        Paragraph::new(pr_line).wrap(Wrap { trim: false }).render(
+        Paragraph::new(pr_header).render(
             Rect {
                 x: inner.x,
                 y,
                 width: w,
-                height: pr_height,
+                height: 1,
             },
             buf,
         );
-        y += pr_height;
+        y += 1;
+
+        if let Some(pr_title) = pr.title.as_deref().filter(|t| !t.is_empty()) {
+            let title_indent = "    ";
+            let title_line = Line::from(vec![
+                Span::styled(title_indent, Style::default()),
+                Span::styled(pr_title, Style::default().fg(text_muted())),
+            ]);
+            let title_width = w.saturating_sub(title_indent.len() as u16);
+            let title_height = text_height(pr_title.len(), title_width);
+            Paragraph::new(title_line)
+                .wrap(Wrap { trim: false })
+                .render(
+                    Rect {
+                        x: inner.x,
+                        y,
+                        width: w,
+                        height: title_height,
+                    },
+                    buf,
+                );
+            y += title_height;
+        }
     }
 
     // --- Spec line ---
@@ -397,17 +409,15 @@ fn text_height(len: usize, width: u16) -> u16 {
     (len as u16).div_ceil(width)
 }
 
-fn pr_display_len(pr: &PrData) -> usize {
-    let state = if pr.is_merged {
-        "merged"
-    } else if pr.is_open {
-        "open"
-    } else {
-        "closed"
-    };
-    let title = pr.title.as_deref().unwrap_or("");
-    let title_part = if title.is_empty() { 0 } else { 2 + title.len() };
-    6 + pr.number.to_string().len() + 3 + state.len() + title_part
+fn pr_height(pr: &PrData, width: u16) -> u16 {
+    let title_indent: u16 = 4;
+    let title_lines = pr
+        .title
+        .as_deref()
+        .filter(|t| !t.is_empty())
+        .map(|t| text_height(t.len(), width.saturating_sub(title_indent)))
+        .unwrap_or(0);
+    1 + title_lines
 }
 
 fn issue_display_len(issue: &IssueData) -> usize {
@@ -421,7 +431,7 @@ fn compute_review_height(data: &WorkCompleteData) -> u16 {
     let mut rows: u16 = 1; // scenario
     rows += 1; // branch
     if let Some(pr) = &data.pr {
-        rows += text_height(pr_display_len(pr), CONTENT_WIDTH);
+        rows += pr_height(pr, CONTENT_WIDTH);
     }
     if data.spec.is_some() {
         rows += 1;

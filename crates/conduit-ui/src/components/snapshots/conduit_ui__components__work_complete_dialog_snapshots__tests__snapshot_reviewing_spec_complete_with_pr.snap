@@ -10,12 +10,12 @@ expression: output
 
 
 
-
     ╭ Work Complete ───────────────────────────────────────────────────────╮
     │                                                                      │
     │ Spec complete                                                        │
     │   branch: fuz/my-feature                                             │
-    │   PR #7 (open)  My feature PR                                        │
+    │   PR #7 (open):                                                      │
+    │     My feature PR                                                    │
     │   spec: my-feature (linked)  5 of 5 tasks complete                   │
     │ ──────────────────────────────────────────────────────────────────── │
     │ ❯ Merge PR  merge the open pull request                              │
