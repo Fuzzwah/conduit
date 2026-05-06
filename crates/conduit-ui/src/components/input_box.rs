@@ -473,7 +473,8 @@ impl InputBox {
         // Move to previous line, same column (or end if shorter)
         let target_line = current_line - 1;
         let target_line_len = lines[target_line].len();
-        let target_col = current_col.min(target_line_len);
+        let target_col =
+            snap_to_char_boundary(lines[target_line], current_col.min(target_line_len));
 
         // Calculate new cursor position
         let mut new_pos = 0;
@@ -509,7 +510,8 @@ impl InputBox {
         // Move to next line, same column (or end if shorter)
         let target_line = current_line + 1;
         let target_line_len = lines[target_line].len();
-        let target_col = current_col.min(target_line_len);
+        let target_col =
+            snap_to_char_boundary(lines[target_line], current_col.min(target_line_len));
 
         // Calculate new cursor position
         let mut new_pos = 0;
@@ -1171,6 +1173,13 @@ impl InputBox {
             );
         }
     }
+}
+
+fn snap_to_char_boundary(s: &str, mut pos: usize) -> usize {
+    while pos > 0 && !s.is_char_boundary(pos) {
+        pos -= 1;
+    }
+    pos
 }
 
 fn wrap_line_segments(line: &str, max_width: usize) -> Vec<(usize, usize)> {
