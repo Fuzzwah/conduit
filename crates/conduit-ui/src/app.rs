@@ -641,8 +641,9 @@ impl App {
         };
 
         if saved_tabs.is_empty() {
-            // Has repos but no saved tabs - show main UI without tabs
+            // Has repos but no saved tabs - activate sidebar so user can pick a workspace
             tracing::info!("No saved tabs found; skipping session restore");
+            self.state.input_mode = InputMode::SidebarNavigation;
             return;
         }
 
@@ -868,6 +869,11 @@ impl App {
                     tracker.track_workspace(workspace_id, working_dir);
                 }
             }
+        }
+
+        // If all tab restores failed, fall back to sidebar navigation
+        if self.state.tab_manager.is_empty() {
+            self.state.input_mode = InputMode::SidebarNavigation;
         }
 
         // Restore active tab
