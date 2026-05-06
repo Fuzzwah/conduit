@@ -290,7 +290,7 @@ impl InputBox {
             let first_prefix = "  ";
             let cont_prefix = "  ";
             let prefix_width = UnicodeWidthStr::width(first_prefix);
-            let wrap_width = content_width.saturating_sub(prefix_width);
+            let wrap_width = content_width.saturating_sub(prefix_width + 1);
             let segments = wrap_line_segments(line, wrap_width);
 
             for (seg_idx, (start, end)) in segments.into_iter().enumerate() {
