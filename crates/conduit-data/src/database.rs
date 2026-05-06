@@ -688,6 +688,37 @@ CREATE TABLE IF NOT EXISTS fork_seeds_new (
             )?;
         }
 
+        // Migration 21: Add orchestration_enabled to workspaces and repositories.
+        let has_ws_orchestration: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('workspaces') WHERE name='orchestration_enabled'",
+                [],
+                |row| row.get::<_, i64>(0).map(|c| c > 0),
+            )
+            .unwrap_or(false);
+
+        if !has_ws_orchestration {
+            conn.execute(
+                "ALTER TABLE workspaces ADD COLUMN orchestration_enabled INTEGER",
+                [],
+            )?;
+        }
+
+        let has_repo_orchestration: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('repositories') WHERE name='orchestration_enabled'",
+                [],
+                |row| row.get::<_, i64>(0).map(|c| c > 0),
+            )
+            .unwrap_or(false);
+
+        if !has_repo_orchestration {
+            conn.execute(
+                "ALTER TABLE repositories ADD COLUMN orchestration_enabled INTEGER",
+                [],
+            )?;
+        }
+
         Ok(())
     }
 

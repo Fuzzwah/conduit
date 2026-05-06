@@ -260,6 +260,14 @@ impl AgentSession {
             self.delegated_agent.as_ref().map(|d| d.model.clone()),
         );
 
+        // Show orchestration badge only for Claude sessions
+        let orch_display = if self.agent_type == AgentType::Claude {
+            Some(self.orchestration_enabled)
+        } else {
+            None
+        };
+        self.status_bar.set_orchestration_enabled(orch_display);
+
         // Update project info for right side of status bar
         if let Some(working_dir) = &self.working_dir {
             let repo_name = PrManager::get_repo_name(working_dir);

@@ -38,6 +38,8 @@ pub enum Action {
     ShowReasoningSelector,
     /// Show orchestration mode selector dialog
     ShowOrchestrationSelector,
+    /// Toggle orchestration default for the focused sidebar workspace or project
+    ToggleOrchestrationDefault,
     /// Show theme picker dialog
     ShowThemePicker,
     /// Show providers selector dialog
@@ -282,6 +284,7 @@ impl Action {
             Action::ShowModelSelector => "Select model",
             Action::ShowReasoningSelector => "Select reasoning effort",
             Action::ShowOrchestrationSelector => "Toggle orchestration mode",
+            Action::ToggleOrchestrationDefault => "Toggle orchestration default",
             Action::ShowThemePicker => "Change theme",
             Action::ShowProvidersSelector => "Select providers",
             Action::ToggleMetrics => "Toggle metrics",

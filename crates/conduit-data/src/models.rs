@@ -64,6 +64,8 @@ pub struct Repository {
     pub updated_at: DateTime<Utc>,
     /// Optional theme name override for all workspaces in this repository
     pub theme_name: Option<String>,
+    /// Per-project orchestration default (None = inherit global config)
+    pub orchestration_enabled: Option<bool>,
 }
 
 impl Repository {
@@ -82,6 +84,7 @@ impl Repository {
             created_at: now,
             updated_at: now,
             theme_name: None,
+            orchestration_enabled: None,
         }
     }
 
@@ -100,6 +103,7 @@ impl Repository {
             created_at: now,
             updated_at: now,
             theme_name: None,
+            orchestration_enabled: None,
         }
     }
 
@@ -145,6 +149,8 @@ pub struct Workspace {
     pub active_issue_number: Option<i32>,
     /// MCP server names disabled for this workspace (None = inherit project config)
     pub mcp_disabled_servers: Option<Vec<String>>,
+    /// Per-workspace orchestration default (None = inherit project/global config)
+    pub orchestration_enabled: Option<bool>,
 }
 
 impl Workspace {
@@ -170,6 +176,7 @@ impl Workspace {
             active_change_id: None,
             active_issue_number: None,
             mcp_disabled_servers: None,
+            orchestration_enabled: None,
         }
     }
 

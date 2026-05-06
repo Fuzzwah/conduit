@@ -1995,7 +1995,8 @@ impl App {
             | Action::ExpandOrSelect
             | Action::Collapse
             | Action::ProjectMoveUp
-            | Action::ProjectMoveDown => {
+            | Action::ProjectMoveDown
+            | Action::ToggleOrchestrationDefault => {
                 self.handle_sidebar_action(action, &mut effects);
             }
             Action::RefreshSidebar => {
@@ -4000,12 +4001,19 @@ impl App {
             return;
         }
 
-        // Get the repository name, ID, and project theme for the tab
-        let (project_name, repository_id, project_theme) = self
+        // Get the repository name, ID, project theme, and orchestration default for the tab
+        let (project_name, repository_id, project_theme, repo_orchestration) = self
             .repo_dao()
             .and_then(|dao| dao.get_by_id(workspace.repository_id).ok().flatten())
-            .map(|repo| (Some(repo.name), Some(repo.id), repo.theme_name))
-            .unwrap_or((None, None, None));
+            .map(|repo| {
+                (
+                    Some(repo.name),
+                    Some(repo.id),
+                    repo.theme_name,
+                    repo.orchestration_enabled,
+                )
+            })
+            .unwrap_or((None, None, None, None));
 
         // Check if there's a saved session for this workspace (to restore chat history)
         let saved_tab = self
@@ -4082,8 +4090,9 @@ impl App {
             return;
         }
 
-        // Get default model before the mutable borrow
+        // Get default model and orchestration config before the mutable borrow
         let default_model = self.config().default_model_for(tab_agent_type);
+        let global_orchestration_default = self.config().orchestration.enabled_by_default;
 
         let session_tab_dao = self.session_tab_dao_clone();
 
@@ -4260,6 +4269,14 @@ impl App {
                 session.model = Some(default_model.clone());
                 session.model_invalid = false;
                 session.init_context_for_model();
+            }
+
+            // Resolve orchestration default: workspace override → project override → global config
+            if session.agent_type == conduit_agent::AgentType::Claude {
+                session.orchestration_enabled = workspace
+                    .orchestration_enabled
+                    .or(repo_orchestration)
+                    .unwrap_or(global_orchestration_default);
             }
 
             session.update_status();
@@ -6774,6 +6791,7 @@ impl App {
                         content: msg.to_string(),
                     };
                     session.chat_view.push(display.to_chat_message());
+                    session.update_status();
                 }
                 self.state.orchestration_selector_state.hide();
                 self.state.input_mode = InputMode::Normal;

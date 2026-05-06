@@ -69,6 +69,8 @@ pub struct StatusBar {
     spinner_frame: usize,
     /// Active sub-agent delegation override: (display_label, model_id)
     delegated_agent: Option<(String, String)>,
+    /// Orchestration enabled state for badge display (None = don't show, e.g. non-Claude agents)
+    orchestration_enabled: Option<bool>,
 }
 
 impl StatusBar {
@@ -100,6 +102,7 @@ impl StatusBar {
             supports_plan_mode: false,
             spinner_frame: 0,
             delegated_agent: None,
+            orchestration_enabled: None,
         }
     }
 
@@ -143,6 +146,11 @@ impl StatusBar {
     /// Set the active sub-agent delegation for status bar override display
     pub fn set_delegated_agent(&mut self, label: Option<String>, model: Option<String>) {
         self.delegated_agent = label.zip(model);
+    }
+
+    /// Set orchestration enabled state for badge display (None = hide badge)
+    pub fn set_orchestration_enabled(&mut self, enabled: Option<bool>) {
+        self.orchestration_enabled = enabled;
     }
 
     /// Set current spinner frame (shared animation tick)
@@ -317,6 +325,17 @@ impl StatusBar {
                         Style::default().fg(text_faint()),
                     ));
                 }
+            }
+        }
+
+        // Orchestration badge (Claude only, shown when field is set)
+        if let Some(orch_on) = self.orchestration_enabled {
+            spans.push(Span::styled(" │ ", Style::default().fg(text_faint())));
+            spans.push(Span::styled("orch:", Style::default().fg(text_faint())));
+            if orch_on {
+                spans.push(Span::styled("on", Style::default().fg(accent_success())));
+            } else {
+                spans.push(Span::styled("off", Style::default().fg(text_muted())));
             }
         }
 
