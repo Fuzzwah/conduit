@@ -477,7 +477,35 @@ impl DiscoveryRegistry {
             registry.scan_opencode(&base, &mut seen);
         }
 
+        registry.inject_claude_builtins();
         registry
+    }
+
+    fn inject_claude_builtins(&mut self) {
+        const BUILTINS: &[(&str, &str)] = &[
+            ("compact", "Compact conversation context"),
+            ("context", "Show context window usage"),
+            ("cost", "Show session cost and token usage"),
+            ("clear", "Clear conversation history"),
+            ("doctor", "Check Claude Code installation health"),
+            ("help", "Show Claude Code help"),
+            ("init", "Initialize CLAUDE.md for this project"),
+            ("memory", "Edit CLAUDE.md memory files"),
+            ("review", "Review pending code changes"),
+        ];
+
+        for (name, description) in BUILTINS {
+            if self.slash_entries.contains_key(*name) {
+                continue;
+            }
+            self.insert(ProviderInvocation::PromptCommand {
+                source: ProviderArtifactSource::Claude,
+                name: name.to_string(),
+                description: description.to_string(),
+                content: format!("/{name}"),
+                path: PathBuf::from(format!("<builtin>/{name}")),
+            });
+        }
     }
 
     fn resolve(&self, trigger: char, name: &str) -> Option<ProviderInvocation> {
@@ -979,5 +1007,66 @@ mod tests {
 
         assert!(entries.iter().any(|entry| entry.label == "/ship"));
         assert!(!entries.iter().any(|entry| entry.label == "/review"));
+    }
+
+    #[test]
+    fn claude_builtins_appear_in_menu_when_claude_is_active() {
+        let root = TempDir::new().unwrap();
+        let entries = CommandResolver::menu_entries(root.path(), AgentType::Claude);
+        assert!(entries.iter().any(|entry| entry.label == "/compact"));
+        assert!(entries.iter().any(|entry| entry.label == "/context"));
+        assert!(entries.iter().any(|entry| entry.label == "/cost"));
+        assert!(entries.iter().any(|entry| entry.label == "/clear"));
+        assert!(entries.iter().any(|entry| entry.label == "/doctor"));
+        assert!(entries.iter().any(|entry| entry.label == "/help"));
+        assert!(entries.iter().any(|entry| entry.label == "/init"));
+        assert!(entries.iter().any(|entry| entry.label == "/memory"));
+        assert!(entries.iter().any(|entry| entry.label == "/review"));
+    }
+
+    #[test]
+    fn claude_builtins_hidden_when_non_claude_is_active() {
+        let root = TempDir::new().unwrap();
+        for provider in [AgentType::Codex, AgentType::Gemini, AgentType::Opencode] {
+            let entries = CommandResolver::menu_entries(root.path(), provider);
+            assert!(
+                !entries.iter().any(|entry| entry.label == "/compact"),
+                "builtin /compact should not appear for {provider:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn user_defined_command_shadows_claude_builtin() {
+        let root = TempDir::new().unwrap();
+        let command_dir = root.path().join(".claude/commands");
+        fs::create_dir_all(&command_dir).unwrap();
+        fs::write(
+            command_dir.join("compact.md"),
+            "---\ndescription = \"Custom compact\"\n---\nDo custom compact\n",
+        )
+        .unwrap();
+
+        let entries = CommandResolver::menu_entries(root.path(), AgentType::Claude);
+        let compact_entries: Vec<_> = entries
+            .iter()
+            .filter(|entry| entry.label == "/compact")
+            .collect();
+        assert_eq!(
+            compact_entries.len(),
+            1,
+            "should be exactly one /compact entry"
+        );
+        assert_eq!(compact_entries[0].description, "Custom compact");
+    }
+
+    #[test]
+    fn compact_builtin_resolves_passthrough_for_claude() {
+        let root = TempDir::new().unwrap();
+        let result = CommandResolver::resolve("/compact", root.path(), AgentType::Claude);
+        let ResolveResult::ProviderPrompt(prompt) = result else {
+            panic!("expected provider prompt, got {result:?}");
+        };
+        assert_eq!(prompt.agent_text, "/compact");
     }
 }
