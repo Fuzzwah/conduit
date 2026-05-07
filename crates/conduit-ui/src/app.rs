@@ -11158,7 +11158,7 @@ impl App {
 
         // Calculate sidebar width
         let sidebar_width = if self.state.sidebar_state.visible {
-            30u16
+            36u16
         } else {
             0
         };
@@ -11513,8 +11513,8 @@ impl App {
                     }
 
                     // Margins for input area (constants to avoid duplication)
-                    const INPUT_MARGIN_LEFT: u16 = 4;
-                    const INPUT_MARGIN_RIGHT: u16 = 4;
+                    const INPUT_MARGIN_LEFT: u16 = 1;
+                    const INPUT_MARGIN_RIGHT: u16 = 1;
                     let input_total_margin = INPUT_MARGIN_LEFT + INPUT_MARGIN_RIGHT;
 
                     // Calculate dynamic input height (max 30% of screen)

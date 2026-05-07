@@ -37,7 +37,7 @@ impl<'a> Sidebar<'a> {
         Self {
             data,
             visible: true,
-            width: 30,
+            width: 36,
             title: "⬒ Workspaces",
             spinner_frame: 0,
         }
