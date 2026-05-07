@@ -158,9 +158,32 @@ pub fn fetch_open_specs(repo_path: &Path) -> Vec<OpenSpec> {
     specs
 }
 
+/// Returns true when `path` in `git_ref` is stored as a git symlink (mode 120000).
+///
+/// This happens when the working tree uses a symlink (e.g. `openspec -> ../openspec`)
+/// instead of a real directory committed inside the repo.
+fn git_path_is_symlink(repo_path: &Path, git_ref: &str, path: &str) -> bool {
+    match Command::new("git")
+        .args(["ls-tree", git_ref, path])
+        .current_dir(repo_path)
+        .output()
+    {
+        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout)
+            .lines()
+            .any(|line| line.starts_with("120000 ")),
+        _ => false,
+    }
+}
+
 /// Scan `openspec/changes/*/tasks.md` at the given git ref (e.g. `origin/master`)
 /// rather than the working tree. Reads via `git ls-tree` + `git show`. Returns an
 /// empty `Vec` on any git error (caller may fall back to `fetch_open_specs`).
+///
+/// When `openspec/` is a git symlink (mode 120000) rather than a real tree, git
+/// cannot traverse into it. In that case this function falls back to the working-tree
+/// scan via `fetch_open_specs`, because the symlink resolves correctly on the
+/// filesystem and the archived-change concern does not apply (the symlink target is
+/// managed by a separate repository).
 pub fn fetch_open_specs_from_ref(repo_path: &Path, git_ref: &str) -> Vec<OpenSpec> {
     let ls = match Command::new("git")
         .args(["ls-tree", "-d", "--name-only", git_ref, "openspec/changes/"])
@@ -168,10 +191,21 @@ pub fn fetch_open_specs_from_ref(repo_path: &Path, git_ref: &str) -> Vec<OpenSpe
         .output()
     {
         Ok(o) if o.status.success() => o,
-        _ => return Vec::new(),
+        _ => {
+            if git_path_is_symlink(repo_path, git_ref, "openspec") {
+                return fetch_open_specs(repo_path);
+            }
+            return Vec::new();
+        }
     };
 
     let dir_listing = String::from_utf8_lossy(&ls.stdout).into_owned();
+
+    // git ls-tree returns empty output when `openspec/` is a symlink blob rather than
+    // a tree — it cannot traverse into it. Fall back to the working-tree scan.
+    if dir_listing.trim().is_empty() && git_path_is_symlink(repo_path, git_ref, "openspec") {
+        return fetch_open_specs(repo_path);
+    }
     let mut specs: Vec<OpenSpec> = dir_listing
         .lines()
         .filter_map(|line| {
@@ -440,5 +474,40 @@ mod tests {
         let dir = tempdir().unwrap();
         let result = fetch_change_detail(dir.path(), "nonexistent");
         assert!(result.is_none());
+    }
+
+    /// When `openspec/` is a git symlink (as in a child repo pointing to a shared parent
+    /// workspace openspec directory), `git ls-tree -d` cannot traverse it. The function
+    /// should fall back to the working-tree scan and surface the in-progress changes.
+    #[test]
+    fn from_ref_falls_back_when_openspec_is_symlink() {
+        let dir = tempdir().unwrap();
+
+        // Parent "workspace" repo: has the real openspec directory with an open change.
+        let parent = dir.path().join("parent");
+        std::fs::create_dir_all(&parent).unwrap();
+        write_change(
+            &parent,
+            "cross-repo-feature",
+            "- [ ] step one\n- [ ] step two\n",
+        );
+
+        // Child repo: has a committed symlink openspec -> ../parent/openspec
+        let (local, _seed, branch) = make_seed_remote_local(dir.path());
+        let symlink_path = local.join("openspec");
+        #[cfg(unix)]
+        std::os::unix::fs::symlink("../parent/openspec", &symlink_path).unwrap();
+        run_git(&local, &["add", "openspec"]);
+        run_git(&local, &["commit", "-q", "-m", "add openspec symlink"]);
+        run_git(&local, &["push", "-q", "origin", &branch]);
+        run_git(&local, &["fetch", "-q", "origin"]);
+
+        let specs = fetch_open_specs_from_ref(&local, &format!("origin/{}", branch));
+        let found = specs
+            .iter()
+            .find(|s| s.change_id == "cross-repo-feature")
+            .expect("should find change via symlink fallback");
+        assert_eq!(found.remaining_tasks, 2);
+        assert_eq!(found.total_tasks, 2);
     }
 }

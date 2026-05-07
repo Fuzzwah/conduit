@@ -64,9 +64,25 @@ pub fn fetch_specify_specs(repo_path: &Path) -> Vec<SpecifySpec> {
     specs
 }
 
+fn git_path_is_symlink(repo_path: &Path, git_ref: &str, path: &str) -> bool {
+    match Command::new("git")
+        .args(["ls-tree", git_ref, path])
+        .current_dir(repo_path)
+        .output()
+    {
+        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout)
+            .lines()
+            .any(|line| line.starts_with("120000 ")),
+        _ => false,
+    }
+}
+
 /// Scan `.specify/specs/*/tasks.md` at the given git ref rather than the working
 /// tree. Reads via `git ls-tree` + `git show`. Returns an empty `Vec` on any git
 /// error (caller may fall back to `fetch_specify_specs`).
+///
+/// When `.specify/` is a git symlink (mode 120000), git cannot traverse into it.
+/// Falls back to the working-tree scan in that case.
 pub fn fetch_specify_specs_from_ref(repo_path: &Path, git_ref: &str) -> Vec<SpecifySpec> {
     let ls = match Command::new("git")
         .args(["ls-tree", "-d", "--name-only", git_ref, ".specify/specs/"])
@@ -74,10 +90,19 @@ pub fn fetch_specify_specs_from_ref(repo_path: &Path, git_ref: &str) -> Vec<Spec
         .output()
     {
         Ok(o) if o.status.success() => o,
-        _ => return Vec::new(),
+        _ => {
+            if git_path_is_symlink(repo_path, git_ref, ".specify") {
+                return fetch_specify_specs(repo_path);
+            }
+            return Vec::new();
+        }
     };
 
     let dir_listing = String::from_utf8_lossy(&ls.stdout).into_owned();
+
+    if dir_listing.trim().is_empty() && git_path_is_symlink(repo_path, git_ref, ".specify") {
+        return fetch_specify_specs(repo_path);
+    }
     let mut specs: Vec<SpecifySpec> = dir_listing
         .lines()
         .filter_map(|line| {
