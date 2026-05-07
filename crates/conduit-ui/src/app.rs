@@ -979,6 +979,26 @@ impl App {
                 .update_workspace_pr_status(workspace_id, Some(status));
         }
 
+        // Populate tab numbers for workspaces that are open in a tab
+        {
+            use crate::components::NodeType;
+            let workspace_ids: Vec<Uuid> = self
+                .state
+                .sidebar_data
+                .nodes
+                .iter()
+                .flat_map(|repo| repo.children.iter())
+                .filter(|child| child.node_type == NodeType::Workspace)
+                .map(|child| child.id)
+                .collect();
+            for workspace_id in workspace_ids {
+                let tab_number = self.find_tab_for_workspace(workspace_id).map(|idx| idx + 1);
+                self.state
+                    .sidebar_data
+                    .set_workspace_tab_number(workspace_id, tab_number);
+            }
+        }
+
         self.sync_sidebar_busy_state();
     }
 
