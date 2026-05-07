@@ -1292,6 +1292,12 @@ impl App {
         // Best-effort persistence on any exit path.
         self.persist_session_state_on_exit();
 
+        // Kill any agent processes that are still running. This handles cases where
+        // processes accumulate during a session (e.g. interrupted turns whose SIGTERM
+        // didn't fire in time). We send SIGKILL directly here — no grace period needed
+        // since we're exiting anyway and the stdio pipes are about to close.
+        self.kill_all_running_agents();
+
         // Explicit cleanup with error handling (prevents double-cleanup in Drop)
         terminal.show_cursor()?;
         guard.cleanup()?;
@@ -1831,6 +1837,26 @@ impl App {
             AGENT_TERMINATION_GRACE,
             AGENT_TERMINATION_POLL_INTERVAL,
         )
+    }
+
+    /// Send SIGKILL to every agent process still tracked in any open session.
+    /// Called on exit so stray processes don't outlive the TUI.
+    fn kill_all_running_agents(&self) {
+        #[cfg(unix)]
+        {
+            for session in self.state.tab_manager.sessions() {
+                if let Some(pid) = session.agent_pid {
+                    if let Err(err) = conduit_util::process::signal_process_tree(pid, libc::SIGKILL)
+                    {
+                        tracing::debug!(
+                            pid,
+                            error = %err,
+                            "Failed to SIGKILL agent on exit (may have already exited)"
+                        );
+                    }
+                }
+            }
+        }
     }
 
     #[cfg(all(unix, not(any(target_os = "linux", target_os = "macos"))))]
@@ -7966,6 +7992,31 @@ impl App {
             );
             return Ok(());
         };
+
+        // Route auto-approval control responses back to the agent's stdin.
+        // Handled here rather than in the JSONL parser task so that the parser
+        // never holds a clone of the stdin sender (which would keep stdin open
+        // even after the user-facing input channel is dropped).
+        if let AgentEvent::AutoControlResponse { payload } = event {
+            if let Some(session) = self.state.tab_manager.session_mut(tab_index) {
+                if let Some(ref input_tx) = session.agent_input_tx {
+                    let input_tx = input_tx.clone();
+                    tokio::spawn(async move {
+                        if let Err(err) = input_tx
+                            .send(conduit_agent::AgentInput::ClaudeJsonl(payload))
+                            .await
+                        {
+                            tracing::debug!(
+                                "AutoControlResponse dropped (agent shutting down): {}",
+                                err
+                            );
+                        }
+                    });
+                }
+            }
+            return Ok(());
+        }
+
         // Check if this is a non-active tab receiving content - mark as needing attention
         let is_active_tab = self.state.tab_manager.active_index() == tab_index;
         let is_content_event = matches!(
