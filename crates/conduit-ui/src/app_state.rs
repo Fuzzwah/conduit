@@ -199,6 +199,8 @@ pub struct AppState {
     pub pending_created_workspace_id: Option<Uuid>,
     /// Initial message to auto-send when a spec-linked workspace opens for the first time.
     pub pending_created_workspace_initial_message: Option<String>,
+    /// Session settings chosen in the workspace-ready config panel; applied on dialog close.
+    pub pending_workspace_session_config: Option<PendingSessionConfig>,
     pub issue_picker_state: IssuePickerState,
     pub spec_picker_state: SpecPickerState,
     pub specify_picker_state: SpecifyPickerState,
@@ -374,6 +376,16 @@ pub enum ModelPickerContext {
     OnboardingDefaultSelection,
     SettingsDefaultSelection,
     HandoffSelection,
+    WorkspaceReadyConfig,
+}
+
+/// Session configuration chosen in the workspace-ready config panel.
+#[derive(Debug, Clone)]
+pub struct PendingSessionConfig {
+    pub provider: AgentType,
+    pub model_id: String,
+    pub mode: AgentMode,
+    pub orchestration_enabled: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -459,6 +471,7 @@ impl AppState {
             busy_footer_message: None,
             pending_branch_updates: HashMap::new(),
             pending_new_project_target: None,
+            pending_workspace_session_config: None,
             model_picker_context: ModelPickerContext::SessionSelection,
             settings_menu_return: false,
             base_dir_dialog_context: BaseDirDialogContext::ProjectDiscovery,

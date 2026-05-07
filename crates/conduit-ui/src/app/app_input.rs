@@ -80,10 +80,60 @@ impl App {
         }
 
         if self.state.input_mode == InputMode::CreatingWorkspace {
-            if self.state.workspace_progress_dialog_state.complete
-                && matches!(key.code, KeyCode::Enter | KeyCode::Esc)
-            {
-                return Ok(self.close_workspace_progress_dialog());
+            if self.state.workspace_progress_dialog_state.complete {
+                if self.state.workspace_progress_dialog_state.config.is_some() {
+                    // Config panel is active — handle navigation.
+                    match key.code {
+                        KeyCode::Up => {
+                            self.state.workspace_progress_dialog_state.move_focus_up();
+                        }
+                        KeyCode::Down => {
+                            self.state.workspace_progress_dialog_state.move_focus_down();
+                        }
+                        KeyCode::Enter => {
+                            let row = self.state.workspace_progress_dialog_state.focused_row();
+                            match row {
+                                0 => {
+                                    self.open_workspace_ready_provider_selector();
+                                }
+                                1 => {
+                                    self.open_workspace_ready_model_selector();
+                                }
+                                _ => {
+                                    return Ok(self.close_workspace_progress_dialog());
+                                }
+                            }
+                        }
+                        KeyCode::Char(' ') | KeyCode::Left | KeyCode::Right => {
+                            let row = self.state.workspace_progress_dialog_state.focused_row();
+                            match row {
+                                2 => {
+                                    self.state.workspace_progress_dialog_state.toggle_mode();
+                                }
+                                3 => {
+                                    self.state
+                                        .workspace_progress_dialog_state
+                                        .toggle_orchestration();
+                                }
+                                4 => {
+                                    self.state
+                                        .workspace_progress_dialog_state
+                                        .toggle_save_default();
+                                }
+                                _ => {}
+                            }
+                        }
+                        KeyCode::Esc => {
+                            return Ok(self.close_workspace_progress_dialog());
+                        }
+                        _ => {}
+                    }
+                } else {
+                    // Error state — Enter/Esc both dismiss.
+                    if matches!(key.code, KeyCode::Enter | KeyCode::Esc) {
+                        return Ok(self.close_workspace_progress_dialog());
+                    }
+                }
             }
             return Ok(Vec::new());
         }

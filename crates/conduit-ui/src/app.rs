@@ -35,7 +35,7 @@ use crate::app_prompt;
 use crate::app_queue;
 use crate::app_state::{
     AppState, BaseDirDialogContext, ModelPickerContext, NewProjectTarget, PendingForkRequest,
-    PendingHandoffRequest,
+    PendingHandoffRequest, PendingSessionConfig,
 };
 use crate::capabilities::AgentCapabilities;
 use crate::components::{
@@ -5330,15 +5330,66 @@ impl App {
 
     /// Close the workspace creation progress dialog and open the created workspace (if successful).
     pub(crate) fn close_workspace_progress_dialog(&mut self) -> Vec<Effect> {
+        // Extract config choices before hiding (hide() drops the config).
+        let session_config = self
+            .state
+            .workspace_progress_dialog_state
+            .config
+            .as_ref()
+            .map(|cfg| {
+                (
+                    PendingSessionConfig {
+                        provider: cfg.provider,
+                        model_id: cfg.model_id.clone(),
+                        mode: cfg.mode,
+                        orchestration_enabled: cfg.orchestration_enabled,
+                    },
+                    cfg.save_as_project_default,
+                )
+            });
+
         self.state.workspace_progress_dialog_state.hide();
         self.state.input_mode = InputMode::Normal;
         let mut effects = Vec::new();
 
         if let Some(workspace_id) = self.state.pending_created_workspace_id.take() {
+            // Save project defaults if requested.
+            if let Some((ref cfg, true)) = session_config {
+                if let Some(repo_dao) = self.repo_dao_clone() {
+                    let repo_id = self
+                        .workspace_dao()
+                        .and_then(|dao| dao.get_by_id(workspace_id).ok().flatten())
+                        .map(|ws| ws.repository_id);
+                    if let Some(repo_id) = repo_id {
+                        if let Ok(Some(mut repo)) = repo_dao.get_by_id(repo_id) {
+                            repo.default_provider = Some(cfg.provider.as_str().to_string());
+                            repo.default_model = Some(cfg.model_id.clone());
+                            repo.orchestration_enabled = Some(cfg.orchestration_enabled);
+                            if let Err(err) = repo_dao.update(&repo) {
+                                tracing::warn!("Failed to save project defaults: {err}");
+                            }
+                        }
+                    }
+                }
+            }
+
             // Open workspace, close sidebar (unless always_show_sidebar), focus prompt
             let close_sidebar = !self.config().ui.always_show_sidebar;
             self.open_workspace_with_options(workspace_id, close_sidebar);
             self.state.sidebar_state.set_focused(false);
+
+            // Apply chosen session config to the newly opened tab.
+            if let Some((cfg, _)) = session_config {
+                if let Some(session) = self.state.tab_manager.active_session_mut() {
+                    session.agent_type = cfg.provider;
+                    session.model = Some(cfg.model_id);
+                    session.agent_mode = cfg.mode;
+                    if cfg.provider == AgentType::Claude {
+                        session.orchestration_enabled = cfg.orchestration_enabled;
+                    }
+                    session.update_status();
+                }
+            }
 
             if let Some(msg) = self.state.pending_created_workspace_initial_message.take() {
                 match self.submit_prompt(msg, vec![], vec![]) {
@@ -5349,6 +5400,48 @@ impl App {
         }
 
         effects
+    }
+
+    pub(crate) fn open_workspace_ready_provider_selector(&mut self) {
+        self.redetect_tools();
+        self.state.provider_selector_state =
+            crate::components::ProviderSelectorState::configure_for(self.config(), self.tools());
+        self.state.provider_selector_state.show();
+        self.state.model_picker_context = ModelPickerContext::WorkspaceReadyConfig;
+        self.state.input_mode = InputMode::SelectingProviders;
+    }
+
+    pub(crate) fn open_workspace_ready_model_selector(&mut self) {
+        let provider = self
+            .state
+            .workspace_progress_dialog_state
+            .config
+            .as_ref()
+            .map(|c| c.provider)
+            .unwrap_or_else(|| {
+                self.preferred_provider_for_new_sessions()
+                    .unwrap_or(AgentType::Claude)
+            });
+        let current_model = self
+            .state
+            .workspace_progress_dialog_state
+            .config
+            .as_ref()
+            .map(|c| c.model_id.clone());
+        let defaults = DefaultModelSelection {
+            agent_type: Some(provider),
+            model_id: current_model.clone(),
+        };
+        self.state
+            .model_selector_state
+            .set_allowed_providers(Some(vec![provider]));
+        self.state.model_selector_state.show_with_title(
+            current_model,
+            defaults,
+            "Select Model".to_string(),
+        );
+        self.state.model_picker_context = ModelPickerContext::WorkspaceReadyConfig;
+        self.state.input_mode = InputMode::SelectingModel;
     }
 
     /// Show an error dialog with a simple message
@@ -6573,6 +6666,10 @@ impl App {
                 self.state.model_picker_context = ModelPickerContext::SessionSelection;
                 self.reopen_settings_menu();
                 return effects;
+            } else if self.state.model_picker_context == ModelPickerContext::WorkspaceReadyConfig {
+                self.state.model_picker_context = ModelPickerContext::SessionSelection;
+                self.state.input_mode = InputMode::CreatingWorkspace;
+                return effects;
             }
             self.state.model_picker_context = ModelPickerContext::SessionSelection;
             self.state.input_mode = InputMode::Normal;
@@ -6635,6 +6732,16 @@ impl App {
                             Ok(new_effects) => effects.extend(new_effects),
                             Err(err) => self.show_error("Handoff Failed", &err.to_string()),
                         }
+                        return effects;
+                    }
+
+                    if self.state.model_picker_context == ModelPickerContext::WorkspaceReadyConfig {
+                        self.state
+                            .workspace_progress_dialog_state
+                            .update_model(model.id.clone());
+                        self.state.model_selector_state.hide();
+                        self.state.model_picker_context = ModelPickerContext::SessionSelection;
+                        self.state.input_mode = InputMode::CreatingWorkspace;
                         return effects;
                     }
 
@@ -6806,9 +6913,14 @@ impl App {
 
         if !Self::point_in_rect(x, y, dialog_area) {
             self.state.provider_selector_state.hide();
-            self.state.pending_new_project_target = None;
-            if !self.return_to_settings_menu_if_needed() {
-                self.state.input_mode = InputMode::Normal;
+            if self.state.model_picker_context == ModelPickerContext::WorkspaceReadyConfig {
+                self.state.model_picker_context = ModelPickerContext::SessionSelection;
+                self.state.input_mode = InputMode::CreatingWorkspace;
+            } else {
+                self.state.pending_new_project_target = None;
+                if !self.return_to_settings_menu_if_needed() {
+                    self.state.input_mode = InputMode::Normal;
+                }
             }
             return;
         }
@@ -6821,7 +6933,21 @@ impl App {
                 .provider_selector_state
                 .select_at_row(clicked_row)
             {
-                self.state.provider_selector_state.toggle_selected();
+                if self.state.model_picker_context == ModelPickerContext::WorkspaceReadyConfig {
+                    // Single-click confirms in workspace-ready context.
+                    if let Some(item) = self.state.provider_selector_state.dialog.selected_item() {
+                        let provider = AgentType::parse(&item.id.clone());
+                        let default_model = self.config().default_model_for(provider);
+                        self.state
+                            .workspace_progress_dialog_state
+                            .update_provider(provider, default_model);
+                    }
+                    self.state.provider_selector_state.hide();
+                    self.state.model_picker_context = ModelPickerContext::SessionSelection;
+                    self.state.input_mode = InputMode::CreatingWorkspace;
+                } else {
+                    self.state.provider_selector_state.toggle_selected();
+                }
             }
         }
     }
@@ -7041,17 +7167,6 @@ impl App {
                 }
             },
             AppEvent::WorkspaceCreationProgress { message } => {
-                let is_generic = matches!(
-                    message.as_str(),
-                    "Syncing with remote..."
-                        | "Creating worktree..."
-                        | "Running workspace setup..."
-                );
-                if !is_generic {
-                    self.state
-                        .workspace_progress_dialog_state
-                        .has_meaningful_content = true;
-                }
                 self.state.workspace_progress_dialog_state.push(message);
             }
             AppEvent::RemoteSyncProgress { message }
@@ -7114,17 +7229,41 @@ impl App {
                         self.state.pending_created_workspace_id = Some(created.workspace_id);
                         self.state.pending_created_workspace_initial_message =
                             created.initial_message.clone();
-                        if self
-                            .state
-                            .workspace_progress_dialog_state
-                            .has_meaningful_content
-                        {
-                            // Show completion state; user closes with Enter/Esc.
-                            self.state.workspace_progress_dialog_state.finish();
-                        } else {
-                            // Nothing useful was shown — close immediately.
-                            effects.append(&mut self.close_workspace_progress_dialog());
-                        }
+
+                        // Resolve provider/model/orchestration defaults:
+                        // workspace override → repo override → global config.
+                        let global_provider = self
+                            .preferred_provider_for_new_sessions()
+                            .unwrap_or(AgentType::Claude);
+                        let (resolved_provider, resolved_model, resolved_orch) = {
+                            let workspace_orch = self
+                                .workspace_dao()
+                                .and_then(|dao| dao.get_by_id(created.workspace_id).ok().flatten())
+                                .and_then(|ws| ws.orchestration_enabled);
+                            let repo = self
+                                .repo_dao()
+                                .and_then(|dao| dao.get_by_id(created.repo_id).ok().flatten());
+                            let repo_provider = repo
+                                .as_ref()
+                                .and_then(|r| r.default_provider.as_deref())
+                                .map(AgentType::parse);
+                            let repo_model = repo.as_ref().and_then(|r| r.default_model.clone());
+                            let repo_orch = repo.as_ref().and_then(|r| r.orchestration_enabled);
+
+                            let provider = repo_provider.unwrap_or(global_provider);
+                            let model = repo_model
+                                .unwrap_or_else(|| self.config().default_model_for(provider));
+                            let orch = workspace_orch
+                                .or(repo_orch)
+                                .unwrap_or(self.config().orchestration.enabled_by_default);
+                            (provider, model, orch)
+                        };
+
+                        self.state.workspace_progress_dialog_state.finish(
+                            resolved_provider,
+                            resolved_model,
+                            resolved_orch,
+                        );
                     }
                     Err(ref err) => {
                         self.state

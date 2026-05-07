@@ -719,6 +719,34 @@ CREATE TABLE IF NOT EXISTS fork_seeds_new (
             )?;
         }
 
+        // Migration 22: Add default_provider and default_model to repositories.
+        let has_default_provider: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('repositories') WHERE name='default_provider'",
+                [],
+                |row| row.get::<_, i64>(0).map(|c| c > 0),
+            )
+            .unwrap_or(false);
+
+        if !has_default_provider {
+            conn.execute(
+                "ALTER TABLE repositories ADD COLUMN default_provider TEXT",
+                [],
+            )?;
+        }
+
+        let has_default_model: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('repositories') WHERE name='default_model'",
+                [],
+                |row| row.get::<_, i64>(0).map(|c| c > 0),
+            )
+            .unwrap_or(false);
+
+        if !has_default_model {
+            conn.execute("ALTER TABLE repositories ADD COLUMN default_model TEXT", [])?;
+        }
+
         Ok(())
     }
 

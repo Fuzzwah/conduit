@@ -66,6 +66,10 @@ pub struct Repository {
     pub theme_name: Option<String>,
     /// Per-project orchestration default (None = inherit global config)
     pub orchestration_enabled: Option<bool>,
+    /// Per-project default provider (None = inherit global config)
+    pub default_provider: Option<String>,
+    /// Per-project default model (None = inherit global config)
+    pub default_model: Option<String>,
 }
 
 impl Repository {
@@ -85,6 +89,8 @@ impl Repository {
             updated_at: now,
             theme_name: None,
             orchestration_enabled: None,
+            default_provider: None,
+            default_model: None,
         }
     }
 
@@ -104,6 +110,8 @@ impl Repository {
             updated_at: now,
             theme_name: None,
             orchestration_enabled: None,
+            default_provider: None,
+            default_model: None,
         }
     }
 
