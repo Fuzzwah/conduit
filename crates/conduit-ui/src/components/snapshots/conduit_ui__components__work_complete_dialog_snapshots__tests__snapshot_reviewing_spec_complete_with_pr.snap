@@ -14,8 +14,9 @@ expression: output
     │                                                                      │
     │ Spec complete                                                        │
     │   branch: fuz/my-feature                                             │
-    │   PR #7 (open): https://github.com/owner/repo/pull/7                 │
+    │   PR #7 (open):                                                      │
     │     My feature PR                                                    │
+    │     https://github.com/owner/repo/pull/7                             │
     │   spec: my-feature (linked)  5 of 5 tasks complete                   │
     │ ──────────────────────────────────────────────────────────────────── │
     │ ❯ Merge PR  merge the open pull request                              │

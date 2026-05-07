@@ -22,7 +22,6 @@ use crate::work_complete::{
 use conduit_git::{Scenario, SuggestedAction};
 
 const DIALOG_WIDTH: u16 = 72;
-const CONTENT_WIDTH: u16 = DIALOG_WIDTH - 2 - DIALOG_CONTENT_PADDING_X * 2;
 const SPINNER_FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 /// Widget rendering the Work Complete dialog from a `WorkCompleteSession`.
@@ -40,12 +39,32 @@ impl<'a> WorkCompleteDialog<'a> {
         }
     }
 
+    fn dialog_width(&self) -> u16 {
+        let url_len = self
+            .session
+            .data
+            .as_ref()
+            .and_then(|d| d.pr.as_ref())
+            .and_then(|pr| pr.url.as_deref())
+            .map(|u| u.len() as u16)
+            .unwrap_or(0);
+        const URL_INDENT: u16 = 4;
+        let needed = url_len
+            .saturating_add(URL_INDENT)
+            .saturating_add(2) // borders
+            .saturating_add(DIALOG_CONTENT_PADDING_X * 2);
+        DIALOG_WIDTH.max(needed)
+    }
+
     fn dialog_height(&self) -> u16 {
         match &self.session.phase {
             WorkCompletePhase::LoadingPreflight => 7,
             WorkCompletePhase::ReviewingState { .. } => {
                 if let Some(data) = &self.session.data {
-                    compute_review_height(data)
+                    let content_width = self
+                        .dialog_width()
+                        .saturating_sub(2 + DIALOG_CONTENT_PADDING_X * 2);
+                    compute_review_height(data, content_width)
                 } else {
                     7
                 }
@@ -80,7 +99,7 @@ impl Widget for WorkCompleteDialog<'_> {
             WorkCompletePhase::Done => ("Work Complete", vec![]),
         };
 
-        let inner = DialogFrame::new(title, DIALOG_WIDTH, self.dialog_height())
+        let inner = DialogFrame::new(title, self.dialog_width(), self.dialog_height())
             .instructions(instructions)
             .render(area, buf);
 
@@ -214,16 +233,11 @@ fn render_review(inner: Rect, buf: &mut Buffer, data: &WorkCompleteData, selecte
         } else {
             "closed"
         };
-        let mut pr_header_spans = vec![
+        let pr_header = Line::from(vec![
             Span::styled("  PR #", Style::default().fg(text_muted())),
             Span::styled(pr.number.to_string(), Style::default().fg(pr_color)),
             Span::styled(format!(" ({pr_state}):"), Style::default().fg(pr_color)),
-        ];
-        if let Some(url) = pr.url.as_deref() {
-            pr_header_spans.push(Span::styled(" ", Style::default()));
-            pr_header_spans.push(Span::styled(url, Style::default().fg(text_muted())));
-        }
-        let pr_header = Line::from(pr_header_spans);
+        ]);
         Paragraph::new(pr_header).render(
             Rect {
                 x: inner.x,
@@ -235,25 +249,43 @@ fn render_review(inner: Rect, buf: &mut Buffer, data: &WorkCompleteData, selecte
         );
         y += 1;
 
+        const INDENT: u16 = 4;
+        let indented_width = w.saturating_sub(INDENT);
+
         if let Some(pr_title) = pr.title.as_deref().filter(|t| !t.is_empty()) {
-            let title_indent: u16 = 4;
-            let title_width = w.saturating_sub(title_indent);
-            let title_height = text_height(pr_title.len(), title_width);
+            let title_height = text_height(pr_title.len(), indented_width);
             Paragraph::new(Line::from(Span::styled(
                 pr_title,
-                Style::default().fg(text_muted()),
+                Style::default().fg(text_secondary()),
             )))
             .wrap(Wrap { trim: false })
             .render(
                 Rect {
-                    x: inner.x + title_indent,
+                    x: inner.x + INDENT,
                     y,
-                    width: title_width,
+                    width: indented_width,
                     height: title_height,
                 },
                 buf,
             );
             y += title_height;
+        }
+
+        if let Some(url) = pr.url.as_deref() {
+            Paragraph::new(Line::from(Span::styled(
+                url,
+                Style::default().fg(text_muted()),
+            )))
+            .render(
+                Rect {
+                    x: inner.x + INDENT,
+                    y,
+                    width: indented_width,
+                    height: 1,
+                },
+                buf,
+            );
+            y += 1;
         }
     }
 
@@ -414,14 +446,16 @@ fn text_height(len: usize, width: u16) -> u16 {
 }
 
 fn pr_height(pr: &PrData, width: u16) -> u16 {
-    let title_indent: u16 = 4;
+    const INDENT: u16 = 4;
+    let indented = width.saturating_sub(INDENT);
     let title_lines = pr
         .title
         .as_deref()
         .filter(|t| !t.is_empty())
-        .map(|t| text_height(t.len(), width.saturating_sub(title_indent)))
+        .map(|t| text_height(t.len(), indented))
         .unwrap_or(0);
-    1 + title_lines
+    let url_lines = if pr.url.is_some() { 1 } else { 0 };
+    1 + title_lines + url_lines
 }
 
 fn issue_display_len(issue: &IssueData) -> usize {
@@ -431,17 +465,17 @@ fn issue_display_len(issue: &IssueData) -> usize {
     9 + issue.number.to_string().len() + 3 + state.len() + title_part
 }
 
-fn compute_review_height(data: &WorkCompleteData) -> u16 {
+fn compute_review_height(data: &WorkCompleteData, content_width: u16) -> u16 {
     let mut rows: u16 = 1; // scenario
     rows += 1; // branch
     if let Some(pr) = &data.pr {
-        rows += pr_height(pr, CONTENT_WIDTH);
+        rows += pr_height(pr, content_width);
     }
     if data.spec.is_some() {
         rows += 1;
     }
     if let Some(issue) = &data.issue {
-        rows += text_height(issue_display_len(issue), CONTENT_WIDTH);
+        rows += text_height(issue_display_len(issue), content_width);
     }
     rows += 1; // separator
     rows += data.suggested_actions.len() as u16;
