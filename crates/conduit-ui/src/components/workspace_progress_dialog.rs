@@ -1,9 +1,11 @@
-//! Dialog that streams git progress while a workspace is being created.
+//! Dialog that streams git progress while a workspace is being created,
+//! then presents a configuration panel before opening the workspace.
 
+use conduit_agent::{AgentMode, AgentType};
 use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Rect},
-    style::{Modifier, Style},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Paragraph, Widget},
 };
@@ -15,6 +17,46 @@ const SPINNER_FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦
 
 const DIALOG_WIDTH: u16 = 68;
 const LOG_LINES: usize = 10;
+
+// Config panel row indices
+const ROW_PROVIDER: usize = 0;
+const ROW_MODEL: usize = 1;
+const ROW_MODE: usize = 2;
+const ROW_ORCHESTRATION: usize = 3;
+const ROW_SAVE_DEFAULT: usize = 4;
+const ROW_COUNT: usize = 5;
+
+/// Inline configuration shown after successful workspace creation.
+#[derive(Debug, Clone)]
+pub struct WorkspaceReadyConfigState {
+    pub focused_row: usize,
+    pub provider: AgentType,
+    pub model_id: String,
+    pub mode: AgentMode,
+    pub orchestration_enabled: bool,
+    pub save_as_project_default: bool,
+}
+
+impl WorkspaceReadyConfigState {
+    pub fn new(provider: AgentType, model_id: String, orchestration_enabled: bool) -> Self {
+        Self {
+            focused_row: ROW_PROVIDER,
+            provider,
+            model_id,
+            mode: AgentMode::Build,
+            orchestration_enabled,
+            save_as_project_default: false,
+        }
+    }
+
+    pub fn is_orchestration_applicable(&self) -> bool {
+        self.provider == AgentType::Claude
+    }
+
+    pub fn is_plan_mode_applicable(&self) -> bool {
+        self.provider.supports_plan_mode()
+    }
+}
 
 /// State for the workspace creation progress dialog.
 #[derive(Debug, Clone, Default)]
@@ -28,8 +70,8 @@ pub struct WorkspaceProgressDialogState {
     pub error: Option<String>,
     /// Spinner animation frame (advanced on each Tick while not complete).
     pub spinner_frame: usize,
-    /// True if any non-generic output (git fetch lines, script output) was received.
-    pub has_meaningful_content: bool,
+    /// Config panel shown after successful creation.
+    pub config: Option<WorkspaceReadyConfigState>,
 }
 
 impl WorkspaceProgressDialogState {
@@ -43,15 +85,21 @@ impl WorkspaceProgressDialogState {
         self.error = None;
         self.messages.clear();
         self.spinner_frame = 0;
-        self.has_meaningful_content = false;
+        self.config = None;
     }
 
     pub fn push(&mut self, message: impl Into<String>) {
         self.messages.push(message.into());
     }
 
-    pub fn finish(&mut self) {
+    /// Transition to the success state and show the config panel.
+    pub fn finish(&mut self, provider: AgentType, model_id: String, orchestration_enabled: bool) {
         self.complete = true;
+        self.config = Some(WorkspaceReadyConfigState::new(
+            provider,
+            model_id,
+            orchestration_enabled,
+        ));
     }
 
     pub fn finish_with_error(&mut self, error: impl Into<String>) {
@@ -61,6 +109,7 @@ impl WorkspaceProgressDialogState {
 
     pub fn hide(&mut self) {
         self.visible = false;
+        self.config = None;
     }
 
     pub fn tick(&mut self) {
@@ -71,6 +120,75 @@ impl WorkspaceProgressDialogState {
 
     pub fn failed(&self) -> bool {
         self.error.is_some()
+    }
+
+    // ── Config panel navigation helpers ──────────────────────────────────────
+
+    pub fn move_focus_up(&mut self) {
+        if let Some(cfg) = &mut self.config {
+            cfg.focused_row = if cfg.focused_row == 0 {
+                ROW_COUNT - 1
+            } else {
+                cfg.focused_row - 1
+            };
+        }
+    }
+
+    pub fn move_focus_down(&mut self) {
+        if let Some(cfg) = &mut self.config {
+            cfg.focused_row = (cfg.focused_row + 1) % ROW_COUNT;
+        }
+    }
+
+    pub fn focused_row(&self) -> usize {
+        self.config
+            .as_ref()
+            .map(|c| c.focused_row)
+            .unwrap_or(ROW_PROVIDER)
+    }
+
+    pub fn toggle_mode(&mut self) {
+        if let Some(cfg) = &mut self.config {
+            if cfg.is_plan_mode_applicable() {
+                cfg.mode = match cfg.mode {
+                    AgentMode::Build => AgentMode::Plan,
+                    AgentMode::Plan => AgentMode::Build,
+                };
+            }
+        }
+    }
+
+    pub fn toggle_orchestration(&mut self) {
+        if let Some(cfg) = &mut self.config {
+            if cfg.is_orchestration_applicable() {
+                cfg.orchestration_enabled = !cfg.orchestration_enabled;
+            }
+        }
+    }
+
+    pub fn toggle_save_default(&mut self) {
+        if let Some(cfg) = &mut self.config {
+            cfg.save_as_project_default = !cfg.save_as_project_default;
+        }
+    }
+
+    pub fn update_provider(&mut self, provider: AgentType, default_model: String) {
+        if let Some(cfg) = &mut self.config {
+            cfg.provider = provider;
+            cfg.model_id = default_model;
+            if !cfg.is_orchestration_applicable() {
+                cfg.orchestration_enabled = false;
+            }
+            if !cfg.is_plan_mode_applicable() {
+                cfg.mode = AgentMode::Build;
+            }
+        }
+    }
+
+    pub fn update_model(&mut self, model_id: String) {
+        if let Some(cfg) = &mut self.config {
+            cfg.model_id = model_id;
+        }
     }
 }
 
@@ -85,11 +203,16 @@ impl<'a> WorkspaceProgressDialog<'a> {
     }
 
     fn dialog_height(&self) -> u16 {
-        // borders(2) + top_padding(1) + log_lines(10) + gap(1) + status(1) + gap(1) + button(1)
-        // = 17 when complete, 15 when running (no button row + gap)
-        if self.state.complete {
+        if self.state.config.is_some() {
+            // borders(2) + top_padding(1) + log_lines(10) + gap(1) + status(1)
+            // + separator(1) + gap(1) + 5 config rows + gap(1) + button(1) + gap(1)
+            // = 26
+            26
+        } else if self.state.complete {
+            // borders(2) + top_padding(1) + log_lines(10) + gap(1) + status(1) + gap(1) + button(1)
             17
         } else {
+            // no button row
             15
         }
     }
@@ -101,16 +224,22 @@ impl Widget for WorkspaceProgressDialog<'_> {
             return;
         }
 
-        let instructions = if self.state.complete {
+        let instructions = if self.state.config.is_some() {
+            vec![
+                ("↑↓", "Navigate"),
+                ("Enter", "Continue"),
+                ("Esc", "Continue"),
+            ]
+        } else if self.state.complete {
             vec![("Enter", "Continue"), ("Esc", "Continue")]
         } else {
             vec![]
         };
 
         let border_color = if self.state.failed() {
-            ratatui::style::Color::Red
+            Color::Red
         } else if self.state.complete {
-            ratatui::style::Color::Green
+            Color::Green
         } else {
             accent_primary()
         };
@@ -124,7 +253,7 @@ impl Widget for WorkspaceProgressDialog<'_> {
             return;
         }
 
-        // Render the last LOG_LINES messages, filling from top
+        // ── Progress log ──────────────────────────────────────────────────────
         let visible: Vec<&str> = {
             let msgs = &self.state.messages;
             if msgs.len() > LOG_LINES {
@@ -154,7 +283,7 @@ impl Widget for WorkspaceProgressDialog<'_> {
             );
         }
 
-        // Status line: spinner while running, summary when done
+        // ── Status line ───────────────────────────────────────────────────────
         let status_y = inner.y + LOG_LINES as u16 + 1;
         if status_y < inner.y + inner.height {
             let status_line = if self.state.complete {
@@ -166,12 +295,12 @@ impl Widget for WorkspaceProgressDialog<'_> {
                     };
                     Line::from(Span::styled(
                         format!("✗ {}", truncated),
-                        Style::default().fg(ratatui::style::Color::Red),
+                        Style::default().fg(Color::Red),
                     ))
                 } else {
                     Line::from(Span::styled(
                         "✓ Workspace created",
-                        Style::default().fg(ratatui::style::Color::Green),
+                        Style::default().fg(Color::Green),
                     ))
                 }
             } else {
@@ -192,19 +321,245 @@ impl Widget for WorkspaceProgressDialog<'_> {
             );
         }
 
-        // Close button — only when complete
-        if self.state.complete {
+        // ── Config panel (success only) ───────────────────────────────────────
+        if let Some(cfg) = &self.state.config {
+            let sep_y = status_y + 1;
+            if sep_y < inner.y + inner.height {
+                // Separator line
+                let sep = "─".repeat(inner.width as usize);
+                Paragraph::new(Line::from(Span::styled(
+                    sep,
+                    Style::default().fg(text_muted()),
+                )))
+                .render(
+                    Rect {
+                        x: inner.x,
+                        y: sep_y,
+                        width: inner.width,
+                        height: 1,
+                    },
+                    buf,
+                );
+
+                let rows_start_y = sep_y + 1;
+                const LABEL_WIDTH: u16 = 16;
+
+                // Renders one config row: label left-aligned, value right-aligned.
+                let render_row = |buf: &mut Buffer,
+                                  row_idx: usize,
+                                  y: u16,
+                                  label: &str,
+                                  value_spans: Vec<Span>| {
+                    if y >= inner.y + inner.height {
+                        return;
+                    }
+                    let is_focused = cfg.focused_row == row_idx;
+                    let label_style = if is_focused {
+                        Style::default()
+                            .fg(Color::Black)
+                            .bg(accent_primary())
+                            .add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default().fg(text_primary())
+                    };
+                    let padded = format!("{:<width$}", label, width = LABEL_WIDTH as usize);
+                    Paragraph::new(Line::from(Span::styled(padded, label_style))).render(
+                        Rect {
+                            x: inner.x,
+                            y,
+                            width: LABEL_WIDTH.min(inner.width),
+                            height: 1,
+                        },
+                        buf,
+                    );
+                    const RIGHT_MARGIN: u16 = 6;
+                    let value_area_x = inner.x + LABEL_WIDTH;
+                    let value_area_w = inner
+                        .width
+                        .saturating_sub(LABEL_WIDTH)
+                        .saturating_sub(RIGHT_MARGIN);
+                    if value_area_w > 0 {
+                        Paragraph::new(Line::from(value_spans))
+                            .alignment(Alignment::Right)
+                            .render(
+                                Rect {
+                                    x: value_area_x,
+                                    y,
+                                    width: value_area_w,
+                                    height: 1,
+                                },
+                                buf,
+                            );
+                    }
+                };
+
+                // ROW 0: Provider
+                {
+                    let provider_name = format!("{:?}", cfg.provider);
+                    let value_spans = vec![Span::styled(
+                        provider_name,
+                        Style::default().fg(text_primary()),
+                    )];
+                    render_row(buf, ROW_PROVIDER, rows_start_y, "Provider", value_spans);
+                }
+
+                // ROW 1: Model
+                {
+                    let max_model_len =
+                        (inner.width as usize).saturating_sub(LABEL_WIDTH as usize + 1);
+                    let model_display = if cfg.model_id.len() > max_model_len {
+                        format!("{}…", &cfg.model_id[..max_model_len.saturating_sub(1)])
+                    } else {
+                        cfg.model_id.clone()
+                    };
+                    let value_spans = vec![Span::styled(
+                        model_display,
+                        Style::default().fg(text_primary()),
+                    )];
+                    render_row(buf, ROW_MODEL, rows_start_y + 1, "Model", value_spans);
+                }
+
+                // ROW 2: Mode
+                {
+                    let plan_applicable = cfg.is_plan_mode_applicable();
+                    let (build_style, plan_style) = match cfg.mode {
+                        AgentMode::Build => (
+                            Style::default()
+                                .fg(Color::Black)
+                                .bg(Color::Green)
+                                .add_modifier(Modifier::BOLD),
+                            if plan_applicable {
+                                Style::default().fg(text_muted())
+                            } else {
+                                Style::default()
+                                    .fg(text_muted())
+                                    .add_modifier(Modifier::DIM)
+                            },
+                        ),
+                        AgentMode::Plan => (
+                            Style::default().fg(text_muted()),
+                            Style::default()
+                                .fg(Color::Black)
+                                .bg(Color::Green)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                    };
+                    let value_spans = vec![
+                        Span::styled("[ Build ]", build_style),
+                        Span::raw("  "),
+                        Span::styled("[ Plan ]", plan_style),
+                    ];
+                    render_row(buf, ROW_MODE, rows_start_y + 2, "Mode", value_spans);
+                }
+
+                // ROW 3: Orchestration
+                {
+                    let orch_applicable = cfg.is_orchestration_applicable();
+                    let row_color = if orch_applicable {
+                        text_primary()
+                    } else {
+                        text_muted()
+                    };
+                    let (off_style, on_style) = if orch_applicable {
+                        match cfg.orchestration_enabled {
+                            false => (
+                                Style::default()
+                                    .fg(Color::Black)
+                                    .bg(Color::Yellow)
+                                    .add_modifier(Modifier::BOLD),
+                                Style::default().fg(row_color),
+                            ),
+                            true => (
+                                Style::default().fg(row_color),
+                                Style::default()
+                                    .fg(Color::Black)
+                                    .bg(Color::Green)
+                                    .add_modifier(Modifier::BOLD),
+                            ),
+                        }
+                    } else {
+                        let dim = Style::default()
+                            .fg(text_muted())
+                            .add_modifier(Modifier::DIM);
+                        (dim, dim)
+                    };
+                    let value_spans = vec![
+                        Span::styled("[ Off ]", off_style),
+                        Span::raw("  "),
+                        Span::styled("[ On ]", on_style),
+                    ];
+                    render_row(
+                        buf,
+                        ROW_ORCHESTRATION,
+                        rows_start_y + 3,
+                        "Orchestration",
+                        value_spans,
+                    );
+                }
+
+                // ROW 4: Save as project default
+                {
+                    let checkbox = if cfg.save_as_project_default {
+                        "[x]"
+                    } else {
+                        "[ ]"
+                    };
+                    let is_focused = cfg.focused_row == ROW_SAVE_DEFAULT;
+                    let style = if is_focused {
+                        Style::default().fg(accent_primary())
+                    } else {
+                        Style::default().fg(text_primary())
+                    };
+                    let y = rows_start_y + 4;
+                    if y < inner.y + inner.height {
+                        Paragraph::new(Line::from(vec![
+                            Span::styled(checkbox, style),
+                            Span::styled(" Set as project default", style),
+                        ]))
+                        .render(
+                            Rect {
+                                x: inner.x,
+                                y,
+                                width: inner.width,
+                                height: 1,
+                            },
+                            buf,
+                        );
+                    }
+                }
+
+                // Continue button
+                let button_y = rows_start_y + 6;
+                if button_y < inner.y + inner.height {
+                    let button = Span::styled(
+                        " Continue ",
+                        Style::default()
+                            .fg(Color::Black)
+                            .bg(Color::Green)
+                            .add_modifier(Modifier::BOLD),
+                    );
+                    Paragraph::new(Line::from(button))
+                        .alignment(Alignment::Center)
+                        .render(
+                            Rect {
+                                x: inner.x,
+                                y: button_y,
+                                width: inner.width,
+                                height: 1,
+                            },
+                            buf,
+                        );
+                }
+            }
+        } else if self.state.complete {
+            // Error path: bare Continue button
             let button_y = status_y + 2;
             if button_y < inner.y + inner.height {
                 let button = Span::styled(
                     " Continue ",
                     Style::default()
-                        .fg(ratatui::style::Color::Black)
-                        .bg(if self.state.failed() {
-                            ratatui::style::Color::Red
-                        } else {
-                            ratatui::style::Color::Green
-                        })
+                        .fg(Color::Black)
+                        .bg(Color::Red)
                         .add_modifier(Modifier::BOLD),
                 );
                 Paragraph::new(Line::from(button))
