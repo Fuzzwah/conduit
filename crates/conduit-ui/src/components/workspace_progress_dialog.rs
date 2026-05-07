@@ -24,7 +24,8 @@ const ROW_MODEL: usize = 1;
 const ROW_MODE: usize = 2;
 const ROW_ORCHESTRATION: usize = 3;
 const ROW_SAVE_DEFAULT: usize = 4;
-const ROW_COUNT: usize = 5;
+const ROW_CONTINUE: usize = 5;
+const ROW_COUNT: usize = 6;
 
 /// Inline configuration shown after successful workspace creation.
 #[derive(Debug, Clone)]
@@ -40,7 +41,7 @@ pub struct WorkspaceReadyConfigState {
 impl WorkspaceReadyConfigState {
     pub fn new(provider: AgentType, model_id: String, orchestration_enabled: bool) -> Self {
         Self {
-            focused_row: ROW_PROVIDER,
+            focused_row: ROW_CONTINUE,
             provider,
             model_id,
             mode: AgentMode::Build,
@@ -144,7 +145,7 @@ impl WorkspaceProgressDialogState {
         self.config
             .as_ref()
             .map(|c| c.focused_row)
-            .unwrap_or(ROW_PROVIDER)
+            .unwrap_or(ROW_CONTINUE)
     }
 
     pub fn toggle_mode(&mut self) {
@@ -531,13 +532,19 @@ impl Widget for WorkspaceProgressDialog<'_> {
                 // Continue button
                 let button_y = rows_start_y + 6;
                 if button_y < inner.y + inner.height {
-                    let button = Span::styled(
-                        " Continue ",
+                    let continue_focused = cfg.focused_row == ROW_CONTINUE;
+                    let button_style = if continue_focused {
+                        Style::default()
+                            .fg(Color::Black)
+                            .bg(accent_primary())
+                            .add_modifier(Modifier::BOLD)
+                    } else {
                         Style::default()
                             .fg(Color::Black)
                             .bg(Color::Green)
-                            .add_modifier(Modifier::BOLD),
-                    );
+                            .add_modifier(Modifier::BOLD)
+                    };
+                    let button = Span::styled(" Continue ", button_style);
                     Paragraph::new(Line::from(button))
                         .alignment(Alignment::Center)
                         .render(

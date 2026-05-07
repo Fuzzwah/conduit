@@ -103,8 +103,9 @@ impl App {
                                     return Ok(self.close_workspace_progress_dialog());
                                 }
                             }
+                            return Ok(Vec::new());
                         }
-                        KeyCode::Char(' ') | KeyCode::Left | KeyCode::Right => {
+                        KeyCode::Tab | KeyCode::Char(' ') | KeyCode::Left | KeyCode::Right => {
                             let row = self.state.workspace_progress_dialog_state.focused_row();
                             match row {
                                 2 => {
