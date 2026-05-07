@@ -182,10 +182,12 @@ impl App {
         }
 
         // Handle inline prompt input (AskUserQuestion, ExitPlanMode)
-        // When sidebar has focus, keys belong to the sidebar — skip the inline
-        // prompt so it doesn't swallow arrows/Enter while the user navigates.
+        // Skip when sidebar has focus or any dialog/overlay is active — the
+        // prompt should only consume keys when the workspace is in plain focus.
         let sidebar_has_focus = self.state.input_mode == InputMode::SidebarNavigation;
-        if !sidebar_has_focus {
+        let has_blocking_dialog =
+            self.has_active_dialog() || self.state.work_complete_session.is_some();
+        if !sidebar_has_focus && !has_blocking_dialog {
             if let Some(session) = self.state.tab_manager.active_session_mut() {
                 if let Some(ref mut prompt) = session.inline_prompt {
                     use crate::components::{PromptAction, PromptResponse};
