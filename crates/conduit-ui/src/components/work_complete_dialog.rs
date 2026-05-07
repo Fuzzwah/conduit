@@ -214,11 +214,16 @@ fn render_review(inner: Rect, buf: &mut Buffer, data: &WorkCompleteData, selecte
         } else {
             "closed"
         };
-        let pr_header = Line::from(vec![
+        let mut pr_header_spans = vec![
             Span::styled("  PR #", Style::default().fg(text_muted())),
             Span::styled(pr.number.to_string(), Style::default().fg(pr_color)),
             Span::styled(format!(" ({pr_state}):"), Style::default().fg(pr_color)),
-        ]);
+        ];
+        if let Some(url) = pr.url.as_deref() {
+            pr_header_spans.push(Span::styled(" ", Style::default()));
+            pr_header_spans.push(Span::styled(url, Style::default().fg(text_muted())));
+        }
+        let pr_header = Line::from(pr_header_spans);
         Paragraph::new(pr_header).render(
             Rect {
                 x: inner.x,
