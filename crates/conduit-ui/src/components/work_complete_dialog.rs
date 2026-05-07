@@ -231,24 +231,23 @@ fn render_review(inner: Rect, buf: &mut Buffer, data: &WorkCompleteData, selecte
         y += 1;
 
         if let Some(pr_title) = pr.title.as_deref().filter(|t| !t.is_empty()) {
-            let title_indent = "    ";
-            let title_line = Line::from(vec![
-                Span::styled(title_indent, Style::default()),
-                Span::styled(pr_title, Style::default().fg(text_muted())),
-            ]);
-            let title_width = w.saturating_sub(title_indent.len() as u16);
+            let title_indent: u16 = 4;
+            let title_width = w.saturating_sub(title_indent);
             let title_height = text_height(pr_title.len(), title_width);
-            Paragraph::new(title_line)
-                .wrap(Wrap { trim: false })
-                .render(
-                    Rect {
-                        x: inner.x,
-                        y,
-                        width: w,
-                        height: title_height,
-                    },
-                    buf,
-                );
+            Paragraph::new(Line::from(Span::styled(
+                pr_title,
+                Style::default().fg(text_muted()),
+            )))
+            .wrap(Wrap { trim: false })
+            .render(
+                Rect {
+                    x: inner.x + title_indent,
+                    y,
+                    width: title_width,
+                    height: title_height,
+                },
+                buf,
+            );
             y += title_height;
         }
     }

@@ -12737,6 +12737,7 @@ fn run_work_complete_preflight(
     let pr = pr_preflight
         .existing_pr
         .as_ref()
+        .filter(|p| p.exists)
         .map(|p| crate::work_complete::PrData {
             number: p.number.unwrap_or(0),
             url: p.url.clone(),
