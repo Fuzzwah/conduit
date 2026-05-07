@@ -9,10 +9,11 @@
 - Sync local repo with remote (`git fetch origin`)
 - **Decision: Open issues available?**
   - YES → User selects an issue (or skips)
-    - If selected: agent is primed to gather issue context on activation
-  - NO → continue
-- **Decision: Incomplete OpenSpec changes available?**
-  - YES → User selects a change (or skips)
+    - If issue selected: agent is primed to gather issue context on activation → proceed to Workspace Created (no spec prompt)
+    - If skipped: continue to Incomplete Spec? check
+  - NO → continue to Incomplete Spec? check
+- **Decision: Incomplete Spec available?**
+  - YES → User selects a spec (or skips)
     - If selected: agent is primed to gather spec context on activation
   - NO → continue
 
@@ -23,10 +24,10 @@
 ## Phase 2: Workspace Configuration
 
 - Select agent provider and model
-- Select session start mode
+- Build or Plan Mode?
   - **Build mode:** agent works directly on a solution
   - **Plan mode:** agent creates a plan rather than implementing
-- Select orchestration setting
+- Orchestration On/Off
   - **Off:** single agent handles everything
   - **On:** sub-agent delegation enabled
 - **[Optional]** Save selections as project defaults
@@ -43,35 +44,26 @@
 - Agent renames the branch and sets workspace title to match issue context
 - **Build mode:** agent begins working on a solution immediately
 - **Plan mode:** agent begins creating a plan
+- User triggers Work Complete when done
 
 ### 3b. Spec-linked session
 
-- Agent automatically gathers context around the selected OpenSpec change
+- Agent automatically gathers context around the selected spec
 - Agent renames the branch and sets workspace title to match spec context
 - User runs the appropriate apply command (e.g. `/opsx:apply`) to begin implementation
+- User triggers Work Complete when done
 
 ### 3c. Unlinked session
 
 - User interacts with the agent freely on any topic
-
----
-
-### Session Outcomes
-
-All paths eventually lead to the Work Complete phase. Three common outcomes:
-
-**Simple exploration (no code changes)**
-→ User triggers Work Complete → no uncommitted changes detected → workspace archived instantly
-
-**Trivial change**
-→ User triggers Work Complete → agent creates PR → project proceeds through CI/CD / release process
-
-**More involved work**
-→ User triggers spec creation (e.g. `/opsx:propose`)
-- **Option A — work spec in current workspace (seamless, no reconfiguration)**
-  → Agent implements the spec → user archives the spec → user triggers Work Complete → create PR
-- **Option B — commit spec for use in a future workspace**
-  → Spec committed to repo via PR → spec available for selection when starting a new workspace later
+- When ready to wrap up, one of three outcomes applies:
+  - **Exploration / no changes** → Work Complete → no uncommitted changes detected → workspace archived instantly
+  - **Trivial change** → Work Complete → agent creates PR → project proceeds through CI/CD / release process
+  - **More involved work** → user triggers spec creation (e.g. `/opsx:propose`)
+    - **Option A — work spec in current workspace (seamless, no reconfiguration)**
+      → Agent implements the spec → user archives the spec → Work Complete → create PR
+    - **Option B — commit spec for use in a future workspace**
+      → Spec committed to repo via PR → spec available for selection when starting a new workspace later
 
 ---
 
