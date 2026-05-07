@@ -492,6 +492,16 @@ export function WorkCompleteDialog({
                     <span className="text-text-muted">
                       ({data.pr.is_merged ? 'merged' : data.pr.is_open ? 'open' : 'closed'})
                     </span>
+                    {data.pr.url && (
+                      <a
+                        href={data.pr.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="truncate text-text-muted hover:underline"
+                      >
+                        {data.pr.url}
+                      </a>
+                    )}
                     {data.pr.title && (
                       <span className="truncate text-text-muted">{data.pr.title}</span>
                     )}
