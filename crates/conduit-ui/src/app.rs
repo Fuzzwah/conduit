@@ -5070,10 +5070,19 @@ impl App {
             .and_then(|s| s.project_theme.as_deref());
 
         if let Some(name) = project_theme {
+            if crate::components::current_theme_name() == name {
+                return;
+            }
             if !crate::components::load_theme_by_name(name) {
                 tracing::warn!(theme = %name, "Failed to apply project theme; keeping current theme");
             }
         } else {
+            let desired = self.config().theme_name.as_deref().unwrap_or("Night Owl");
+            if self.config().theme_path.is_none()
+                && crate::components::current_theme_name() == desired
+            {
+                return;
+            }
             crate::components::init_theme(
                 self.config().theme_name.as_deref(),
                 self.config().theme_path.as_deref(),
@@ -5100,10 +5109,19 @@ impl App {
                 });
 
         if let Some(name) = theme_name {
+            if crate::components::current_theme_name() == name {
+                return;
+            }
             if !crate::components::load_theme_by_name(name) {
                 tracing::warn!(theme = %name, "Failed to apply sidebar selection theme");
             }
         } else {
+            let desired = self.config().theme_name.as_deref().unwrap_or("Night Owl");
+            if self.config().theme_path.is_none()
+                && crate::components::current_theme_name() == desired
+            {
+                return;
+            }
             crate::components::init_theme(
                 self.config().theme_name.as_deref(),
                 self.config().theme_path.as_deref(),
