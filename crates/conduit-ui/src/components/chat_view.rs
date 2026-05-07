@@ -519,6 +519,8 @@ pub struct ChatView {
     highlighted_code_block: Option<(usize, usize)>,
     /// Flat-cache line spans for each code block: (entry_idx, block_within, flat_start, flat_end)
     flat_code_block_spans: Vec<(usize, usize, usize, usize)>,
+    /// Height (in rows) occupied by the pinned agent message header during the last render
+    last_pin_height: usize,
 }
 
 /// Information about a hovered file path for rendering
@@ -560,6 +562,7 @@ impl ChatView {
             agent_label: "Claude".to_string(),
             flat_cache_entry_spans: Vec::new(),
             last_visible_height: 0,
+            last_pin_height: 0,
             code_block_cycle_idx: None,
             code_block_last_total: 0,
             highlighted_code_block: None,
@@ -712,7 +715,10 @@ impl ChatView {
         };
 
         let total = self.flat_cache.len();
-        let visible = self.last_visible_height;
+        // Subtract pinned header height so the scroll target doesn't land under the pin.
+        let visible = self
+            .last_visible_height
+            .saturating_sub(self.last_pin_height);
         let max_scroll = total.saturating_sub(visible);
 
         // Compute the current visible range [view_top, view_top + visible).
@@ -2748,6 +2754,7 @@ impl ChatView {
         } else {
             0
         };
+        self.last_pin_height = pin_total_height;
 
         // Scroll-space dimensions: exclude only the lines actually displayed in the pin
         // header from the cached line count. Lines beyond pin_content_height remain in
