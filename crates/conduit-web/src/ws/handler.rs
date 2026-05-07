@@ -282,6 +282,26 @@ impl SessionManager {
         let core_ref = self.core.clone();
         tokio::spawn(async move {
             while let Some(event) = handle.events.recv().await {
+                // Route auto-approval responses back to the agent's stdin; do not
+                // broadcast them to WebSocket clients.
+                if let AgentEvent::AutoControlResponse { ref payload } = event {
+                    let sessions = sessions_ref.read().await;
+                    if let Some(session) = sessions.get(&session_id) {
+                        if let Some(ref tx) = session.input_tx {
+                            if let Err(err) =
+                                tx.send(AgentInput::ClaudeJsonl(payload.clone())).await
+                            {
+                                tracing::debug!(
+                                    %session_id,
+                                    "AutoControlResponse dropped (agent shutting down): {}",
+                                    err
+                                );
+                            }
+                        }
+                    }
+                    continue;
+                }
+
                 if let AgentEvent::SessionInit(init) = &event {
                     if let Err(error) =
                         persist_agent_session_id(&core_ref, session_id, init.session_id.as_str())

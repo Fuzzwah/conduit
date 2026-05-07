@@ -466,9 +466,13 @@ impl AgentRunner for ClaudeCodeRunner {
 
         let (tx, rx) = mpsc::channel::<AgentEvent>(256);
         let tx_for_monitor = tx.clone();
-        let control_tx = input_tx.clone();
 
-        // Spawn JSONL parser task
+        // Spawn JSONL parser task.
+        // NOTE: we intentionally do NOT clone input_tx into this task. Holding a
+        // second sender would keep the stdin pipe open even after agent_input_tx is
+        // dropped, preventing the claude process from receiving EOF. Instead, control
+        // responses are forwarded as AutoControlResponse events and the consumer
+        // (app or web handler) writes them back to stdin via the tracked input_tx.
         tokio::spawn(async move {
             let (raw_tx, mut raw_rx) = mpsc::channel::<ClaudeRawEvent>(256);
             let tx_for_parser = tx.clone();
@@ -512,13 +516,7 @@ impl AgentRunner for ClaudeCodeRunner {
                                 if tx.send(event).await.is_err() {
                                     break 'outer;
                                 }
-                                if control_tx.is_none() {
-                                    tracing::warn!(
-                                        tool_name = tool_name,
-                                        "Control request for interactive tool received without stdin channel"
-                                    );
-                                }
-                            } else if let Some(ref tx) = control_tx {
+                            } else {
                                 let mut response_payload = serde_json::Map::new();
                                 response_payload.insert("behavior".to_string(), json!("allow"));
                                 response_payload.insert("updatedInput".to_string(), input.clone());
@@ -526,35 +524,31 @@ impl AgentRunner for ClaudeCodeRunner {
                                     response_payload
                                         .insert("toolUseID".to_string(), json!(tool_use_id));
                                 }
-                                if let Ok(response) = Self::build_control_response_jsonl(
+                                if let Ok(payload) = Self::build_control_response_jsonl(
                                     &request.request_id,
                                     serde_json::Value::Object(response_payload),
                                 ) {
-                                    if let Err(err) =
-                                        tx.send(AgentInput::ClaudeJsonl(response)).await
+                                    if tx
+                                        .send(AgentEvent::AutoControlResponse { payload })
+                                        .await
+                                        .is_err()
                                     {
-                                        tracing::warn!(
-                                            "Failed to respond to control request: {}",
-                                            err
-                                        );
+                                        break 'outer;
                                     }
                                 }
                             }
                         }
                         crate::stream::ClaudeControlRequestType::HookCallback { .. } => {
-                            if let Some(ref tx) = control_tx {
-                                if let Ok(response) = Self::build_control_response_jsonl(
-                                    &request.request_id,
-                                    json!({ "decision": "allow" }),
-                                ) {
-                                    if let Err(err) =
-                                        tx.send(AgentInput::ClaudeJsonl(response)).await
-                                    {
-                                        tracing::warn!(
-                                            "Failed to respond to hook callback: {}",
-                                            err
-                                        );
-                                    }
+                            if let Ok(payload) = Self::build_control_response_jsonl(
+                                &request.request_id,
+                                json!({ "decision": "allow" }),
+                            ) {
+                                if tx
+                                    .send(AgentEvent::AutoControlResponse { payload })
+                                    .await
+                                    .is_err()
+                                {
+                                    break 'outer;
                                 }
                             }
                         }

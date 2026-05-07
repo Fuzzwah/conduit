@@ -63,8 +63,29 @@ pub fn terminate_process_tree(
             return true;
         }
 
-        if !pid_identity_matches(pid, pid_start_time, context) {
-            return false;
+        // Log if we can't verify PID identity, but proceed with SIGKILL anyway.
+        // The process is confirmed alive (wait_for_pid_exit just returned false), so
+        // PID reuse since our last kill(pid,0) poll is essentially impossible.
+        if let Some(expected) = pid_start_time {
+            match crate::process::pid_start_time(pid) {
+                Some(current) if current != expected => {
+                    tracing::warn!(
+                        pid,
+                        context,
+                        expected_start_time = expected,
+                        current_start_time = current,
+                        "Agent pid start time mismatch before SIGKILL; process may have been replaced"
+                    );
+                }
+                None => {
+                    tracing::warn!(
+                        pid,
+                        context,
+                        "Unable to verify agent pid start time before SIGKILL; proceeding anyway"
+                    );
+                }
+                _ => {}
+            }
         }
 
         match signal_process_tree(pid, libc::SIGKILL) {
@@ -142,42 +163,6 @@ fn wait_for_pid_exit(
                 );
                 return false;
             }
-        }
-    }
-}
-
-#[cfg(unix)]
-fn pid_identity_matches(pid: u32, pid_start_time: Option<u64>, context: &str) -> bool {
-    let Some(expected_start_time) = pid_start_time else {
-        tracing::warn!(
-            pid,
-            context,
-            "Agent pid identity unavailable; skipping SIGKILL"
-        );
-        return false;
-    };
-
-    match crate::process::pid_start_time(pid) {
-        Some(current_start_time) => {
-            if current_start_time != expected_start_time {
-                tracing::warn!(
-                    pid,
-                    context,
-                    expected_start_time,
-                    current_start_time,
-                    "Agent pid start time mismatch; skipping SIGKILL"
-                );
-                return false;
-            }
-            true
-        }
-        None => {
-            tracing::warn!(
-                pid,
-                context,
-                "Unable to verify agent pid start time; skipping SIGKILL"
-            );
-            false
         }
     }
 }

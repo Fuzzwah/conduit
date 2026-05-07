@@ -50,6 +50,13 @@ pub enum AgentEvent {
 
     /// Raw/unknown event (for forward compatibility)
     Raw { data: serde_json::Value },
+
+    /// Auto-approval response for a non-interactive control request.
+    /// Internal plumbing: the JSONL parser emits this instead of holding a
+    /// clone of the stdin sender, which would keep stdin open after the
+    /// user-facing input channel is dropped. Consumers must route the payload
+    /// back to the agent's stdin and must NOT forward this to UI clients.
+    AutoControlResponse { payload: String },
 }
 
 impl AgentEvent {
@@ -71,6 +78,7 @@ impl AgentEvent {
             AgentEvent::ContextCompaction(_) => "ContextCompaction",
             AgentEvent::Error(_) => "Error",
             AgentEvent::Raw { .. } => "Raw",
+            AgentEvent::AutoControlResponse { .. } => "AutoControlResponse",
         }
     }
 }
