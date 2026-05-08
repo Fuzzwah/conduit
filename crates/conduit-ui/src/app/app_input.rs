@@ -802,10 +802,20 @@ impl App {
                 _ => Some(Vec::new()),
             },
 
-            P::Executing { .. } => {
-                // All keys are ignored while an action is in flight
+            P::Executing { .. } | P::MonitoringCi { .. } => {
+                // All keys are ignored while an action or CI monitoring is in flight
                 Some(Vec::new())
             }
+
+            P::Failed { .. } => match key.code {
+                KeyCode::Esc => {
+                    let effects = self.dispatch_work_complete_event(
+                        crate::work_complete::WorkCompleteEvent::Close,
+                    );
+                    Some(effects)
+                }
+                _ => Some(Vec::new()),
+            },
 
             P::Done => None, // dialog should already be closed; let key fall through
         }
