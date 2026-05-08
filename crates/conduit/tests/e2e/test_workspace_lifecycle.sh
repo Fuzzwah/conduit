@@ -40,11 +40,6 @@ mkdir -p "$DATA_DIR/workspaces/conduit/kind-mist"
   git checkout -b test/kind-mist
 ) >/dev/null 2>&1
 
-# Untracked file makes the workspace dirty so the confirmation dialog appears
-cat > "$DATA_DIR/workspaces/conduit/kind-mist/README.md" <<'EOF_FILE'
-LIFECYCLE TEST MARKER
-EOF_FILE
-
 cat > "$DATA_DIR/config.toml" <<EOF_CONFIG
 [tools]
 codex = "/bin/true"

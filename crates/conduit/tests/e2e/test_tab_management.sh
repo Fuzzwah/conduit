@@ -1,5 +1,5 @@
 #!/bin/bash
-# Test: Numbered tab navigation (Ctrl+1/2) and Ctrl+W close
+# Test: Numbered tab navigation (Alt+1/2) and Alt+Shift+W close
 
 set -euo pipefail
 
@@ -163,24 +163,24 @@ assert_contains "$sock" "live-jade" "Tab 2 (live-jade) visible"
 # Active tab indicator should be present
 assert_contains "$sock" "▸" "Active tab indicator visible"
 
-# Switch to tab 2 with Ctrl+2
-ctrl "$sock" "2"
+# Switch to tab 2 with Alt+2
+alt "$sock" "2"
 wait_idle "$sock" 300 3000 > /dev/null
 
-assert_contains "$sock" "live-jade" "live-jade tab still visible after Ctrl+2"
-assert_contains "$sock" "▸" "Active indicator still visible after Ctrl+2"
+assert_contains "$sock" "live-jade" "live-jade tab still visible after Alt+2"
+assert_contains "$sock" "▸" "Active indicator still visible after Alt+2"
 
-# Switch back to tab 1 with Ctrl+1
-ctrl "$sock" "1"
+# Switch back to tab 1 with Alt+1
+alt "$sock" "1"
 wait_idle "$sock" 300 3000 > /dev/null
 
-assert_contains "$sock" "kind-mist" "kind-mist tab still visible after Ctrl+1"
+assert_contains "$sock" "kind-mist" "kind-mist tab still visible after Alt+1"
 
-# Close the active tab (kind-mist) with Ctrl+W
-ctrl "$sock" "w"
+# Close the active tab (kind-mist) with Alt+Shift+W
+alt "$sock" "W"
 wait_idle "$sock" 500 5000 > /dev/null
 
-assert_not_contains "$sock" "kind-mist" "kind-mist tab gone after Ctrl+W"
+assert_not_contains "$sock" "kind-mist" "kind-mist tab gone after Alt+Shift+W"
 assert_contains "$sock" "live-jade" "live-jade tab remains after closing kind-mist"
 
-log_pass "Tab management: Ctrl+1/2 navigation and Ctrl+W close work correctly"
+log_pass "Tab management: Alt+1/2 navigation and Alt+Shift+W close work correctly"

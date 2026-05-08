@@ -196,9 +196,7 @@ press "$sock" "Down"
 press "$sock" "Enter"
 wait_idle "$sock" 500 5000 > /dev/null
 
-# Switch back to kind-mist
-ctrl "$sock" "t"
-wait_idle "$sock" 300 3000 > /dev/null
+# Switch back to kind-mist — open_workspace closes the sidebar, so one Ctrl+T reopens it
 ctrl "$sock" "t"
 wait_idle "$sock" 300 3000 > /dev/null
 press "$sock" "Up"
@@ -206,8 +204,6 @@ press "$sock" "Enter"
 wait_idle "$sock" 500 5000 > /dev/null
 
 # Switch to live-jade again (should not land on file tab)
-ctrl "$sock" "t"
-wait_idle "$sock" 300 3000 > /dev/null
 ctrl "$sock" "t"
 wait_idle "$sock" 300 3000 > /dev/null
 press "$sock" "Down"
