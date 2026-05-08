@@ -747,6 +747,67 @@ CREATE TABLE IF NOT EXISTS fork_seeds_new (
             conn.execute("ALTER TABLE repositories ADD COLUMN default_model TEXT", [])?;
         }
 
+        // Migration 23: Add adversarial_review_enabled and adversarial_review_model to workspaces and repositories.
+        let has_ws_adversarial_enabled: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('workspaces') WHERE name='adversarial_review_enabled'",
+                [],
+                |row| row.get::<_, i64>(0).map(|c| c > 0),
+            )
+            .unwrap_or(false);
+
+        if !has_ws_adversarial_enabled {
+            conn.execute(
+                "ALTER TABLE workspaces ADD COLUMN adversarial_review_enabled INTEGER",
+                [],
+            )?;
+        }
+
+        let has_ws_adversarial_model: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('workspaces') WHERE name='adversarial_review_model'",
+                [],
+                |row| row.get::<_, i64>(0).map(|c| c > 0),
+            )
+            .unwrap_or(false);
+
+        if !has_ws_adversarial_model {
+            conn.execute(
+                "ALTER TABLE workspaces ADD COLUMN adversarial_review_model TEXT",
+                [],
+            )?;
+        }
+
+        let has_repo_adversarial_enabled: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('repositories') WHERE name='adversarial_review_enabled'",
+                [],
+                |row| row.get::<_, i64>(0).map(|c| c > 0),
+            )
+            .unwrap_or(false);
+
+        if !has_repo_adversarial_enabled {
+            conn.execute(
+                "ALTER TABLE repositories ADD COLUMN adversarial_review_enabled INTEGER",
+                [],
+            )?;
+        }
+
+        let has_repo_adversarial_model: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('repositories') WHERE name='adversarial_review_model'",
+                [],
+                |row| row.get::<_, i64>(0).map(|c| c > 0),
+            )
+            .unwrap_or(false);
+
+        if !has_repo_adversarial_model {
+            conn.execute(
+                "ALTER TABLE repositories ADD COLUMN adversarial_review_model TEXT",
+                [],
+            )?;
+        }
+
         Ok(())
     }
 

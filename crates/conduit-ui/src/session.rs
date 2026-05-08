@@ -96,6 +96,10 @@ pub struct AgentSession {
     pub pending_context_warning: Option<ContextWarning>,
     /// Whether model orchestration is enabled for this session (Claude only)
     pub orchestration_enabled: bool,
+    /// Whether adversarial review is enabled for this session (Claude only)
+    pub adversarial_review_enabled: bool,
+    /// Model to use for the adversarial review sub-agent (None = use hard default)
+    pub adversarial_review_model: Option<String>,
     /// Active sub-agent delegation (set during Agent tool call, cleared on completion)
     pub delegated_agent: Option<DelegatedAgent>,
     /// Fork seed ID (if this tab was created via fork)
@@ -182,6 +186,8 @@ impl AgentSession {
             queue_selection: None,
             capabilities: AgentCapabilities::for_agent(agent_type),
             orchestration_enabled: false,
+            adversarial_review_enabled: false,
+            adversarial_review_model: None,
             delegated_agent: None,
             fork_seed_id: None,
             fork_welcome_shown: false,

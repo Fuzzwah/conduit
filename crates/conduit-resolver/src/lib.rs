@@ -17,10 +17,11 @@ pub enum ConduitCommand {
     Btw,
     Status,
     Rewind,
+    AdversarialReview,
 }
 
 impl ConduitCommand {
-    pub const ALL: [ConduitCommand; 9] = [
+    pub const ALL: [ConduitCommand; 10] = [
         ConduitCommand::Model,
         ConduitCommand::Reasoning,
         ConduitCommand::Providers,
@@ -30,6 +31,7 @@ impl ConduitCommand {
         ConduitCommand::Btw,
         ConduitCommand::Status,
         ConduitCommand::Rewind,
+        ConduitCommand::AdversarialReview,
     ];
 
     pub fn label(self) -> &'static str {
@@ -43,6 +45,7 @@ impl ConduitCommand {
             ConduitCommand::Btw => "/btw",
             ConduitCommand::Status => "/status",
             ConduitCommand::Rewind => "/rewind",
+            ConduitCommand::AdversarialReview => "/adversarial-review",
         }
     }
 
@@ -61,6 +64,7 @@ impl ConduitCommand {
             ConduitCommand::Btw => "Queue a note without interrupting",
             ConduitCommand::Status => "Show current session status",
             ConduitCommand::Rewind => "Remove the last turn from the conversation (Claude only)",
+            ConduitCommand::AdversarialReview => "Run adversarial code review on workspace changes",
         }
     }
 

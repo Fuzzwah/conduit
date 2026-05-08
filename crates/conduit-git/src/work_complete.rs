@@ -47,6 +47,8 @@ pub enum SuggestedAction {
     Archive,
     /// Open the spec's task list in the active agent session (TUI/web only; never executed server-side).
     ShowRemainingTasks,
+    /// Trigger an adversarial code review in the active agent session (TUI/web only; never executed server-side).
+    AdversarialReview,
 }
 
 /// Git state snapshot passed to the classifier.
@@ -99,6 +101,7 @@ pub fn classify(
     pr: Option<&PrSnapshot>,
     spec: Option<&SpecSnapshot>,
     issue: Option<&IssueSnapshot>,
+    adversarial_review_enabled: bool,
 ) -> (Scenario, Vec<SuggestedAction>) {
     let pr_open = pr.map(|p| p.is_open).unwrap_or(false);
     let pr_merged = pr.map(|p| p.is_merged).unwrap_or(false) || git.is_merged;
@@ -165,6 +168,10 @@ pub fn classify(
         } else if spec.total > 0 {
             actions.push(SuggestedAction::ShowRemainingTasks);
         }
+    }
+
+    if adversarial_review_enabled && (git.is_dirty || git.commits_ahead > 0) {
+        actions.push(SuggestedAction::AdversarialReview);
     }
 
     // Always offer archive at the end (except when there's still an open PR or uncommitted work
@@ -254,26 +261,26 @@ mod tests {
 
     #[test]
     fn clean_no_links_is_clean_ready() {
-        let (scenario, actions) = classify(&git(false, 0, false, true), None, None, None);
+        let (scenario, actions) = classify(&git(false, 0, false, true), None, None, None, false);
         assert_eq!(scenario, Scenario::CleanReady);
         assert_eq!(actions, vec![SuggestedAction::Archive]);
     }
 
     #[test]
     fn dirty_no_links_is_edits_no_link() {
-        let (scenario, _) = classify(&git(true, 0, false, true), None, None, None);
+        let (scenario, _) = classify(&git(true, 0, false, true), None, None, None, false);
         assert_eq!(scenario, Scenario::EditsNoLink);
     }
 
     #[test]
     fn commits_ahead_no_links_is_unpushed_commits() {
-        let (scenario, _) = classify(&git(false, 3, false, true), None, None, None);
+        let (scenario, _) = classify(&git(false, 3, false, true), None, None, None, false);
         assert_eq!(scenario, Scenario::UnpushedCommits);
     }
 
     #[test]
     fn dirty_and_commits_ahead_is_edits_no_link() {
-        let (scenario, _) = classify(&git(true, 3, false, true), None, None, None);
+        let (scenario, _) = classify(&git(true, 3, false, true), None, None, None, false);
         assert_eq!(scenario, Scenario::EditsNoLink);
     }
 
@@ -285,7 +292,8 @@ mod tests {
             is_merged: true,
             merge_readiness: crate::MergeReadiness::Ready,
         };
-        let (scenario, actions) = classify(&git(false, 2, false, true), Some(&pr), None, None);
+        let (scenario, actions) =
+            classify(&git(false, 2, false, true), Some(&pr), None, None, false);
         assert_eq!(scenario, Scenario::CleanReady);
         assert!(!actions.contains(&SuggestedAction::Push));
         assert!(actions.contains(&SuggestedAction::Archive));
@@ -294,28 +302,28 @@ mod tests {
     #[test]
     fn spec_complete_scenario() {
         let s = spec_complete("feat");
-        let (scenario, _) = classify(&git(false, 0, false, true), None, Some(&s), None);
+        let (scenario, _) = classify(&git(false, 0, false, true), None, Some(&s), None, false);
         assert_eq!(scenario, Scenario::SpecComplete);
     }
 
     #[test]
     fn spec_incomplete_scenario() {
         let s = spec_incomplete("feat");
-        let (scenario, _) = classify(&git(false, 0, false, true), None, Some(&s), None);
+        let (scenario, _) = classify(&git(false, 0, false, true), None, Some(&s), None, false);
         assert_eq!(scenario, Scenario::SpecIncomplete);
     }
 
     #[test]
     fn issue_open_scenario() {
         let i = issue_open(42);
-        let (scenario, _) = classify(&git(false, 0, false, true), None, None, Some(&i));
+        let (scenario, _) = classify(&git(false, 0, false, true), None, None, Some(&i), false);
         assert_eq!(scenario, Scenario::IssueOpen);
     }
 
     #[test]
     fn issue_closed_scenario() {
         let i = issue_closed(42);
-        let (scenario, _) = classify(&git(false, 0, false, true), None, None, Some(&i));
+        let (scenario, _) = classify(&git(false, 0, false, true), None, None, Some(&i), false);
         assert_eq!(scenario, Scenario::IssueClosed);
     }
 
@@ -324,34 +332,34 @@ mod tests {
     #[test]
     fn pr_closed_unmerged_still_suggests_open_pr() {
         let pr = pr_closed_unmerged();
-        let (_, actions) = classify(&git(false, 1, false, true), Some(&pr), None, None);
+        let (_, actions) = classify(&git(false, 1, false, true), Some(&pr), None, None, false);
         assert!(actions.contains(&SuggestedAction::OpenPr));
     }
 
     #[test]
     fn commits_ahead_no_upstream_suggests_push() {
-        let (_, actions) = classify(&git(false, 2, false, false), None, None, None);
+        let (_, actions) = classify(&git(false, 2, false, false), None, None, None, false);
         assert!(actions.contains(&SuggestedAction::Push));
     }
 
     #[test]
     fn spec_complete_includes_archive_spec() {
         let s = spec_complete("my-change");
-        let (_, actions) = classify(&git(false, 0, false, true), None, Some(&s), None);
+        let (_, actions) = classify(&git(false, 0, false, true), None, Some(&s), None, false);
         assert!(actions.contains(&SuggestedAction::ArchiveSpec));
     }
 
     #[test]
     fn spec_incomplete_does_not_suggest_archive_spec() {
         let s = spec_incomplete("my-change");
-        let (_, actions) = classify(&git(false, 0, false, true), None, Some(&s), None);
+        let (_, actions) = classify(&git(false, 0, false, true), None, Some(&s), None, false);
         assert!(!actions.contains(&SuggestedAction::ArchiveSpec));
     }
 
     #[test]
     fn issue_open_no_pr_suggests_close_issue() {
         let i = issue_open(10);
-        let (_, actions) = classify(&git(false, 0, false, true), None, None, Some(&i));
+        let (_, actions) = classify(&git(false, 0, false, true), None, None, Some(&i), false);
         assert!(actions.contains(&SuggestedAction::CloseIssue));
     }
 
@@ -359,7 +367,13 @@ mod tests {
     fn issue_open_with_open_pr_does_not_suggest_close_issue() {
         let pr = pr_open(5);
         let i = issue_open(10);
-        let (_, actions) = classify(&git(false, 0, false, true), Some(&pr), None, Some(&i));
+        let (_, actions) = classify(
+            &git(false, 0, false, true),
+            Some(&pr),
+            None,
+            Some(&i),
+            false,
+        );
         assert!(!actions.contains(&SuggestedAction::CloseIssue));
     }
 
@@ -367,7 +381,7 @@ mod tests {
     fn spec_and_issue_linked_simultaneously_spec_incomplete_wins() {
         let s = spec_incomplete("feat");
         let i = issue_open(99);
-        let (scenario, _) = classify(&git(true, 0, false, true), None, Some(&s), Some(&i));
+        let (scenario, _) = classify(&git(true, 0, false, true), None, Some(&s), Some(&i), false);
         assert_eq!(scenario, Scenario::SpecIncomplete);
     }
 
@@ -375,21 +389,21 @@ mod tests {
     fn spec_complete_with_open_issue_is_issue_open() {
         let s = spec_complete("feat");
         let i = issue_open(99);
-        let (scenario, _) = classify(&git(false, 0, false, true), None, Some(&s), Some(&i));
+        let (scenario, _) = classify(&git(false, 0, false, true), None, Some(&s), Some(&i), false);
         assert_eq!(scenario, Scenario::IssueOpen);
     }
 
     #[test]
     fn merged_branch_is_clean_ready() {
         let pr = pr_merged();
-        let (scenario, _) = classify(&git(false, 0, true, true), Some(&pr), None, None);
+        let (scenario, _) = classify(&git(false, 0, true, true), Some(&pr), None, None, false);
         assert_eq!(scenario, Scenario::CleanReady);
     }
 
     #[test]
     fn no_number_in_branch_name_infers_none() {
         // This tests infer_active_issue indirectly by verifying issue-less classify
-        let (scenario, _) = classify(&git(false, 0, false, true), None, None, None);
+        let (scenario, _) = classify(&git(false, 0, false, true), None, None, None, false);
         assert_eq!(scenario, Scenario::CleanReady);
     }
 }

@@ -70,6 +70,10 @@ pub struct Repository {
     pub default_provider: Option<String>,
     /// Per-project default model (None = inherit global config)
     pub default_model: Option<String>,
+    /// Per-project adversarial review enabled default (None = off)
+    pub adversarial_review_enabled: Option<bool>,
+    /// Per-project adversarial review model (None = use hard default "claude-sonnet-4-6")
+    pub adversarial_review_model: Option<String>,
 }
 
 impl Repository {
@@ -91,6 +95,8 @@ impl Repository {
             orchestration_enabled: None,
             default_provider: None,
             default_model: None,
+            adversarial_review_enabled: None,
+            adversarial_review_model: None,
         }
     }
 
@@ -112,6 +118,8 @@ impl Repository {
             orchestration_enabled: None,
             default_provider: None,
             default_model: None,
+            adversarial_review_enabled: None,
+            adversarial_review_model: None,
         }
     }
 
@@ -159,6 +167,10 @@ pub struct Workspace {
     pub mcp_disabled_servers: Option<Vec<String>>,
     /// Per-workspace orchestration default (None = inherit project/global config)
     pub orchestration_enabled: Option<bool>,
+    /// Per-workspace adversarial review enabled (None = inherit project config)
+    pub adversarial_review_enabled: Option<bool>,
+    /// Per-workspace adversarial review model (None = inherit project config or use hard default)
+    pub adversarial_review_model: Option<String>,
 }
 
 impl Workspace {
@@ -185,6 +197,8 @@ impl Workspace {
             active_issue_number: None,
             mcp_disabled_servers: None,
             orchestration_enabled: None,
+            adversarial_review_enabled: None,
+            adversarial_review_model: None,
         }
     }
 

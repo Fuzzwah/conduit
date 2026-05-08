@@ -27,8 +27,8 @@ impl RepositoryStore {
         let mcp_disabled_json =
             serde_json::to_string(&repo.mcp_disabled_servers).unwrap_or_else(|_| "[]".to_string());
         conn.execute(
-            "INSERT INTO repositories (id, name, base_path, repository_url, workspace_mode, archive_delete_branch, archive_remote_prompt, created_at, updated_at, mcp_disabled_servers, orchestration_enabled, default_provider, default_model)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+            "INSERT INTO repositories (id, name, base_path, repository_url, workspace_mode, archive_delete_branch, archive_remote_prompt, created_at, updated_at, mcp_disabled_servers, orchestration_enabled, default_provider, default_model, adversarial_review_enabled, adversarial_review_model)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
             params![
                 repo.id.to_string(),
                 repo.name,
@@ -45,6 +45,8 @@ impl RepositoryStore {
                 repo.orchestration_enabled.map(|v| v as i32),
                 repo.default_provider,
                 repo.default_model,
+                repo.adversarial_review_enabled.map(|v| v as i32),
+                repo.adversarial_review_model,
             ],
         )?;
         Ok(())
@@ -54,7 +56,7 @@ impl RepositoryStore {
     pub fn get_by_id(&self, id: Uuid) -> SqliteResult<Option<Repository>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, base_path, repository_url, workspace_mode, archive_delete_branch, archive_remote_prompt, created_at, updated_at, theme_name, mcp_disabled_servers, orchestration_enabled, default_provider, default_model
+            "SELECT id, name, base_path, repository_url, workspace_mode, archive_delete_branch, archive_remote_prompt, created_at, updated_at, theme_name, mcp_disabled_servers, orchestration_enabled, default_provider, default_model, adversarial_review_enabled, adversarial_review_model
              FROM repositories WHERE id = ?1",
         )?;
 
@@ -70,7 +72,7 @@ impl RepositoryStore {
     pub fn get_all(&self) -> SqliteResult<Vec<Repository>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, base_path, repository_url, workspace_mode, archive_delete_branch, archive_remote_prompt, created_at, updated_at, theme_name, mcp_disabled_servers, orchestration_enabled, default_provider, default_model
+            "SELECT id, name, base_path, repository_url, workspace_mode, archive_delete_branch, archive_remote_prompt, created_at, updated_at, theme_name, mcp_disabled_servers, orchestration_enabled, default_provider, default_model, adversarial_review_enabled, adversarial_review_model
              FROM repositories ORDER BY COALESCE(position, 999999), name",
         )?;
 
@@ -87,7 +89,7 @@ impl RepositoryStore {
         let mcp_disabled_json =
             serde_json::to_string(&repo.mcp_disabled_servers).unwrap_or_else(|_| "[]".to_string());
         conn.execute(
-            "UPDATE repositories SET name = ?2, base_path = ?3, repository_url = ?4, workspace_mode = ?5, archive_delete_branch = ?6, archive_remote_prompt = ?7, mcp_disabled_servers = ?8, orchestration_enabled = ?9, default_provider = ?10, default_model = ?11, updated_at = ?12
+            "UPDATE repositories SET name = ?2, base_path = ?3, repository_url = ?4, workspace_mode = ?5, archive_delete_branch = ?6, archive_remote_prompt = ?7, mcp_disabled_servers = ?8, orchestration_enabled = ?9, default_provider = ?10, default_model = ?11, updated_at = ?12, adversarial_review_enabled = ?13, adversarial_review_model = ?14
              WHERE id = ?1",
             params![
                 repo.id.to_string(),
@@ -104,6 +106,8 @@ impl RepositoryStore {
                 repo.default_provider,
                 repo.default_model,
                 Utc::now().to_rfc3339(),
+                repo.adversarial_review_enabled.map(|v| v as i32),
+                repo.adversarial_review_model,
             ],
         )?;
         Ok(())
@@ -136,7 +140,7 @@ impl RepositoryStore {
         let conn = self.conn.lock().unwrap();
         let path_str = path.to_string_lossy().to_string();
         let mut stmt = conn.prepare(
-            "SELECT id, name, base_path, repository_url, workspace_mode, archive_delete_branch, archive_remote_prompt, created_at, updated_at, theme_name, mcp_disabled_servers, orchestration_enabled, default_provider, default_model
+            "SELECT id, name, base_path, repository_url, workspace_mode, archive_delete_branch, archive_remote_prompt, created_at, updated_at, theme_name, mcp_disabled_servers, orchestration_enabled, default_provider, default_model, adversarial_review_enabled, adversarial_review_model
              FROM repositories WHERE base_path = ?1",
         )?;
 
@@ -162,6 +166,8 @@ impl RepositoryStore {
         let orchestration_raw: Option<i64> = row.get(11)?;
         let default_provider: Option<String> = row.get(12)?;
         let default_model: Option<String> = row.get(13)?;
+        let adversarial_review_enabled_raw: Option<i64> = row.get(14)?;
+        let adversarial_review_model: Option<String> = row.get(15)?;
 
         let workspace_mode = match workspace_mode_raw {
             None => None,
@@ -204,6 +210,8 @@ impl RepositoryStore {
             orchestration_enabled: orchestration_raw.map(|v| v != 0),
             default_provider,
             default_model,
+            adversarial_review_enabled: adversarial_review_enabled_raw.map(|v| v != 0),
+            adversarial_review_model,
         })
     }
 

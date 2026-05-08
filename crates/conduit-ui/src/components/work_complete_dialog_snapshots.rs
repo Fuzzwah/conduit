@@ -59,6 +59,7 @@ mod tests {
             issue: None,
             scenario: Scenario::CleanReady,
             suggested_actions: vec![SuggestedAction::Archive],
+            adversarial_review_model: None,
         }
     }
 

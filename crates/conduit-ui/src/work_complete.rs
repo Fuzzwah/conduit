@@ -26,6 +26,8 @@ pub struct WorkCompleteSession {
     pub selected_action_idx: usize,
     /// Text being typed in the commit message input.
     pub commit_message_input: String,
+    /// Action that triggered a SendAgentPrompt command (used by app.rs to build the prompt).
+    pub pending_agent_action: Option<SuggestedAction>,
 }
 
 impl WorkCompleteSession {
@@ -37,6 +39,7 @@ impl WorkCompleteSession {
             log: Vec::new(),
             selected_action_idx: 0,
             commit_message_input: String::new(),
+            pending_agent_action: None,
         }
     }
 }
@@ -58,6 +61,7 @@ pub struct WorkCompleteData {
     pub issue: Option<IssueData>,
     pub scenario: Scenario,
     pub suggested_actions: Vec<SuggestedAction>,
+    pub adversarial_review_model: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -126,7 +130,7 @@ pub enum ForceKind {
 #[derive(Debug, Clone)]
 pub enum WorkCompleteEvent {
     /// Preflight finished successfully.
-    PreflightLoaded(WorkCompleteData),
+    PreflightLoaded(Box<WorkCompleteData>),
     /// Preflight errored.
     PreflightFailed(String),
     /// User picked an action from the list.
@@ -283,6 +287,11 @@ fn select_action(
         return (P::Done, vec![C::SendAgentPrompt(String::new()), C::Close]);
     }
 
+    if action == SuggestedAction::AdversarialReview {
+        // app.rs builds the review prompt from session.data (PR info and model)
+        return (P::Done, vec![C::SendAgentPrompt(String::new()), C::Close]);
+    }
+
     (P::Executing { action }, vec![C::ExecuteAction(action)])
 }
 
@@ -347,6 +356,7 @@ mod tests {
             issue: None,
             scenario,
             suggested_actions: vec![SuggestedAction::Archive],
+            adversarial_review_model: None,
         }
     }
 
@@ -354,7 +364,7 @@ mod tests {
     fn preflight_loaded_transitions_to_reviewing() {
         let (phase, cmds) = transition(
             &WorkCompletePhase::LoadingPreflight,
-            WorkCompleteEvent::PreflightLoaded(data(Scenario::CleanReady)),
+            WorkCompleteEvent::PreflightLoaded(Box::new(data(Scenario::CleanReady))),
         );
         assert_eq!(phase, reviewing(Scenario::CleanReady));
         assert!(cmds.is_empty());
@@ -611,7 +621,7 @@ mod tests {
         let phase = reviewing(Scenario::CleanReady);
         let (next, cmds) = transition(
             &phase,
-            WorkCompleteEvent::PreflightLoaded(data(Scenario::EditsNoLink)),
+            WorkCompleteEvent::PreflightLoaded(Box::new(data(Scenario::EditsNoLink))),
         );
         assert_eq!(next, phase);
         assert!(cmds.is_empty());
@@ -622,7 +632,7 @@ mod tests {
         // LoadingPreflight → ReviewingState
         let (phase, _) = transition(
             &WorkCompletePhase::LoadingPreflight,
-            WorkCompleteEvent::PreflightLoaded(data(Scenario::EditsNoLink)),
+            WorkCompleteEvent::PreflightLoaded(Box::new(data(Scenario::EditsNoLink))),
         );
         assert_eq!(phase, reviewing(Scenario::EditsNoLink));
 

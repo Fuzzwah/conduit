@@ -2372,7 +2372,7 @@ impl App {
                     let event_tx = self.event_tx.clone();
 
                     tokio::spawn(async move {
-                        match runner.start(config).await {
+                        match runner.start(*config).await {
                             Ok(mut handle) => {
                                 // Send PID (and input channel when available) to main app for interrupt support
                                 let pid = handle.pid;
@@ -3540,7 +3540,8 @@ impl App {
             ConduitCommand::NewSession
             | ConduitCommand::Btw
             | ConduitCommand::Status
-            | ConduitCommand::Rewind => None,
+            | ConduitCommand::Rewind
+            | ConduitCommand::AdversarialReview => None,
         }
     }
 
@@ -3566,6 +3567,9 @@ impl App {
         } else if matches!(command, ConduitCommand::Btw) {
             self.open_queue_editor();
             Ok(Vec::new())
+        } else if matches!(command, ConduitCommand::AdversarialReview) {
+            let prompt = build_adversarial_review_prompt();
+            self.submit_prompt(prompt, vec![], vec![])
         } else {
             Ok(Vec::new())
         }
@@ -4028,7 +4032,14 @@ impl App {
         }
 
         // Get the repository name, ID, project theme, and orchestration default for the tab
-        let (project_name, repository_id, project_theme, repo_orchestration) = self
+        let (
+            project_name,
+            repository_id,
+            project_theme,
+            repo_orchestration,
+            repo_adversarial_review_enabled,
+            repo_adversarial_review_model,
+        ) = self
             .repo_dao()
             .and_then(|dao| dao.get_by_id(workspace.repository_id).ok().flatten())
             .map(|repo| {
@@ -4037,9 +4048,11 @@ impl App {
                     Some(repo.id),
                     repo.theme_name,
                     repo.orchestration_enabled,
+                    repo.adversarial_review_enabled,
+                    repo.adversarial_review_model,
                 )
             })
-            .unwrap_or((None, None, None, None));
+            .unwrap_or((None, None, None, None, None, None));
 
         // Check if there's a saved session for this workspace (to restore chat history)
         let saved_tab = self
@@ -4303,6 +4316,14 @@ impl App {
                     .orchestration_enabled
                     .or(repo_orchestration)
                     .unwrap_or(global_orchestration_default);
+                session.adversarial_review_enabled = workspace
+                    .adversarial_review_enabled
+                    .or(repo_adversarial_review_enabled)
+                    .unwrap_or(false);
+                session.adversarial_review_model = workspace
+                    .adversarial_review_model
+                    .clone()
+                    .or(repo_adversarial_review_model.clone());
             }
 
             session.update_status();
@@ -5282,11 +5303,21 @@ impl App {
         };
 
         let workspace_id = session.workspace_id;
+        let action_from_event = if let E::ActionSelected(a) = &event {
+            Some(*a)
+        } else {
+            None
+        };
         let (next_phase, commands) =
             crate::work_complete::transition(&session.phase, event.clone());
 
         if let Some(session) = self.state.work_complete_session.as_mut() {
             session.phase = next_phase;
+            if let Some(action) = action_from_event {
+                if commands.iter().any(|c| matches!(c, C::SendAgentPrompt(_))) {
+                    session.pending_agent_action = Some(action);
+                }
+            }
         }
 
         let mut effects = vec![];
@@ -5330,7 +5361,17 @@ impl App {
                     });
                 }
                 C::SendAgentPrompt(_) => {
-                    if let Some(change_id) = self
+                    let pending_action = self
+                        .state
+                        .work_complete_session
+                        .as_ref()
+                        .and_then(|s| s.pending_agent_action);
+                    if pending_action == Some(conduit_git::SuggestedAction::AdversarialReview) {
+                        let prompt = build_adversarial_review_prompt();
+                        if let Ok(mut e) = self.submit_prompt(prompt, vec![], vec![]) {
+                            effects.append(&mut e);
+                        }
+                    } else if let Some(change_id) = self
                         .state
                         .work_complete_session
                         .as_ref()
@@ -5387,6 +5428,8 @@ impl App {
                         model_id: cfg.model_id.clone(),
                         mode: cfg.mode,
                         orchestration_enabled: cfg.orchestration_enabled,
+                        adversarial_review_enabled: cfg.adversarial_review_enabled,
+                        adversarial_review_model: Some(cfg.adversarial_review_model.clone()),
                     },
                     cfg.save_as_project_default,
                 )
@@ -5409,6 +5452,8 @@ impl App {
                             repo.default_provider = Some(cfg.provider.as_str().to_string());
                             repo.default_model = Some(cfg.model_id.clone());
                             repo.orchestration_enabled = Some(cfg.orchestration_enabled);
+                            repo.adversarial_review_enabled = Some(cfg.adversarial_review_enabled);
+                            repo.adversarial_review_model = cfg.adversarial_review_model.clone();
                             if let Err(err) = repo_dao.update(&repo) {
                                 tracing::warn!("Failed to save project defaults: {err}");
                             }
@@ -5430,6 +5475,8 @@ impl App {
                     session.agent_mode = cfg.mode;
                     if cfg.provider == AgentType::Claude {
                         session.orchestration_enabled = cfg.orchestration_enabled;
+                        session.adversarial_review_enabled = cfg.adversarial_review_enabled;
+                        session.adversarial_review_model = cfg.adversarial_review_model.clone();
                     }
                     session.update_status();
                 }
@@ -5485,6 +5532,39 @@ impl App {
             "Select Model".to_string(),
         );
         self.state.model_picker_context = ModelPickerContext::WorkspaceReadyConfig;
+        self.state.input_mode = InputMode::SelectingModel;
+    }
+
+    pub(crate) fn open_workspace_ready_adversarial_model_selector(&mut self) {
+        let provider = self
+            .state
+            .workspace_progress_dialog_state
+            .config
+            .as_ref()
+            .map(|c| c.provider)
+            .unwrap_or_else(|| {
+                self.preferred_provider_for_new_sessions()
+                    .unwrap_or(AgentType::Claude)
+            });
+        let current_model = self
+            .state
+            .workspace_progress_dialog_state
+            .config
+            .as_ref()
+            .map(|c| c.adversarial_review_model.clone());
+        let defaults = DefaultModelSelection {
+            agent_type: Some(AgentType::Claude),
+            model_id: current_model.clone(),
+        };
+        self.state
+            .model_selector_state
+            .set_allowed_providers(Some(vec![provider]));
+        self.state.model_selector_state.show_with_title(
+            current_model,
+            defaults,
+            "Select Adversarial Review Model".to_string(),
+        );
+        self.state.model_picker_context = ModelPickerContext::WorkspaceReadyAdversarialConfig;
         self.state.input_mode = InputMode::SelectingModel;
     }
 
@@ -6710,7 +6790,10 @@ impl App {
                 self.state.model_picker_context = ModelPickerContext::SessionSelection;
                 self.reopen_settings_menu();
                 return effects;
-            } else if self.state.model_picker_context == ModelPickerContext::WorkspaceReadyConfig {
+            } else if self.state.model_picker_context == ModelPickerContext::WorkspaceReadyConfig
+                || self.state.model_picker_context
+                    == ModelPickerContext::WorkspaceReadyAdversarialConfig
+            {
                 self.state.model_picker_context = ModelPickerContext::SessionSelection;
                 self.state.input_mode = InputMode::CreatingWorkspace;
                 return effects;
@@ -6783,6 +6866,18 @@ impl App {
                         self.state
                             .workspace_progress_dialog_state
                             .update_model(model.id.clone());
+                        self.state.model_selector_state.hide();
+                        self.state.model_picker_context = ModelPickerContext::SessionSelection;
+                        self.state.input_mode = InputMode::CreatingWorkspace;
+                        return effects;
+                    }
+
+                    if self.state.model_picker_context
+                        == ModelPickerContext::WorkspaceReadyAdversarialConfig
+                    {
+                        self.state
+                            .workspace_progress_dialog_state
+                            .update_adversarial_model(model.id.clone());
                         self.state.model_selector_state.hide();
                         self.state.model_picker_context = ModelPickerContext::SessionSelection;
                         self.state.input_mode = InputMode::CreatingWorkspace;
@@ -7279,11 +7374,24 @@ impl App {
                         let global_provider = self
                             .preferred_provider_for_new_sessions()
                             .unwrap_or(AgentType::Claude);
-                        let (resolved_provider, resolved_model, resolved_orch) = {
-                            let workspace_orch = self
+                        let (
+                            resolved_provider,
+                            resolved_model,
+                            resolved_orch,
+                            resolved_ar_enabled,
+                            resolved_ar_model,
+                        ) = {
+                            let workspace = self
                                 .workspace_dao()
-                                .and_then(|dao| dao.get_by_id(created.workspace_id).ok().flatten())
-                                .and_then(|ws| ws.orchestration_enabled);
+                                .and_then(|dao| dao.get_by_id(created.workspace_id).ok().flatten());
+                            let workspace_orch =
+                                workspace.as_ref().and_then(|ws| ws.orchestration_enabled);
+                            let workspace_ar_enabled = workspace
+                                .as_ref()
+                                .and_then(|ws| ws.adversarial_review_enabled);
+                            let workspace_ar_model = workspace
+                                .as_ref()
+                                .and_then(|ws| ws.adversarial_review_model.clone());
                             let repo = self
                                 .repo_dao()
                                 .and_then(|dao| dao.get_by_id(created.repo_id).ok().flatten());
@@ -7293,6 +7401,11 @@ impl App {
                                 .map(AgentType::parse);
                             let repo_model = repo.as_ref().and_then(|r| r.default_model.clone());
                             let repo_orch = repo.as_ref().and_then(|r| r.orchestration_enabled);
+                            let repo_ar_enabled =
+                                repo.as_ref().and_then(|r| r.adversarial_review_enabled);
+                            let repo_ar_model = repo
+                                .as_ref()
+                                .and_then(|r| r.adversarial_review_model.clone());
 
                             let provider = repo_provider.unwrap_or(global_provider);
                             let model = repo_model
@@ -7300,13 +7413,20 @@ impl App {
                             let orch = workspace_orch
                                 .or(repo_orch)
                                 .unwrap_or(self.config().orchestration.enabled_by_default);
-                            (provider, model, orch)
+                            let ar_enabled =
+                                workspace_ar_enabled.or(repo_ar_enabled).unwrap_or(false);
+                            let ar_model = workspace_ar_model
+                                .or(repo_ar_model)
+                                .unwrap_or_else(|| "claude-sonnet-4-6".to_string());
+                            (provider, model, orch, ar_enabled, ar_model)
                         };
 
                         self.state.workspace_progress_dialog_state.finish(
                             resolved_provider,
                             resolved_model,
                             resolved_orch,
+                            resolved_ar_enabled,
+                            resolved_ar_model,
                         );
                     }
                     Err(ref err) => {
@@ -7532,7 +7652,9 @@ impl App {
                             session.data = Some(data.clone());
                         }
                         let sub_effects = self.dispatch_work_complete_event(
-                            crate::work_complete::WorkCompleteEvent::PreflightLoaded(data),
+                            crate::work_complete::WorkCompleteEvent::PreflightLoaded(Box::new(
+                                data,
+                            )),
                         );
                         effects.extend(sub_effects);
                     }
@@ -9319,6 +9441,8 @@ impl App {
             reasoning_effort,
             model_invalid,
             orchestration_enabled,
+            adversarial_review_enabled,
+            adversarial_review_model,
             session_id_to_use,
             working_dir,
             is_new_session_for_title,
@@ -9342,6 +9466,8 @@ impl App {
             let model = session.model.clone();
             let reasoning_effort = session.reasoning_effort;
             let orchestration_enabled = session.orchestration_enabled;
+            let adversarial_review_enabled = session.adversarial_review_enabled;
+            let adversarial_review_model = session.adversarial_review_model.clone();
             let model_invalid = session.model_invalid;
             // Use agent_session_id if available (set by agent after first prompt)
             // Fall back to resume_session_id (clone, don't take - we consume it later)
@@ -9377,6 +9503,8 @@ impl App {
                 reasoning_effort,
                 model_invalid,
                 orchestration_enabled,
+                adversarial_review_enabled,
+                adversarial_review_model,
                 session_id_to_use,
                 working_dir,
                 !has_visible_user_message,
@@ -9700,6 +9828,16 @@ impl App {
         }
         if agent_type == AgentType::Claude {
             config = config.with_orchestration(orchestration_enabled);
+            if adversarial_review_enabled {
+                let model =
+                    adversarial_review_model.unwrap_or_else(|| "claude-sonnet-4-6".to_string());
+                config = config.with_adversarial_review(
+                    conduit_agent::orchestration::AdversarialReviewConfig {
+                        enabled: true,
+                        model,
+                    },
+                );
+            }
         }
 
         // Structured stdin payload (used for tool results / stream-json input)
@@ -9725,7 +9863,7 @@ impl App {
         effects.push(Effect::StartAgent {
             session_id,
             agent_type,
-            config,
+            config: Box::new(config),
         });
 
         // Generate title on first user message of a NEW session (no title yet, not already pending)
@@ -12831,6 +12969,19 @@ impl SessionPersistenceReport {
     }
 }
 
+fn build_adversarial_review_prompt() -> String {
+    "Perform an adversarial code review of the changes in this workspace.\n\n\
+Steps:\n\
+1. Check for an open PR: `gh pr view --json url,number,title 2>/dev/null`\n\
+2. If a PR exists, get the full diff: `gh pr diff`\n\
+   Otherwise get local branch changes: \
+`git diff $(git merge-base HEAD origin/master 2>/dev/null || echo HEAD)..HEAD`\n\
+3. Use the conduit-adversarial-review sub-agent to analyse the diff critically.\n\
+4. Report findings by severity: CRITICAL / HIGH / MEDIUM / LOW.\n\
+5. For every CRITICAL or HIGH finding, offer to fix it immediately."
+        .to_string()
+}
+
 /// Blocking helper that collects all inputs for the Work Complete preflight.
 fn run_work_complete_preflight(
     workspace_id: uuid::Uuid,
@@ -12853,7 +13004,7 @@ fn run_work_complete_preflight(
         .map_err(|e| format!("Failed to load workspace: {e}"))?
         .ok_or("Workspace not found")?;
 
-    let _repo = repo_dao
+    let repo = repo_dao
         .get_by_id(workspace.repository_id)
         .map_err(|e| format!("Failed to load repository: {e}"))?
         .ok_or("Repository not found")?;
@@ -12953,11 +13104,17 @@ fn run_work_complete_preflight(
         source: i.source,
     });
 
+    let adversarial_review_enabled = workspace
+        .adversarial_review_enabled
+        .or(repo.adversarial_review_enabled)
+        .unwrap_or(false);
+
     let (scenario, suggested_actions) = classify(
         &git_state,
         pr_snapshot.as_ref(),
         spec_snapshot.as_ref(),
         issue_snapshot.as_ref(),
+        adversarial_review_enabled,
     );
 
     Ok(crate::work_complete::WorkCompleteData {
@@ -12973,6 +13130,9 @@ fn run_work_complete_preflight(
         issue,
         scenario,
         suggested_actions,
+        adversarial_review_model: workspace
+            .adversarial_review_model
+            .or(repo.adversarial_review_model),
     })
 }
 
@@ -13102,6 +13262,9 @@ fn run_work_complete_action(
         }
         SuggestedAction::ShowRemainingTasks => Err(
             "ShowRemainingTasks is handled by the TUI and should not be executed here".to_string(),
+        ),
+        SuggestedAction::AdversarialReview => Err(
+            "AdversarialReview is handled by the TUI and should not be executed here".to_string(),
         ),
     }
 }

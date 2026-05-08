@@ -27,8 +27,8 @@ impl WorkspaceStore {
             .as_ref()
             .map(|v| serde_json::to_string(v).unwrap_or_else(|_| "[]".to_string()));
         conn.execute(
-            "INSERT INTO workspaces (id, repository_id, name, branch, path, created_at, last_accessed, is_default, active_change_id, active_issue_number, mcp_disabled_servers, orchestration_enabled)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            "INSERT INTO workspaces (id, repository_id, name, branch, path, created_at, last_accessed, is_default, active_change_id, active_issue_number, mcp_disabled_servers, orchestration_enabled, adversarial_review_enabled, adversarial_review_model)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
             params![
                 workspace.id.to_string(),
                 workspace.repository_id.to_string(),
@@ -42,6 +42,8 @@ impl WorkspaceStore {
                 workspace.active_issue_number,
                 mcp_disabled_json,
                 workspace.orchestration_enabled.map(|v| v as i32),
+                workspace.adversarial_review_enabled.map(|v| v as i32),
+                workspace.adversarial_review_model,
             ],
         )?;
         Ok(())
@@ -51,7 +53,7 @@ impl WorkspaceStore {
     pub fn get_by_id(&self, id: Uuid) -> SqliteResult<Option<Workspace>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, repository_id, name, branch, path, created_at, last_accessed, is_default, archived_at, archived_commit_sha, active_change_id, active_issue_number, mcp_disabled_servers, orchestration_enabled
+            "SELECT id, repository_id, name, branch, path, created_at, last_accessed, is_default, archived_at, archived_commit_sha, active_change_id, active_issue_number, mcp_disabled_servers, orchestration_enabled, adversarial_review_enabled, adversarial_review_model
              FROM workspaces WHERE id = ?1",
         )?;
 
@@ -67,7 +69,7 @@ impl WorkspaceStore {
     pub fn get_by_repository(&self, repository_id: Uuid) -> SqliteResult<Vec<Workspace>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, repository_id, name, branch, path, created_at, last_accessed, is_default, archived_at, archived_commit_sha, active_change_id, active_issue_number, mcp_disabled_servers, orchestration_enabled
+            "SELECT id, repository_id, name, branch, path, created_at, last_accessed, is_default, archived_at, archived_commit_sha, active_change_id, active_issue_number, mcp_disabled_servers, orchestration_enabled, adversarial_review_enabled, adversarial_review_model
              FROM workspaces WHERE repository_id = ?1 AND archived_at IS NULL ORDER BY is_default DESC, name",
         )?;
 
@@ -121,7 +123,7 @@ impl WorkspaceStore {
     pub fn get_all(&self) -> SqliteResult<Vec<Workspace>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, repository_id, name, branch, path, created_at, last_accessed, is_default, archived_at, archived_commit_sha, active_change_id, active_issue_number, mcp_disabled_servers, orchestration_enabled
+            "SELECT id, repository_id, name, branch, path, created_at, last_accessed, is_default, archived_at, archived_commit_sha, active_change_id, active_issue_number, mcp_disabled_servers, orchestration_enabled, adversarial_review_enabled, adversarial_review_model
              FROM workspaces WHERE archived_at IS NULL ORDER BY repository_id, is_default DESC, name",
         )?;
 
@@ -151,7 +153,7 @@ impl WorkspaceStore {
             .as_ref()
             .map(|v| serde_json::to_string(v).unwrap_or_else(|_| "[]".to_string()));
         conn.execute(
-            "UPDATE workspaces SET name = ?2, branch = ?3, path = ?4, last_accessed = ?5, is_default = ?6, mcp_disabled_servers = ?7, orchestration_enabled = ?8
+            "UPDATE workspaces SET name = ?2, branch = ?3, path = ?4, last_accessed = ?5, is_default = ?6, mcp_disabled_servers = ?7, orchestration_enabled = ?8, adversarial_review_enabled = ?9, adversarial_review_model = ?10
              WHERE id = ?1",
             params![
                 workspace.id.to_string(),
@@ -162,6 +164,8 @@ impl WorkspaceStore {
                 workspace.is_default as i32,
                 mcp_disabled_json,
                 workspace.orchestration_enabled.map(|v| v as i32),
+                workspace.adversarial_review_enabled.map(|v| v as i32),
+                workspace.adversarial_review_model,
             ],
         )?;
         Ok(())
@@ -194,7 +198,7 @@ impl WorkspaceStore {
         let conn = self.conn.lock().unwrap();
         let path_str = path.to_string_lossy().to_string();
         let mut stmt = conn.prepare(
-            "SELECT id, repository_id, name, branch, path, created_at, last_accessed, is_default, archived_at, archived_commit_sha, active_change_id, active_issue_number, mcp_disabled_servers, orchestration_enabled
+            "SELECT id, repository_id, name, branch, path, created_at, last_accessed, is_default, archived_at, archived_commit_sha, active_change_id, active_issue_number, mcp_disabled_servers, orchestration_enabled, adversarial_review_enabled, adversarial_review_model
              FROM workspaces WHERE path = ?1",
         )?;
 
@@ -213,7 +217,7 @@ impl WorkspaceStore {
     ) -> SqliteResult<Option<Workspace>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, repository_id, name, branch, path, created_at, last_accessed, is_default, archived_at, archived_commit_sha, active_change_id, active_issue_number, mcp_disabled_servers, orchestration_enabled
+            "SELECT id, repository_id, name, branch, path, created_at, last_accessed, is_default, archived_at, archived_commit_sha, active_change_id, active_issue_number, mcp_disabled_servers, orchestration_enabled, adversarial_review_enabled, adversarial_review_model
              FROM workspaces WHERE repository_id = ?1 AND is_default = 1 AND archived_at IS NULL",
         )?;
 
@@ -269,6 +273,10 @@ impl WorkspaceStore {
             mcp_disabled_raw.and_then(|s| serde_json::from_str(&s).ok());
         let orchestration_raw: Option<i64> = row.get(13)?;
         let orchestration_enabled: Option<bool> = orchestration_raw.map(|v| v != 0);
+        let adversarial_review_enabled_raw: Option<i64> = row.get(14)?;
+        let adversarial_review_enabled: Option<bool> =
+            adversarial_review_enabled_raw.map(|v| v != 0);
+        let adversarial_review_model: Option<String> = row.get(15)?;
 
         Ok(Workspace {
             id: Uuid::parse_str(&id_str).unwrap_or_else(|_| Uuid::new_v4()),
@@ -278,6 +286,8 @@ impl WorkspaceStore {
             path: PathBuf::from(path_str),
             mcp_disabled_servers,
             orchestration_enabled,
+            adversarial_review_enabled,
+            adversarial_review_model,
             created_at: DateTime::parse_from_rfc3339(&created_at_str)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),

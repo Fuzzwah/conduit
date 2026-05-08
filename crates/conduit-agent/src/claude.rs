@@ -373,7 +373,7 @@ impl AgentRunner for ClaudeCodeRunner {
 
     async fn start(&self, mut config: AgentStartConfig) -> Result<AgentHandle, AgentError> {
         if config.orchestration_enabled {
-            crate::orchestration::ensure_orchestration_agents()?;
+            crate::orchestration::ensure_orchestration_agents(config.adversarial_review.clone())?;
             let instructions = crate::orchestration::orchestration_instructions();
             if !config.prompt.is_empty() {
                 config.prompt.push_str("\n\n---\n");

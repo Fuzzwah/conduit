@@ -99,6 +99,9 @@ impl App {
                                 1 => {
                                     self.open_workspace_ready_model_selector();
                                 }
+                                5 => {
+                                    self.open_workspace_ready_adversarial_model_selector();
+                                }
                                 _ => {
                                     return Ok(self.close_workspace_progress_dialog());
                                 }
@@ -117,6 +120,11 @@ impl App {
                                         .toggle_orchestration();
                                 }
                                 4 => {
+                                    self.state
+                                        .workspace_progress_dialog_state
+                                        .toggle_adversarial_review();
+                                }
+                                6 => {
                                     self.state
                                         .workspace_progress_dialog_state
                                         .toggle_save_default();

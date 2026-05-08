@@ -2,6 +2,13 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 
+/// Configuration for the adversarial review sub-agent.
+#[derive(Debug, Clone)]
+pub struct AdversarialReviewConfig {
+    pub enabled: bool,
+    pub model: String,
+}
+
 const EXPLORE_AGENT_DEF: &str = "\
 ---
 name: conduit-explore
@@ -17,6 +24,30 @@ Rules:
 - When multiple independent searches could run in parallel, use parallel tool calls in a single turn
 - Do not edit files
 - Return results immediately without narration
+";
+
+const ADVERSARIAL_REVIEW_AGENT_DEF_TEMPLATE: &str = "\
+---
+name: conduit-adversarial-review
+description: Adversarial code reviewer that challenges changes from a critical perspective. Use to get a rigorous second opinion on correctness, security, and quality.
+model: {MODEL}
+---
+
+You are an adversarial code reviewer. Your goal is to find problems — approach the diff with skepticism.
+
+Review for:
+- Correctness: logic errors, wrong assumptions, unhandled edge cases
+- Security: injection, auth bypass, data exposure, insecure defaults
+- Concurrency: race conditions, deadlocks, unsafe shared state (especially in async Rust)
+- Error handling: unchecked errors, incorrect fallbacks, panic paths
+- Performance: unnecessary allocations, blocking in async context, O(n²) patterns
+- API design: breaking changes, missing validation, inconsistent behaviour
+- Test coverage: missing edge case tests, incorrect assertions
+
+Be specific: cite file and line, explain why the issue matters, and suggest a fix.
+
+Return a structured report with severity ratings: CRITICAL / HIGH / MEDIUM / LOW.
+Do not repeat large code blocks — quote only the relevant line(s).
 ";
 
 const REVIEW_AGENT_DEF: &str = "\
@@ -41,7 +72,9 @@ fn claude_agents_dir() -> Option<PathBuf> {
     dirs::home_dir().map(|h| h.join(".claude").join("agents"))
 }
 
-pub fn ensure_orchestration_agents() -> io::Result<()> {
+pub fn ensure_orchestration_agents(
+    adversarial_review: Option<AdversarialReviewConfig>,
+) -> io::Result<()> {
     let dir = claude_agents_dir().ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::NotFound,
@@ -50,12 +83,12 @@ pub fn ensure_orchestration_agents() -> io::Result<()> {
     })?;
     fs::create_dir_all(&dir)?;
 
-    let files = [
+    let fixed_files = [
         ("conduit-explore.md", EXPLORE_AGENT_DEF),
         ("conduit-review.md", REVIEW_AGENT_DEF),
     ];
 
-    for (name, content) in files {
+    for (name, content) in fixed_files {
         let path = dir.join(name);
         let needs_write = match fs::read_to_string(&path) {
             Ok(existing) => existing != content,
@@ -63,6 +96,20 @@ pub fn ensure_orchestration_agents() -> io::Result<()> {
         };
         if needs_write {
             fs::write(&path, content)?;
+        }
+    }
+
+    if let Some(cfg) = adversarial_review {
+        if cfg.enabled {
+            let content = ADVERSARIAL_REVIEW_AGENT_DEF_TEMPLATE.replace("{MODEL}", &cfg.model);
+            let path = dir.join("conduit-adversarial-review.md");
+            let needs_write = match fs::read_to_string(&path) {
+                Ok(existing) => existing != content,
+                Err(_) => true,
+            };
+            if needs_write {
+                fs::write(&path, content)?;
+            }
         }
     }
 

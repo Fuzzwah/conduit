@@ -5,6 +5,7 @@ use tokio::sync::mpsc;
 
 use crate::error::AgentError;
 use crate::events::AgentEvent;
+use crate::orchestration::AdversarialReviewConfig;
 use crate::session::SessionId;
 use conduit_types::SkillReference;
 
@@ -83,6 +84,9 @@ pub struct AgentStartConfig {
     /// Enable model orchestration (Claude only): write sub-agent definitions and inject
     /// delegation instructions so the orchestrator delegates cheap ops to Haiku.
     pub orchestration_enabled: bool,
+    /// Adversarial review configuration (Claude only): when enabled, writes the
+    /// conduit-adversarial-review sub-agent definition with the configured model.
+    pub adversarial_review: Option<AdversarialReviewConfig>,
 }
 
 impl AgentStartConfig {
@@ -103,6 +107,7 @@ impl AgentStartConfig {
             skill: None,
             session_config_overrides: std::collections::HashMap::new(),
             orchestration_enabled: false,
+            adversarial_review: None,
         }
     }
 
@@ -163,6 +168,11 @@ impl AgentStartConfig {
 
     pub fn with_orchestration(mut self, enabled: bool) -> Self {
         self.orchestration_enabled = enabled;
+        self
+    }
+
+    pub fn with_adversarial_review(mut self, cfg: AdversarialReviewConfig) -> Self {
+        self.adversarial_review = Some(cfg);
         self
     }
 }
