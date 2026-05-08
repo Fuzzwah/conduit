@@ -355,7 +355,7 @@ mod tests {
         // commits_ahead measures vs the default branch, so it's always > 0 for a feature
         // branch. When a PR is open and tree is clean, the scenario should be CleanReady.
         let pr = pr_open(7);
-        let (scenario, _) = classify(&git(false, 3, false, true), Some(&pr), None, None);
+        let (scenario, _) = classify(&git(false, 3, false, true), Some(&pr), None, None, false);
         assert_eq!(scenario, Scenario::CleanReady);
     }
 
@@ -365,7 +365,7 @@ mod tests {
         // measures vs the default branch, not vs origin/feature-branch. Push should not
         // appear — the branch is already on the remote and the PR tracks it.
         let pr = pr_open(7);
-        let (_, actions) = classify(&git(false, 3, false, true), Some(&pr), None, None);
+        let (_, actions) = classify(&git(false, 3, false, true), Some(&pr), None, None, false);
         assert!(!actions.contains(&SuggestedAction::Push));
         assert!(actions.contains(&SuggestedAction::MergePr));
     }
@@ -374,7 +374,7 @@ mod tests {
     fn open_pr_with_dirty_tree_still_suggests_push() {
         // New uncommitted edits while PR is open still need push after commit.
         let pr = pr_open(7);
-        let (_, actions) = classify(&git(true, 3, false, true), Some(&pr), None, None);
+        let (_, actions) = classify(&git(true, 3, false, true), Some(&pr), None, None, false);
         assert!(actions.contains(&SuggestedAction::Push));
     }
 
