@@ -173,18 +173,18 @@ wait_idle "$sock" 300 3000 > /dev/null
 assert_contains "$sock" "kind-mist" "Workspace tab active after Tab"
 assert_not_contains "$sock" "FILE TAB MARKER" "File viewer content not visible on workspace tab"
 
-# Switch back to file viewer tab with Tab key
-press "$sock" "Tab"
+# Switch back to file viewer tab with Alt+2 (Tab key only works as NextTab in file viewer context)
+alt "$sock" "2"
 wait_idle "$sock" 300 3000 > /dev/null
 
-assert_contains "$sock" "FILE TAB MARKER" "File viewer content visible after Tab back"
+assert_contains "$sock" "FILE TAB MARKER" "File viewer content visible after Alt+2"
 
-# Close file viewer tab with Ctrl+W
-ctrl "$sock" "w"
+# Close file viewer tab with Escape (file viewer context: Esc = CloseTab)
+press "$sock" "Escape"
 wait_idle "$sock" 500 5000 > /dev/null
 
-assert_not_contains "$sock" "FILE TAB MARKER" "File viewer content gone after Ctrl+W"
-assert_not_contains "$sock" "README.md" "File viewer tab gone after Ctrl+W"
+assert_not_contains "$sock" "FILE TAB MARKER" "File viewer content gone after Escape"
+assert_not_contains "$sock" "README.md" "File viewer tab gone after Escape"
 assert_contains "$sock" "kind-mist" "Workspace tab still present after closing file tab"
 
-log_pass "File operations: open, Tab switching, and Ctrl+W close work correctly"
+log_pass "File operations: open, Tab/Alt+2 switching, and Escape close work correctly"
