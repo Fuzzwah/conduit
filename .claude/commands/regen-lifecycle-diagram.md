@@ -153,8 +153,12 @@ def build_svg(els, dark=False):
     global _arrow_n
     _arrow_n = 0
     shapes = [e for e in els if e['type'] not in ('arrow',)]
-    xs = [e['x'] for e in shapes]+[e['x']+e.get('width',0) for e in shapes]
-    ys = [e['y'] for e in shapes]+[e['y']+e.get('height',0) for e in shapes]
+    # Use content-only (non-bg) elements for the viewBox so phase background
+    # rectangles don't create a self-referential gap at the top of the image.
+    content = [e for e in shapes if not e.get('id','').startswith('bg')]
+    bbox_els = content if content else shapes
+    xs = [e['x'] for e in bbox_els]+[e['x']+e.get('width',0) for e in bbox_els]
+    ys = [e['y'] for e in bbox_els]+[e['y']+e.get('height',0) for e in bbox_els]
     pad = 35
     mnx,mny,mxx,mxy = min(xs)-pad, min(ys)-pad, max(xs)+pad, max(ys)+pad
     vw,vh = mxx-mnx, mxy-mny
