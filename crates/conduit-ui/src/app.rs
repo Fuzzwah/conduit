@@ -979,6 +979,26 @@ impl App {
                 .update_workspace_pr_status(workspace_id, Some(status));
         }
 
+        // Populate tab numbers for workspaces that are open in a tab
+        {
+            use crate::components::NodeType;
+            let workspace_ids: Vec<Uuid> = self
+                .state
+                .sidebar_data
+                .nodes
+                .iter()
+                .flat_map(|repo| repo.children.iter())
+                .filter(|child| child.node_type == NodeType::Workspace)
+                .map(|child| child.id)
+                .collect();
+            for workspace_id in workspace_ids {
+                let tab_number = self.find_tab_for_workspace(workspace_id).map(|idx| idx + 1);
+                self.state
+                    .sidebar_data
+                    .set_workspace_tab_number(workspace_id, tab_number);
+            }
+        }
+
         self.sync_sidebar_busy_state();
     }
 
@@ -3372,6 +3392,23 @@ impl App {
                         );
                     });
                 }
+                Effect::WorkCompleteCiMonitor {
+                    workspace_id,
+                    pr_url,
+                } => {
+                    let event_tx = self.event_tx.clone();
+                    tokio::task::spawn_blocking(move || {
+                        let result = conduit_git::wait_for_ci_checks(&pr_url);
+                        send_app_event(
+                            &event_tx,
+                            AppEvent::WorkCompleteCiFinished {
+                                workspace_id,
+                                result,
+                            },
+                            "work_complete_ci_finished",
+                        );
+                    });
+                }
             }
         }
 
@@ -5384,6 +5421,12 @@ impl App {
                             effects.append(&mut e);
                         }
                     }
+                }
+                C::MonitorCi { pr_url } => {
+                    effects.push(Effect::WorkCompleteCiMonitor {
+                        workspace_id,
+                        pr_url,
+                    });
                 }
                 C::Close => {
                     self.close_work_complete_dialog();
@@ -7694,6 +7737,49 @@ impl App {
                                 "Workspace archived".to_string(),
                                 Duration::from_secs(3),
                             );
+                        } else if action == conduit_git::SuggestedAction::OpenPr {
+                            // Parse the PR URL from the log ("Created PR #N: <url>") and
+                            // automatically enter CI monitoring.
+                            let pr_url = log_lines.iter().find_map(|l| {
+                                let idx = l.find("Created PR #")?;
+                                l[idx..].split_once(": ").map(|x| x.1.to_string())
+                            });
+                            if let Some(pr_url) = pr_url {
+                                let sub_effects = self.dispatch_work_complete_event(
+                                    crate::work_complete::WorkCompleteEvent::CiStarted { pr_url },
+                                );
+                                effects.extend(sub_effects);
+                            } else {
+                                let sub_effects = self.dispatch_work_complete_event(
+                                    crate::work_complete::WorkCompleteEvent::ActionCompleted(
+                                        log_lines,
+                                    ),
+                                );
+                                effects.extend(sub_effects);
+                            }
+                        } else if action == conduit_git::SuggestedAction::Push {
+                            // If there is already an open PR, enter CI monitoring.
+                            let pr_url = self
+                                .state
+                                .work_complete_session
+                                .as_ref()
+                                .and_then(|s| s.data.as_ref())
+                                .and_then(|d| d.pr.as_ref())
+                                .filter(|pr| pr.is_open)
+                                .and_then(|pr| pr.url.clone());
+                            if let Some(pr_url) = pr_url {
+                                let sub_effects = self.dispatch_work_complete_event(
+                                    crate::work_complete::WorkCompleteEvent::CiStarted { pr_url },
+                                );
+                                effects.extend(sub_effects);
+                            } else {
+                                let sub_effects = self.dispatch_work_complete_event(
+                                    crate::work_complete::WorkCompleteEvent::ActionCompleted(
+                                        log_lines,
+                                    ),
+                                );
+                                effects.extend(sub_effects);
+                            }
                         } else {
                             let sub_effects = self.dispatch_work_complete_event(
                                 crate::work_complete::WorkCompleteEvent::ActionCompleted(log_lines),
@@ -7708,6 +7794,36 @@ impl App {
                         effects.extend(sub_effects);
                     }
                 }
+            }
+            AppEvent::WorkCompleteCiFinished {
+                workspace_id,
+                result,
+            } => {
+                let is_our_session = self
+                    .state
+                    .work_complete_session
+                    .as_ref()
+                    .map(|s| s.workspace_id == workspace_id)
+                    .unwrap_or(false);
+                if !is_our_session {
+                    return Ok(effects);
+                }
+                let (passed, log) = match result {
+                    Ok((passed, lines)) => (passed, lines),
+                    Err(err) => (false, vec![err]),
+                };
+                if let Some(session) = self.state.work_complete_session.as_mut() {
+                    if passed {
+                        // Clear the log on success so ReviewingState comes up clean.
+                        session.log.clear();
+                    } else {
+                        session.log.extend(log.clone());
+                    }
+                }
+                let sub_effects = self.dispatch_work_complete_event(
+                    crate::work_complete::WorkCompleteEvent::CiCompleted { passed, log },
+                );
+                effects.extend(sub_effects);
             }
             AppEvent::ProjectsDiscovered { base_dir, result } => {
                 if !self.state.project_picker_state.visible
@@ -13171,6 +13287,10 @@ fn run_work_complete_action(
             Ok(vec![format!("Pushed {}", workspace.branch)])
         }
         SuggestedAction::OpenPr => {
+            // Push first so the branch exists on the remote before creating the PR.
+            let set_upstream = !workspace.branch.is_empty();
+            push_branch(path, &workspace.branch, set_upstream)
+                .map_err(|e| format!("Push failed: {e}"))?;
             let preflight = PrManager::preflight_check(path);
             let opts = PrCreateOpts {
                 base_branch: preflight.target_branch.clone(),
@@ -13179,7 +13299,10 @@ fn run_work_complete_action(
             };
             let pr =
                 PrManager::create(path, &opts).map_err(|e| format!("gh pr create failed: {e}"))?;
-            Ok(vec![format!("Created PR #{}: {}", pr.number, pr.url)])
+            Ok(vec![
+                format!("Pushed {}", workspace.branch),
+                format!("Created PR #{}: {}", pr.number, pr.url),
+            ])
         }
         SuggestedAction::MergePr => {
             let preflight = PrManager::preflight_check(path);

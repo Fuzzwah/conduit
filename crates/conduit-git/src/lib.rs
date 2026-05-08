@@ -1,6 +1,7 @@
 //! Git operations module
 
 mod actions;
+mod ci_monitor;
 mod issues;
 mod openspec_archive;
 mod pr;
@@ -13,6 +14,7 @@ mod workspace_repo;
 mod worktree;
 
 pub use actions::{commit_all, push_branch};
+pub use ci_monitor::wait_for_ci_checks;
 pub use issues::{
     close_issue, current_user, fetch_open_issues, infer_active_issue, view_issue, IssueProvider,
     IssueView, IssuesConfig, RemoteIssue,

@@ -128,8 +128,10 @@ pub fn classify(
         }
     } else if git.is_dirty {
         Scenario::EditsNoLink
-    } else if git.commits_ahead > 0 && !pr_merged {
+    } else if git.commits_ahead > 0 && !pr_merged && !pr_open {
         // commits_ahead after a squash-merge are artifacts; treat as clean if PR is done.
+        // When a PR is open, commits_ahead measures vs the default branch (not the tracking
+        // ref), so it's always > 0 for a feature branch — don't call that "unpushed".
         Scenario::UnpushedCommits
     } else {
         Scenario::CleanReady
@@ -143,7 +145,13 @@ pub fn classify(
         actions.push(SuggestedAction::Commit);
     }
 
-    if !pr_merged && (git.commits_ahead > 0 || (git.is_dirty && !git.has_upstream)) {
+    // Suppress Push when an open PR already has an upstream tracking branch and the
+    // working tree is clean: commits_ahead measures vs the default branch, not vs the
+    // tracking ref, so it stays > 0 for all feature branches even after pushing.
+    if !pr_merged
+        && (git.commits_ahead > 0 || (git.is_dirty && !git.has_upstream))
+        && !(pr_open && git.has_upstream && !git.is_dirty)
+    {
         actions.push(SuggestedAction::Push);
     }
 
@@ -339,6 +347,34 @@ mod tests {
     #[test]
     fn commits_ahead_no_upstream_suggests_push() {
         let (_, actions) = classify(&git(false, 2, false, false), None, None, None, false);
+        assert!(actions.contains(&SuggestedAction::Push));
+    }
+
+    #[test]
+    fn open_pr_with_commits_ahead_is_not_unpushed_commits_scenario() {
+        // commits_ahead measures vs the default branch, so it's always > 0 for a feature
+        // branch. When a PR is open and tree is clean, the scenario should be CleanReady.
+        let pr = pr_open(7);
+        let (scenario, _) = classify(&git(false, 3, false, true), Some(&pr), None, None);
+        assert_eq!(scenario, Scenario::CleanReady);
+    }
+
+    #[test]
+    fn open_pr_with_upstream_and_clean_tree_suppresses_push() {
+        // After OpenPr, branch is pushed and PR is open. commits_ahead > 0 because it
+        // measures vs the default branch, not vs origin/feature-branch. Push should not
+        // appear — the branch is already on the remote and the PR tracks it.
+        let pr = pr_open(7);
+        let (_, actions) = classify(&git(false, 3, false, true), Some(&pr), None, None);
+        assert!(!actions.contains(&SuggestedAction::Push));
+        assert!(actions.contains(&SuggestedAction::MergePr));
+    }
+
+    #[test]
+    fn open_pr_with_dirty_tree_still_suggests_push() {
+        // New uncommitted edits while PR is open still need push after commit.
+        let pr = pr_open(7);
+        let (_, actions) = classify(&git(true, 3, false, true), Some(&pr), None, None);
         assert!(actions.contains(&SuggestedAction::Push));
     }
 

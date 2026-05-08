@@ -1,7 +1,7 @@
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
-    style::{Modifier, Style},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Paragraph, Widget},
 };
@@ -233,7 +233,7 @@ impl TabBar {
 
         let mut spans = Vec::new();
         if layout.indicator_width > 0 {
-            let enabled = Style::default().fg(text_secondary());
+            let enabled = Style::default().fg(Color::Cyan);
             let disabled = Style::default().fg(text_muted());
             let left_label = if layout.scroll_offset > 0 {
                 " ‹"
@@ -253,7 +253,7 @@ impl TabBar {
         spans.extend(visible_spans);
 
         if layout.indicator_width > 0 {
-            let enabled = Style::default().fg(text_secondary());
+            let enabled = Style::default().fg(Color::Cyan);
             let disabled = Style::default().fg(text_muted());
             let right_label = if layout.scroll_offset < layout.max_scroll {
                 "› "

@@ -104,6 +104,8 @@ pub struct TreeNode {
     pub is_busy: bool,
     /// Per-repository theme override (repository nodes only)
     pub theme_name: Option<String>,
+    /// Tab number (1-indexed) if this workspace is open in a tab
+    pub tab_number: Option<usize>,
 }
 
 impl TreeNode {
@@ -125,6 +127,7 @@ impl TreeNode {
             commits_behind: 0,
             is_busy: false,
             theme_name: None,
+            tab_number: None,
         }
     }
 
@@ -145,6 +148,7 @@ impl TreeNode {
             commits_behind: 0,
             is_busy: false,
             theme_name: None,
+            tab_number: None,
         }
     }
 
@@ -168,6 +172,7 @@ impl TreeNode {
             commits_behind: 0,
             is_busy: false,
             theme_name: None,
+            tab_number: None,
         }
     }
 
@@ -536,6 +541,13 @@ impl StatefulWidget for TreeView<'_> {
                     let right_spans = build_right_side_spans(node, self.spinner_frame);
                     let right_width: usize = right_spans.iter().map(|s| s.width()).sum();
 
+                    // Build tab number prefix if workspace is open in a tab
+                    let tab_prefix = node
+                        .tab_number
+                        .map(|n| format!("[{}] ", n))
+                        .unwrap_or_default();
+                    let tab_prefix_width = tab_prefix.width();
+
                     // Calculate available space for workspace name using shared helper
                     // Use display width for proper Unicode handling (wide chars take 2 columns)
                     let total_width = inner.width as usize;
@@ -545,6 +557,7 @@ impl StatefulWidget for TreeView<'_> {
                         right_width,
                         name_display_width,
                     );
+                    let available_for_name = available_for_name.saturating_sub(tab_prefix_width);
 
                     // Check if name needs truncation (compare display widths)
                     let name_is_truncated = name_display_width > available_for_name;
@@ -565,13 +578,14 @@ impl StatefulWidget for TreeView<'_> {
                         node.label.clone()
                     };
 
-                    // Left side: indent + workspace name
+                    // Left side: indent + optional tab number + workspace name
                     // Use constant for indent width (matches WORKSPACE_NAME_LINE_INDENT)
                     let name_indent = " ".repeat(WORKSPACE_NAME_LINE_INDENT);
-                    let left_spans = vec![
-                        Span::raw(name_indent),
-                        Span::styled(name_display.clone(), self.suffix_style),
-                    ];
+                    let mut left_spans = vec![Span::raw(name_indent)];
+                    if !tab_prefix.is_empty() {
+                        left_spans.push(Span::styled(tab_prefix, self.style));
+                    }
+                    left_spans.push(Span::styled(name_display.clone(), self.suffix_style));
                     let left_width: usize = left_spans.iter().map(|s| s.width()).sum();
 
                     // Render left side (full width when expanded to cover right side)
@@ -730,6 +744,20 @@ impl SidebarData {
                 for child in &mut node.children {
                     if child.id == workspace_id && child.node_type == NodeType::Workspace {
                         child.is_busy = is_busy;
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    /// Set the tab number for a workspace node (1-indexed; None if not open in a tab).
+    pub fn set_workspace_tab_number(&mut self, workspace_id: Uuid, tab_number: Option<usize>) {
+        for node in &mut self.nodes {
+            if node.node_type == NodeType::Repository {
+                for child in &mut node.children {
+                    if child.id == workspace_id && child.node_type == NodeType::Workspace {
+                        child.tab_number = tab_number;
                         return;
                     }
                 }

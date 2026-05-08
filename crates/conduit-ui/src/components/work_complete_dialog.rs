@@ -6,7 +6,7 @@
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
-    style::{Modifier, Style},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Paragraph, Widget, Wrap},
 };
@@ -22,7 +22,6 @@ use crate::work_complete::{
 use conduit_git::{Scenario, SuggestedAction};
 
 const DIALOG_WIDTH: u16 = 72;
-const CONTENT_WIDTH: u16 = DIALOG_WIDTH - 2 - DIALOG_CONTENT_PADDING_X * 2;
 const SPINNER_FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 /// Widget rendering the Work Complete dialog from a `WorkCompleteSession`.
@@ -40,12 +39,41 @@ impl<'a> WorkCompleteDialog<'a> {
         }
     }
 
+    fn dialog_width(&self) -> u16 {
+        let url_len = self
+            .session
+            .data
+            .as_ref()
+            .and_then(|d| d.pr.as_ref())
+            .and_then(|pr| pr.url.as_deref())
+            .map(|u| u.len() as u16)
+            .unwrap_or(0);
+        const URL_INDENT: u16 = 4;
+        let needed = url_len
+            .saturating_add(URL_INDENT)
+            .saturating_add(2) // borders
+            .saturating_add(DIALOG_CONTENT_PADDING_X * 2);
+        DIALOG_WIDTH.max(needed)
+    }
+
+    fn log_bonus(&self) -> u16 {
+        // 1 separator + 4 display rows; fixed so layout stays predictable with wrapping.
+        if self.session.log.is_empty() {
+            0
+        } else {
+            5
+        }
+    }
+
     fn dialog_height(&self) -> u16 {
-        match &self.session.phase {
+        let base = match &self.session.phase {
             WorkCompletePhase::LoadingPreflight => 7,
             WorkCompletePhase::ReviewingState { .. } => {
                 if let Some(data) = &self.session.data {
-                    compute_review_height(data)
+                    let content_width = self
+                        .dialog_width()
+                        .saturating_sub(2 + DIALOG_CONTENT_PADDING_X * 2);
+                    compute_review_height(data, content_width)
                 } else {
                     7
                 }
@@ -53,8 +81,11 @@ impl<'a> WorkCompleteDialog<'a> {
             WorkCompletePhase::AwaitingCommitMessage => 10,
             WorkCompletePhase::ConfirmingForce { .. } => 10,
             WorkCompletePhase::Executing { .. } => 7,
+            WorkCompletePhase::MonitoringCi { .. } => 9,
+            WorkCompletePhase::Failed { .. } => 9,
             WorkCompletePhase::Done => 5,
-        }
+        };
+        base + self.log_bonus()
     }
 }
 
@@ -77,10 +108,12 @@ impl Widget for WorkCompleteDialog<'_> {
                 vec![("Enter", "confirm"), ("Esc", "cancel")],
             ),
             WorkCompletePhase::Executing { .. } => ("Work Complete", vec![]),
+            WorkCompletePhase::MonitoringCi { .. } => ("Work Complete", vec![]),
+            WorkCompletePhase::Failed { .. } => ("Work Complete — Error", vec![("Esc", "close")]),
             WorkCompletePhase::Done => ("Work Complete", vec![]),
         };
 
-        let inner = DialogFrame::new(title, DIALOG_WIDTH, self.dialog_height())
+        let inner = DialogFrame::new(title, self.dialog_width(), self.dialog_height())
             .instructions(instructions)
             .render(area, buf);
 
@@ -88,22 +121,39 @@ impl Widget for WorkCompleteDialog<'_> {
             return;
         }
 
+        // Split inner into a phase area (top) and log area (bottom).
+        let bonus = self.log_bonus();
+        let phase_inner = Rect {
+            height: inner.height.saturating_sub(bonus),
+            ..inner
+        };
+
         match phase {
             WorkCompletePhase::LoadingPreflight | WorkCompletePhase::Executing { .. } => {
-                render_spinner(inner, buf, self.spinner_frame, phase);
+                render_spinner(phase_inner, buf, self.spinner_frame, phase);
+            }
+            WorkCompletePhase::MonitoringCi { pr_url } => {
+                render_ci_monitoring(phase_inner, buf, self.spinner_frame, pr_url);
             }
             WorkCompletePhase::ReviewingState { .. } => {
                 if let Some(data) = &self.session.data {
-                    render_review(inner, buf, data, self.session.selected_action_idx);
+                    render_review(phase_inner, buf, data, self.session.selected_action_idx);
                 }
             }
             WorkCompletePhase::AwaitingCommitMessage => {
-                render_commit_input(inner, buf, &self.session.commit_message_input);
+                render_commit_input(phase_inner, buf, &self.session.commit_message_input);
             }
             WorkCompletePhase::ConfirmingForce { kind, pending } => {
-                render_force_confirm(inner, buf, *kind, *pending);
+                render_force_confirm(phase_inner, buf, *kind, *pending);
+            }
+            WorkCompletePhase::Failed { error } => {
+                render_failed(phase_inner, buf, error);
             }
             WorkCompletePhase::Done => {}
+        }
+
+        if bonus > 0 {
+            render_log_panel(inner, buf, phase_inner.height, &self.session.log);
         }
     }
 }
@@ -141,6 +191,137 @@ fn render_spinner(inner: Rect, buf: &mut Buffer, frame: usize, phase: &WorkCompl
             y: inner.y,
             width: inner.width,
             height: 1,
+        },
+        buf,
+    );
+}
+
+// ---------- CI Monitoring ----------
+
+fn render_ci_monitoring(inner: Rect, buf: &mut Buffer, frame: usize, pr_url: &str) {
+    if inner.height == 0 {
+        return;
+    }
+
+    let spinner = SPINNER_FRAMES[frame % SPINNER_FRAMES.len()];
+
+    let spinner_line = Line::from(vec![
+        Span::styled(
+            format!("{} ", spinner),
+            Style::default().fg(accent_primary()),
+        ),
+        Span::styled("Monitoring CI checks…", Style::default().fg(text_primary())),
+    ]);
+    Paragraph::new(spinner_line).render(
+        Rect {
+            x: inner.x,
+            y: inner.y,
+            width: inner.width,
+            height: 1,
+        },
+        buf,
+    );
+
+    if inner.height >= 3 {
+        let url_line = Line::from(Span::styled(pr_url, Style::default().fg(text_muted())));
+        Paragraph::new(url_line).render(
+            Rect {
+                x: inner.x,
+                y: inner.y + 2,
+                width: inner.width,
+                height: 1,
+            },
+            buf,
+        );
+    }
+}
+
+// ---------- Failed ----------
+
+fn render_failed(inner: Rect, buf: &mut Buffer, error: &str) {
+    if inner.height == 0 {
+        return;
+    }
+
+    let header = Line::from(Span::styled(
+        "Action failed:",
+        Style::default()
+            .fg(accent_error())
+            .add_modifier(Modifier::BOLD),
+    ));
+    Paragraph::new(header).render(
+        Rect {
+            x: inner.x,
+            y: inner.y,
+            width: inner.width,
+            height: 1,
+        },
+        buf,
+    );
+
+    if inner.height >= 3 {
+        Paragraph::new(error)
+            .style(Style::default().fg(Color::Reset))
+            .wrap(Wrap { trim: false })
+            .render(
+                Rect {
+                    x: inner.x,
+                    y: inner.y + 2,
+                    width: inner.width,
+                    height: inner.height.saturating_sub(2),
+                },
+                buf,
+            );
+    }
+}
+
+// ---------- Log panel ----------
+
+/// Render accumulated log lines at the bottom of `inner`, below a separator.
+/// `phase_height` is how many rows the phase content occupies (separator goes there).
+fn render_log_panel(inner: Rect, buf: &mut Buffer, phase_height: u16, log: &[String]) {
+    if log.is_empty() || inner.height <= phase_height {
+        return;
+    }
+
+    let sep_y = inner.y + phase_height;
+
+    // Separator
+    let sep = "─".repeat(inner.width as usize);
+    Paragraph::new(Line::from(Span::styled(
+        sep,
+        Style::default()
+            .fg(text_muted())
+            .add_modifier(Modifier::DIM),
+    )))
+    .render(
+        Rect {
+            x: inner.x,
+            y: sep_y,
+            width: inner.width,
+            height: 1,
+        },
+        buf,
+    );
+
+    // Log content: show recent lines, wrapped, in the rows below the separator.
+    let log_height = inner.height.saturating_sub(phase_height + 1);
+    if log_height == 0 {
+        return;
+    }
+    // Take enough recent lines to fill the area (over-selecting is fine; Paragraph clips).
+    let take = (log_height as usize).max(4);
+    let start = log.len().saturating_sub(take);
+    let lines: Vec<Line> = log[start..]
+        .iter()
+        .map(|s| Line::from(Span::styled(s.as_str(), Style::default().fg(text_muted()))))
+        .collect();
+    Paragraph::new(lines).wrap(Wrap { trim: false }).render(
+        Rect {
+            x: inner.x,
+            y: sep_y + 1,
+            width: inner.width,
+            height: log_height,
         },
         buf,
     );
@@ -215,16 +396,11 @@ fn render_review(inner: Rect, buf: &mut Buffer, data: &WorkCompleteData, selecte
         } else {
             "closed"
         };
-        let mut pr_header_spans = vec![
+        let pr_header = Line::from(vec![
             Span::styled("  PR #", Style::default().fg(text_muted())),
             Span::styled(pr.number.to_string(), Style::default().fg(pr_color)),
             Span::styled(format!(" ({pr_state}):"), Style::default().fg(pr_color)),
-        ];
-        if let Some(url) = pr.url.as_deref() {
-            pr_header_spans.push(Span::styled(" ", Style::default()));
-            pr_header_spans.push(Span::styled(url, Style::default().fg(text_muted())));
-        }
-        let pr_header = Line::from(pr_header_spans);
+        ]);
         Paragraph::new(pr_header).render(
             Rect {
                 x: inner.x,
@@ -236,25 +412,43 @@ fn render_review(inner: Rect, buf: &mut Buffer, data: &WorkCompleteData, selecte
         );
         y += 1;
 
+        const INDENT: u16 = 4;
+        let indented_width = w.saturating_sub(INDENT);
+
         if let Some(pr_title) = pr.title.as_deref().filter(|t| !t.is_empty()) {
-            let title_indent: u16 = 4;
-            let title_width = w.saturating_sub(title_indent);
-            let title_height = text_height(pr_title.len(), title_width);
+            let title_height = text_height(pr_title.len(), indented_width);
             Paragraph::new(Line::from(Span::styled(
                 pr_title,
-                Style::default().fg(text_muted()),
+                Style::default().fg(text_secondary()),
             )))
             .wrap(Wrap { trim: false })
             .render(
                 Rect {
-                    x: inner.x + title_indent,
+                    x: inner.x + INDENT,
                     y,
-                    width: title_width,
+                    width: indented_width,
                     height: title_height,
                 },
                 buf,
             );
             y += title_height;
+        }
+
+        if let Some(url) = pr.url.as_deref() {
+            Paragraph::new(Line::from(Span::styled(
+                url,
+                Style::default().fg(text_muted()),
+            )))
+            .render(
+                Rect {
+                    x: inner.x + INDENT,
+                    y,
+                    width: indented_width,
+                    height: 1,
+                },
+                buf,
+            );
+            y += 1;
         }
     }
 
@@ -415,14 +609,16 @@ fn text_height(len: usize, width: u16) -> u16 {
 }
 
 fn pr_height(pr: &PrData, width: u16) -> u16 {
-    let title_indent: u16 = 4;
+    const INDENT: u16 = 4;
+    let indented = width.saturating_sub(INDENT);
     let title_lines = pr
         .title
         .as_deref()
         .filter(|t| !t.is_empty())
-        .map(|t| text_height(t.len(), width.saturating_sub(title_indent)))
+        .map(|t| text_height(t.len(), indented))
         .unwrap_or(0);
-    1 + title_lines
+    let url_lines = if pr.url.is_some() { 1 } else { 0 };
+    1 + title_lines + url_lines
 }
 
 fn issue_display_len(issue: &IssueData) -> usize {
@@ -432,17 +628,17 @@ fn issue_display_len(issue: &IssueData) -> usize {
     9 + issue.number.to_string().len() + 3 + state.len() + title_part
 }
 
-fn compute_review_height(data: &WorkCompleteData) -> u16 {
+fn compute_review_height(data: &WorkCompleteData, content_width: u16) -> u16 {
     let mut rows: u16 = 1; // scenario
     rows += 1; // branch
     if let Some(pr) = &data.pr {
-        rows += pr_height(pr, CONTENT_WIDTH);
+        rows += pr_height(pr, content_width);
     }
     if data.spec.is_some() {
         rows += 1;
     }
     if let Some(issue) = &data.issue {
-        rows += text_height(issue_display_len(issue), CONTENT_WIDTH);
+        rows += text_height(issue_display_len(issue), content_width);
     }
     rows += 1; // separator
     rows += data.suggested_actions.len() as u16;

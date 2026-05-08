@@ -114,6 +114,10 @@ pub enum WorkCompletePhase {
     },
     /// Action is executing (spinner).
     Executing { action: SuggestedAction },
+    /// Monitoring CI checks after a PR was created or pushed to.
+    MonitoringCi { pr_url: String },
+    /// Action failed — shows error and waits for the user to dismiss.
+    Failed { error: String },
     /// All done — dialog about to close.
     Done,
 }
@@ -143,6 +147,10 @@ pub enum WorkCompleteEvent {
     ActionCompleted(Vec<String>),
     /// An action failed with an error message.
     ActionFailed(String),
+    /// CI monitoring should begin for the given PR URL.
+    CiStarted { pr_url: String },
+    /// CI checks reached a terminal state (passed = all green).
+    CiCompleted { passed: bool, log: Vec<String> },
     /// User pressed Esc / closed the dialog.
     Close,
 }
@@ -163,6 +171,8 @@ pub enum WorkCompleteCommand {
     ExecuteCommit(String),
     /// Re-run preflight after an action completes.
     RefreshPreflight,
+    /// Start CI check monitoring for the given PR URL.
+    MonitorCi { pr_url: String },
     /// Dispatch a prompt to the workspace's active agent session.
     SendAgentPrompt(String),
     /// Close the dialog and restore the previous input mode.
@@ -229,10 +239,26 @@ pub fn transition(
         (P::Executing { .. }, E::ActionCompleted(_)) => {
             (P::LoadingPreflight, vec![C::RefreshPreflight])
         }
-        (P::Executing { .. }, E::ActionFailed(_)) => {
-            // Stay at the phase; app.rs will log the error and go back to reviewing.
-            (P::Done, vec![C::Close])
+        (P::Executing { .. }, E::ActionFailed(err)) => (P::Failed { error: err }, vec![]),
+
+        // CI monitoring — triggered by app.rs after OpenPr/Push with existing PR
+        (P::Executing { .. }, E::CiStarted { pr_url }) => (
+            P::MonitoringCi {
+                pr_url: pr_url.clone(),
+            },
+            vec![C::MonitorCi { pr_url }],
+        ),
+        // CI checks reached terminal state; refresh preflight so action list updates
+        (P::MonitoringCi { .. }, E::CiCompleted { .. }) => {
+            (P::LoadingPreflight, vec![C::RefreshPreflight])
         }
+        // Block close while CI is in flight (matches Executing behaviour)
+        (P::MonitoringCi { pr_url }, E::Close) => (
+            P::MonitoringCi {
+                pr_url: pr_url.clone(),
+            },
+            vec![],
+        ),
 
         // Universal close — but not while an action is in flight
         (P::Executing { action }, E::Close) => (P::Executing { action: *action }, vec![]),
@@ -536,15 +562,18 @@ mod tests {
     }
 
     #[test]
-    fn action_failed_closes_dialog() {
+    fn action_failed_enters_failed_phase() {
         let (phase, cmds) = transition(
             &WorkCompletePhase::Executing {
                 action: SuggestedAction::Push,
             },
             WorkCompleteEvent::ActionFailed("push rejected".to_string()),
         );
-        assert_eq!(phase, WorkCompletePhase::Done);
-        assert!(cmds.contains(&WorkCompleteCommand::Close));
+        assert!(
+            matches!(phase, WorkCompletePhase::Failed { .. }),
+            "expected Failed, got {phase:?}"
+        );
+        assert!(cmds.is_empty());
     }
 
     #[test]

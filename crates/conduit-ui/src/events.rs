@@ -138,6 +138,12 @@ pub enum AppEvent {
         result: Result<Vec<String>, String>,
     },
 
+    /// CI check monitoring finished. `passed` = all checks green.
+    WorkCompleteCiFinished {
+        workspace_id: Uuid,
+        result: Result<(bool, Vec<String>), String>,
+    },
+
     /// Remove-project dialog preflight completed.
     RemoveProjectDialogPreflightCompleted {
         repo_id: Uuid,
