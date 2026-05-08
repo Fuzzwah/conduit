@@ -625,7 +625,11 @@ impl PrManager {
     /// `gh` derive the title and body from the commit messages. Otherwise uses
     /// `--title` / `--body` explicitly.
     pub fn create(path: &Path, opts: &PrCreateOpts) -> std::io::Result<PrInfo> {
-        let base = &opts.base_branch;
+        // target_branch is stored as "origin/<branch>"; gh expects just the branch name.
+        let base = opts
+            .base_branch
+            .strip_prefix("origin/")
+            .unwrap_or(&opts.base_branch);
         let mut args = vec!["pr", "create", "--base", base];
 
         let fill_flag;
@@ -648,10 +652,6 @@ impl PrManager {
             }
         }
 
-        // Ask gh to return JSON so we can parse the URL and number
-        args.push("--json");
-        args.push("url,number");
-
         let output = Command::new("gh").args(&args).current_dir(path).output()?;
 
         if !output.status.success() {
@@ -661,24 +661,30 @@ impl PrManager {
             )));
         }
 
-        #[derive(serde::Deserialize)]
-        struct GhPrCreated {
-            url: String,
-            number: u32,
-        }
+        // gh pr create prints the PR URL to stdout (one per line).
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let url = stdout
+            .lines()
+            .find(|l| l.contains("/pull/"))
+            .map(str::trim)
+            .ok_or_else(|| {
+                std::io::Error::other(format!(
+                    "gh pr create succeeded but no PR URL in output: {}",
+                    stdout.trim()
+                ))
+            })?
+            .to_string();
 
-        let json = String::from_utf8_lossy(&output.stdout);
-        let created: GhPrCreated = serde_json::from_str(&json).map_err(|e| {
-            std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                format!("Failed to parse gh pr create output: {}", e),
-            )
-        })?;
+        // Extract the PR number from the URL path (.../pull/<number>).
+        let number = url
+            .rsplit('/')
+            .next()
+            .and_then(|s| s.parse::<u32>().ok())
+            .ok_or_else(|| {
+                std::io::Error::other(format!("Could not parse PR number from URL: {url}"))
+            })?;
 
-        Ok(PrInfo {
-            url: created.url,
-            number: created.number,
-        })
+        Ok(PrInfo { url, number })
     }
 
     /// Merge the current branch's PR using `gh pr merge`.
@@ -902,19 +908,16 @@ mod tests {
         let dir = tempdir().unwrap();
         init_git_repo(dir.path()).unwrap();
 
-        with_fake_gh(
-            r#"echo '{"url":"https://github.com/foo/bar/pull/42","number":42}'"#,
-            || {
-                let opts = PrCreateOpts {
-                    base_branch: "main".to_string(),
-                    title: None,
-                    body: None,
-                };
-                let info = PrManager::create(dir.path(), &opts).unwrap();
-                assert_eq!(info.number, 42);
-                assert_eq!(info.url, "https://github.com/foo/bar/pull/42");
-            },
-        );
+        with_fake_gh(r#"echo 'https://github.com/foo/bar/pull/42'"#, || {
+            let opts = PrCreateOpts {
+                base_branch: "main".to_string(),
+                title: None,
+                body: None,
+            };
+            let info = PrManager::create(dir.path(), &opts).unwrap();
+            assert_eq!(info.number, 42);
+            assert_eq!(info.url, "https://github.com/foo/bar/pull/42");
+        });
     }
 
     #[test]
@@ -923,18 +926,15 @@ mod tests {
         let dir = tempdir().unwrap();
         init_git_repo(dir.path()).unwrap();
 
-        with_fake_gh(
-            r#"echo '{"url":"https://github.com/foo/bar/pull/7","number":7}'"#,
-            || {
-                let opts = PrCreateOpts {
-                    base_branch: "main".to_string(),
-                    title: Some("My PR".to_string()),
-                    body: Some("Description".to_string()),
-                };
-                let info = PrManager::create(dir.path(), &opts).unwrap();
-                assert_eq!(info.number, 7);
-            },
-        );
+        with_fake_gh(r#"echo 'https://github.com/foo/bar/pull/7'"#, || {
+            let opts = PrCreateOpts {
+                base_branch: "main".to_string(),
+                title: Some("My PR".to_string()),
+                body: Some("Description".to_string()),
+            };
+            let info = PrManager::create(dir.path(), &opts).unwrap();
+            assert_eq!(info.number, 7);
+        });
     }
 
     #[test]

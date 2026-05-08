@@ -74,6 +74,11 @@ pub enum Effect {
         /// Optional payload (e.g., commit message for Commit action).
         payload: Option<String>,
     },
+    /// Monitor CI checks for the given PR URL (`gh pr checks --watch`).
+    WorkCompleteCiMonitor {
+        workspace_id: Uuid,
+        pr_url: String,
+    },
     /// Run a local shell command
     RunShellCommand {
         session_id: Uuid,
