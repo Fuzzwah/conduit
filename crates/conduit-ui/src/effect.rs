@@ -11,7 +11,7 @@ pub enum Effect {
     StartAgent {
         session_id: Uuid,
         agent_type: AgentType,
-        config: AgentStartConfig,
+        config: Box<AgentStartConfig>,
     },
     PrPreflight {
         tab_index: usize,

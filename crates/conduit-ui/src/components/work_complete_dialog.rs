@@ -173,6 +173,7 @@ fn render_spinner(inner: Rect, buf: &mut Buffer, frame: usize, phase: &WorkCompl
             SuggestedAction::ArchiveSpec => "Archiving spec…",
             SuggestedAction::Archive => "Archiving workspace…",
             SuggestedAction::ShowRemainingTasks => "Working…",
+            SuggestedAction::AdversarialReview => "Working…",
         },
         _ => "Working…",
     };
@@ -770,5 +771,9 @@ fn action_label(action: SuggestedAction) -> (&'static str, &'static str) {
         SuggestedAction::ShowRemainingTasks => {
             ("Show Remaining Tasks", "ask agent to list incomplete tasks")
         }
+        SuggestedAction::AdversarialReview => (
+            "Adversarial Review",
+            "run a second agent to critically review all changes",
+        ),
     }
 }

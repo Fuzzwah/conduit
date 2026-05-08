@@ -115,6 +115,18 @@ impl App {
                         return Ok(());
                     }
 
+                    if self.state.model_picker_context
+                        == ModelPickerContext::WorkspaceReadyAdversarialConfig
+                    {
+                        self.state
+                            .workspace_progress_dialog_state
+                            .update_adversarial_model(model_id);
+                        self.state.model_selector_state.hide();
+                        self.state.model_picker_context = ModelPickerContext::SessionSelection;
+                        self.state.input_mode = InputMode::CreatingWorkspace;
+                        return Ok(());
+                    }
+
                     if let Some(session) = self.state.tab_manager.active_session_mut() {
                         if Self::reject_cross_agent_switch(session, agent_type) {
                             return Ok(());

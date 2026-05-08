@@ -23,9 +23,11 @@ const ROW_PROVIDER: usize = 0;
 const ROW_MODEL: usize = 1;
 const ROW_MODE: usize = 2;
 const ROW_ORCHESTRATION: usize = 3;
-const ROW_SAVE_DEFAULT: usize = 4;
-const ROW_CONTINUE: usize = 5;
-const ROW_COUNT: usize = 6;
+const ROW_ADVERSARIAL_REVIEW: usize = 4;
+const ROW_ADVERSARIAL_MODEL: usize = 5;
+const ROW_SAVE_DEFAULT: usize = 6;
+const ROW_CONTINUE: usize = 7;
+const ROW_COUNT: usize = 8;
 
 /// Inline configuration shown after successful workspace creation.
 #[derive(Debug, Clone)]
@@ -35,17 +37,27 @@ pub struct WorkspaceReadyConfigState {
     pub model_id: String,
     pub mode: AgentMode,
     pub orchestration_enabled: bool,
+    pub adversarial_review_enabled: bool,
+    pub adversarial_review_model: String,
     pub save_as_project_default: bool,
 }
 
 impl WorkspaceReadyConfigState {
-    pub fn new(provider: AgentType, model_id: String, orchestration_enabled: bool) -> Self {
+    pub fn new(
+        provider: AgentType,
+        model_id: String,
+        orchestration_enabled: bool,
+        adversarial_review_enabled: bool,
+        adversarial_review_model: String,
+    ) -> Self {
         Self {
             focused_row: ROW_CONTINUE,
             provider,
             model_id,
             mode: AgentMode::Build,
             orchestration_enabled,
+            adversarial_review_enabled,
+            adversarial_review_model,
             save_as_project_default: false,
         }
     }
@@ -94,12 +106,21 @@ impl WorkspaceProgressDialogState {
     }
 
     /// Transition to the success state and show the config panel.
-    pub fn finish(&mut self, provider: AgentType, model_id: String, orchestration_enabled: bool) {
+    pub fn finish(
+        &mut self,
+        provider: AgentType,
+        model_id: String,
+        orchestration_enabled: bool,
+        adversarial_review_enabled: bool,
+        adversarial_review_model: String,
+    ) {
         self.complete = true;
         self.config = Some(WorkspaceReadyConfigState::new(
             provider,
             model_id,
             orchestration_enabled,
+            adversarial_review_enabled,
+            adversarial_review_model,
         ));
     }
 
@@ -167,6 +188,20 @@ impl WorkspaceProgressDialogState {
         }
     }
 
+    pub fn toggle_adversarial_review(&mut self) {
+        if let Some(cfg) = &mut self.config {
+            if cfg.is_orchestration_applicable() {
+                cfg.adversarial_review_enabled = !cfg.adversarial_review_enabled;
+            }
+        }
+    }
+
+    pub fn update_adversarial_model(&mut self, model_id: String) {
+        if let Some(cfg) = &mut self.config {
+            cfg.adversarial_review_model = model_id;
+        }
+    }
+
     pub fn toggle_save_default(&mut self) {
         if let Some(cfg) = &mut self.config {
             cfg.save_as_project_default = !cfg.save_as_project_default;
@@ -179,6 +214,7 @@ impl WorkspaceProgressDialogState {
             cfg.model_id = default_model;
             if !cfg.is_orchestration_applicable() {
                 cfg.orchestration_enabled = false;
+                cfg.adversarial_review_enabled = false;
             }
             if !cfg.is_plan_mode_applicable() {
                 cfg.mode = AgentMode::Build;
@@ -206,9 +242,9 @@ impl<'a> WorkspaceProgressDialog<'a> {
     fn dialog_height(&self) -> u16 {
         if self.state.config.is_some() {
             // borders(2) + top_padding(1) + log_lines(10) + gap(1) + status(1)
-            // + separator(1) + gap(1) + 5 config rows + gap(1) + button(1) + gap(1)
-            // = 26
-            26
+            // + separator(1) + gap(1) + 7 config rows + gap(1) + button(1) + gap(1)
+            // = 28
+            28
         } else if self.state.complete {
             // borders(2) + top_padding(1) + log_lines(10) + gap(1) + status(1) + gap(1) + button(1)
             17
@@ -498,7 +534,83 @@ impl Widget for WorkspaceProgressDialog<'_> {
                     );
                 }
 
-                // ROW 4: Save as project default
+                // ROW 4: Adversarial Review toggle
+                {
+                    let ar_applicable = cfg.is_orchestration_applicable();
+                    let row_color = if ar_applicable {
+                        text_primary()
+                    } else {
+                        text_muted()
+                    };
+                    let (off_style, on_style) = if ar_applicable {
+                        match cfg.adversarial_review_enabled {
+                            false => (
+                                Style::default()
+                                    .fg(Color::Black)
+                                    .bg(Color::Yellow)
+                                    .add_modifier(Modifier::BOLD),
+                                Style::default().fg(row_color),
+                            ),
+                            true => (
+                                Style::default().fg(row_color),
+                                Style::default()
+                                    .fg(Color::Black)
+                                    .bg(Color::Green)
+                                    .add_modifier(Modifier::BOLD),
+                            ),
+                        }
+                    } else {
+                        let dim = Style::default()
+                            .fg(text_muted())
+                            .add_modifier(Modifier::DIM);
+                        (dim, dim)
+                    };
+                    let value_spans = vec![
+                        Span::styled("[ Off ]", off_style),
+                        Span::raw("  "),
+                        Span::styled("[ On ]", on_style),
+                    ];
+                    render_row(
+                        buf,
+                        ROW_ADVERSARIAL_REVIEW,
+                        rows_start_y + 4,
+                        "Adv. Review",
+                        value_spans,
+                    );
+                }
+
+                // ROW 5: Adversarial Review model
+                {
+                    let ar_applicable =
+                        cfg.is_orchestration_applicable() && cfg.adversarial_review_enabled;
+                    let max_model_len =
+                        (inner.width as usize).saturating_sub(LABEL_WIDTH as usize + 1);
+                    let model_display = if cfg.adversarial_review_model.len() > max_model_len {
+                        format!(
+                            "{}…",
+                            &cfg.adversarial_review_model[..max_model_len.saturating_sub(1)]
+                        )
+                    } else {
+                        cfg.adversarial_review_model.clone()
+                    };
+                    let style = if ar_applicable {
+                        Style::default().fg(text_primary())
+                    } else {
+                        Style::default()
+                            .fg(text_muted())
+                            .add_modifier(Modifier::DIM)
+                    };
+                    let value_spans = vec![Span::styled(model_display, style)];
+                    render_row(
+                        buf,
+                        ROW_ADVERSARIAL_MODEL,
+                        rows_start_y + 5,
+                        "  Review Model",
+                        value_spans,
+                    );
+                }
+
+                // ROW 6: Save as project default
                 {
                     let checkbox = if cfg.save_as_project_default {
                         "[x]"
@@ -511,7 +623,7 @@ impl Widget for WorkspaceProgressDialog<'_> {
                     } else {
                         Style::default().fg(text_primary())
                     };
-                    let y = rows_start_y + 4;
+                    let y = rows_start_y + 6;
                     if y < inner.y + inner.height {
                         Paragraph::new(Line::from(vec![
                             Span::styled(checkbox, style),
@@ -530,7 +642,7 @@ impl Widget for WorkspaceProgressDialog<'_> {
                 }
 
                 // Continue button
-                let button_y = rows_start_y + 6;
+                let button_y = rows_start_y + 8;
                 if button_y < inner.y + inner.height {
                     let continue_focused = cfg.focused_row == ROW_CONTINUE;
                     let button_style = if continue_focused {

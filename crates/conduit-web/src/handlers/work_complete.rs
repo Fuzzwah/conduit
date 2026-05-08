@@ -69,6 +69,7 @@ pub struct WorkCompletePreflightResponse {
     pub issue: Option<IssueSnapshotResponse>,
     pub scenario: Scenario,
     pub suggested_actions: Vec<SuggestedAction>,
+    pub adversarial_review_model: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -151,11 +152,24 @@ pub async fn get_work_complete_preflight(
     let store = core
         .workspace_store()
         .ok_or_else(|| WebError::Internal("Database not available".to_string()))?;
+    let repo_store = core
+        .repo_store()
+        .ok_or_else(|| WebError::Internal("Database not available".to_string()))?;
 
     let workspace = store
         .get_by_id(id)
         .map_err(|e| WebError::Internal(format!("Failed to get workspace: {}", e)))?
         .ok_or_else(|| WebError::NotFound(format!("Workspace {} not found", id)))?;
+
+    let repo = repo_store
+        .get_by_id(workspace.repository_id)
+        .map_err(|e| WebError::Internal(format!("Failed to get repository: {}", e)))?
+        .ok_or_else(|| WebError::Internal("Repository not found".to_string()))?;
+
+    let adversarial_review_enabled = workspace
+        .adversarial_review_enabled
+        .or(repo.adversarial_review_enabled)
+        .unwrap_or(false);
 
     let worktree_manager = core.worktree_manager();
     let use_gh_cli = core.config().workspaces.use_gh_cli_merge_status;
@@ -271,6 +285,7 @@ pub async fn get_work_complete_preflight(
         pr_classify.as_ref(),
         spec_classify.as_ref(),
         issue_classify.as_ref(),
+        adversarial_review_enabled,
     );
 
     let remote_branch_exists = pr_preflight.has_upstream || {
@@ -299,6 +314,9 @@ pub async fn get_work_complete_preflight(
         issue: issue_snapshot,
         scenario,
         suggested_actions,
+        adversarial_review_model: workspace
+            .adversarial_review_model
+            .or(repo.adversarial_review_model),
     }))
 }
 

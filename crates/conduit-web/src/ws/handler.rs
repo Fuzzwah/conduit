@@ -601,6 +601,9 @@ fn web_conduit_command_error(command: ConduitCommand) -> String {
         ConduitCommand::Btw => "Use the queue editor in the TUI for `/btw`.".to_string(),
         ConduitCommand::Status => "Use `/status` in the TUI to view session info.".to_string(),
         ConduitCommand::Rewind => "Rewind is only available from the TUI.".to_string(),
+        ConduitCommand::AdversarialReview => {
+            "Use `/adversarial-review` in the TUI to trigger an adversarial review.".to_string()
+        }
     }
 }
 

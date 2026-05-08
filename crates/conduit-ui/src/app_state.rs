@@ -377,6 +377,7 @@ pub enum ModelPickerContext {
     SettingsDefaultSelection,
     HandoffSelection,
     WorkspaceReadyConfig,
+    WorkspaceReadyAdversarialConfig,
 }
 
 /// Session configuration chosen in the workspace-ready config panel.
@@ -386,6 +387,8 @@ pub struct PendingSessionConfig {
     pub model_id: String,
     pub mode: AgentMode,
     pub orchestration_enabled: bool,
+    pub adversarial_review_enabled: bool,
+    pub adversarial_review_model: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
