@@ -5800,6 +5800,7 @@ impl App {
             self.state.input_mode = InputMode::SidebarNavigation;
         } else {
             self.sync_theme_to_active_tab();
+            self.sync_sidebar_to_active_tab();
         }
     }
 
@@ -7734,6 +7735,7 @@ impl App {
                             self.close_tabs_for_workspace(workspace_id);
                             self.close_work_complete_dialog();
                             self.refresh_sidebar_data();
+                            self.sync_sidebar_to_active_tab();
                             self.state.set_timed_footer_message(
                                 "Workspace archived".to_string(),
                                 Duration::from_secs(3),
