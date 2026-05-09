@@ -190,6 +190,16 @@ impl TabBar {
         self.layout(area_width).max_scroll
     }
 
+    /// Returns the column position of the active tab's right edge in the full (unscrolled) content.
+    pub fn active_tab_end(&self) -> usize {
+        let (_, items, _) = self.build_items();
+        items
+            .iter()
+            .find(|item| item.index == self.active)
+            .map(|item| item.end)
+            .unwrap_or(0)
+    }
+
     /// Hit test the tab bar at the given x position.
     pub fn hit_test(&self, area: Rect, x: u16) -> TabBarHitTarget {
         let layout = self.layout(area.width);
