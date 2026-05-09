@@ -12303,15 +12303,6 @@ impl App {
             selector.render(right_area, f.buffer_mut(), &self.state.agent_selector_state);
         }
 
-        if self.state.provider_selector_state.is_visible() {
-            let selector = ProviderSelector::new();
-            selector.render(
-                right_area,
-                f.buffer_mut(),
-                &self.state.provider_selector_state.dialog,
-            );
-        }
-
         // Draw add repository dialog if open
         if self.state.add_repo_dialog_state.is_visible() {
             let dialog = AddRepoDialog::new();
@@ -12320,13 +12311,6 @@ impl App {
                 f.buffer_mut(),
                 &self.state.add_repo_dialog_state,
             );
-        }
-
-        // Draw model selector dialog if open
-        if self.state.model_selector_state.is_visible() {
-            self.state.model_selector_state.update_viewport(right_area);
-            let model_selector = ModelSelector::new();
-            model_selector.render(right_area, f.buffer_mut(), &self.state.model_selector_state);
         }
 
         if self.state.reasoning_selector_state.is_visible() {
@@ -12535,6 +12519,23 @@ impl App {
             use ratatui::widgets::Widget;
             WorkspaceProgressDialog::new(&self.state.workspace_progress_dialog_state)
                 .render(right_area, f.buffer_mut());
+        }
+
+        // Draw provider/model selectors after workspace progress dialog so they
+        // appear on top when opened from the workspace ready config panel.
+        if self.state.provider_selector_state.is_visible() {
+            let selector = ProviderSelector::new();
+            selector.render(
+                right_area,
+                f.buffer_mut(),
+                &self.state.provider_selector_state.dialog,
+            );
+        }
+
+        if self.state.model_selector_state.is_visible() {
+            self.state.model_selector_state.update_viewport(right_area);
+            let model_selector = ModelSelector::new();
+            model_selector.render(right_area, f.buffer_mut(), &self.state.model_selector_state);
         }
 
         // Draw remote-sync dialog (shown during the SyncingRemote phase of
