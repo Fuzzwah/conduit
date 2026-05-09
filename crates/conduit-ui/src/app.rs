@@ -6477,6 +6477,17 @@ impl App {
         if self.state.tab_bar_last_active != Some(active) {
             self.state.tab_bar_scroll = tab_bar.adjust_scroll_to_active(area_width).min(max_scroll);
             self.state.tab_bar_last_active = Some(active);
+            self.state.tab_bar_active_end = tab_bar.active_tab_end();
+        } else {
+            // Active tab unchanged — check if it grew (e.g., spinner appeared) and snap right.
+            let active_end = tab_bar.active_tab_end();
+            if active_end > self.state.tab_bar_active_end {
+                let adjusted = tab_bar.adjust_scroll_to_active(area_width).min(max_scroll);
+                if adjusted > self.state.tab_bar_scroll {
+                    self.state.tab_bar_scroll = adjusted;
+                }
+            }
+            self.state.tab_bar_active_end = active_end;
         }
     }
 
