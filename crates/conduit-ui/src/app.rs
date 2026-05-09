@@ -4378,6 +4378,7 @@ impl App {
         }
 
         self.sync_theme_to_active_tab();
+        self.refresh_sidebar_data();
     }
 
     /// Open a workspace (create or switch to tab), closing the sidebar unless always_show_sidebar is set
