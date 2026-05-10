@@ -14,7 +14,7 @@ use crate::components::{
 };
 use crate::effect::Effect;
 use crate::events::{InputMode, ViewMode};
-use conduit_agent::{AgentType, MessageDisplay};
+use conduit_agent::MessageDisplay;
 use conduit_config::{parse_key_notation, KeyContext};
 
 impl App {
@@ -700,13 +700,6 @@ impl App {
                 self.state.model_picker_context = ModelPickerContext::SessionSelection;
                 self.reopen_settings_menu();
                 return effects;
-            } else if self.state.model_picker_context == ModelPickerContext::WorkspaceReadyConfig
-                || self.state.model_picker_context
-                    == ModelPickerContext::WorkspaceReadyAdversarialConfig
-            {
-                self.state.model_picker_context = ModelPickerContext::SessionSelection;
-                self.state.input_mode = InputMode::CreatingWorkspace;
-                return effects;
             }
             self.state.model_picker_context = ModelPickerContext::SessionSelection;
             self.state.input_mode = InputMode::Normal;
@@ -769,16 +762,6 @@ impl App {
                             Ok(new_effects) => effects.extend(new_effects),
                             Err(err) => self.show_error("Handoff Failed", &err.to_string()),
                         }
-                        return effects;
-                    }
-
-                    if self.state.model_picker_context == ModelPickerContext::WorkspaceReadyConfig {
-                        self.state
-                            .workspace_progress_dialog_state
-                            .update_model(model.id.clone());
-                        self.state.model_selector_state.hide();
-                        self.state.model_picker_context = ModelPickerContext::SessionSelection;
-                        self.state.input_mode = InputMode::CreatingWorkspace;
                         return effects;
                     }
 
@@ -962,14 +945,9 @@ impl App {
 
         if !Self::point_in_rect(x, y, dialog_area) {
             self.state.provider_selector_state.hide();
-            if self.state.model_picker_context == ModelPickerContext::WorkspaceReadyConfig {
-                self.state.model_picker_context = ModelPickerContext::SessionSelection;
-                self.state.input_mode = InputMode::CreatingWorkspace;
-            } else {
-                self.state.pending_new_project_target = None;
-                if !self.return_to_settings_menu_if_needed() {
-                    self.state.input_mode = InputMode::Normal;
-                }
+            self.state.pending_new_project_target = None;
+            if !self.return_to_settings_menu_if_needed() {
+                self.state.input_mode = InputMode::Normal;
             }
             return;
         }
@@ -982,21 +960,7 @@ impl App {
                 .provider_selector_state
                 .select_at_row(clicked_row)
             {
-                if self.state.model_picker_context == ModelPickerContext::WorkspaceReadyConfig {
-                    // Single-click confirms in workspace-ready context.
-                    if let Some(item) = self.state.provider_selector_state.dialog.selected_item() {
-                        let provider = AgentType::parse(&item.id.clone());
-                        let default_model = self.config().default_model_for(provider);
-                        self.state
-                            .workspace_progress_dialog_state
-                            .update_provider(provider, default_model);
-                    }
-                    self.state.provider_selector_state.hide();
-                    self.state.model_picker_context = ModelPickerContext::SessionSelection;
-                    self.state.input_mode = InputMode::CreatingWorkspace;
-                } else {
-                    self.state.provider_selector_state.toggle_selected();
-                }
+                self.state.provider_selector_state.toggle_selected();
             }
         }
     }

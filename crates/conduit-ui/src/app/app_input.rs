@@ -8,7 +8,8 @@ use std::io;
 use crate::action::Action;
 use crate::app::App;
 use crate::components::{
-    build_keybinding_items, ConflictPending, KeybindingItem, SIDEBAR_HEADER_ROWS,
+    build_keybinding_items, ConflictPending, InlinePickerTarget, KeybindingItem,
+    SIDEBAR_HEADER_ROWS,
 };
 use crate::effect::Effect;
 use crate::events::{InputMode, ViewMode};
@@ -82,6 +83,69 @@ impl App {
         if self.state.input_mode == InputMode::CreatingWorkspace {
             if self.state.workspace_progress_dialog_state.complete {
                 if self.state.workspace_progress_dialog_state.config.is_some() {
+                    // If an inline picker is active, route keys to it first.
+                    if self
+                        .state
+                        .workspace_progress_dialog_state
+                        .has_active_picker()
+                    {
+                        match key.code {
+                            KeyCode::Up => {
+                                self.state.workspace_progress_dialog_state.picker_move_up();
+                            }
+                            KeyCode::Down => {
+                                self.state
+                                    .workspace_progress_dialog_state
+                                    .picker_move_down();
+                            }
+                            KeyCode::Enter => {
+                                if let Some((target, id)) = self
+                                    .state
+                                    .workspace_progress_dialog_state
+                                    .take_picker_selection()
+                                {
+                                    match target {
+                                        InlinePickerTarget::Provider => {
+                                            let provider = AgentType::parse(&id);
+                                            let default_model =
+                                                self.config().default_model_for(provider);
+                                            self.state
+                                                .workspace_progress_dialog_state
+                                                .update_provider(provider, default_model);
+                                        }
+                                        InlinePickerTarget::Model => {
+                                            self.state
+                                                .workspace_progress_dialog_state
+                                                .update_model(id);
+                                        }
+                                        InlinePickerTarget::Mode => {
+                                            self.state
+                                                .workspace_progress_dialog_state
+                                                .update_mode(AgentMode::parse(&id));
+                                        }
+                                        InlinePickerTarget::Orchestration => {
+                                            self.state
+                                                .workspace_progress_dialog_state
+                                                .update_orchestration_enabled(id == "on");
+                                        }
+                                        InlinePickerTarget::AdversarialReview => {
+                                            self.state
+                                                .workspace_progress_dialog_state
+                                                .update_adversarial_review_enabled(id == "on");
+                                        }
+                                    }
+                                }
+                            }
+                            KeyCode::Esc => {
+                                self.state
+                                    .workspace_progress_dialog_state
+                                    .close_active_picker();
+                            }
+                            _ => {}
+                        }
+                        return Ok(Vec::new());
+                    }
+
                     // Config panel is active — handle navigation.
                     match key.code {
                         KeyCode::Up => {
@@ -93,18 +157,26 @@ impl App {
                         KeyCode::Enter => {
                             let row = self.state.workspace_progress_dialog_state.focused_row();
                             match row {
-                                0 => {
-                                    self.open_workspace_ready_provider_selector();
-                                }
-                                1 => {
-                                    self.open_workspace_ready_model_selector();
-                                }
-                                5 => {
-                                    self.open_workspace_ready_adversarial_model_selector();
-                                }
-                                _ => {
-                                    return Ok(self.close_workspace_progress_dialog());
-                                }
+                                0 => self.open_workspace_ready_provider_selector(),
+                                1 => self.open_workspace_ready_model_selector(),
+                                2 => self
+                                    .state
+                                    .workspace_progress_dialog_state
+                                    .open_mode_picker(),
+                                3 => self
+                                    .state
+                                    .workspace_progress_dialog_state
+                                    .open_orchestration_picker(),
+                                4 => self
+                                    .state
+                                    .workspace_progress_dialog_state
+                                    .open_adversarial_review_picker(),
+                                5 => self.open_workspace_ready_adversarial_model_selector(),
+                                6 => self
+                                    .state
+                                    .workspace_progress_dialog_state
+                                    .toggle_save_default(),
+                                _ => return Ok(self.close_workspace_progress_dialog()),
                             }
                             return Ok(Vec::new());
                         }

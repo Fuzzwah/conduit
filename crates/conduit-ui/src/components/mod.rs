@@ -236,7 +236,9 @@ pub use work_complete_dialog::WorkCompleteDialog;
 pub use workspace_defaults_dialog::{
     WorkspaceDefaultsDialog, WorkspaceDefaultsDialogState, WorkspaceDefaultsDraft,
 };
-pub use workspace_progress_dialog::{WorkspaceProgressDialog, WorkspaceProgressDialogState};
+pub use workspace_progress_dialog::{
+    InlinePickerTarget, WorkspaceProgressDialog, WorkspaceProgressDialogState,
+};
 
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 

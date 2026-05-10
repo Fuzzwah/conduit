@@ -5533,11 +5533,14 @@ impl App {
 
     pub(crate) fn open_workspace_ready_provider_selector(&mut self) {
         self.redetect_tools();
-        self.state.provider_selector_state =
-            crate::components::ProviderSelectorState::configure_for(self.config(), self.tools());
-        self.state.provider_selector_state.show();
-        self.state.model_picker_context = ModelPickerContext::WorkspaceReadyConfig;
-        self.state.input_mode = InputMode::SelectingProviders;
+        let providers = self.config().effective_enabled_providers(self.tools());
+        let items: Vec<(String, String)> = providers
+            .iter()
+            .map(|p| (p.as_str().to_string(), p.display_name().to_string()))
+            .collect();
+        self.state
+            .workspace_progress_dialog_state
+            .open_provider_picker(items);
     }
 
     pub(crate) fn open_workspace_ready_model_selector(&mut self) {
@@ -5551,26 +5554,14 @@ impl App {
                 self.preferred_provider_for_new_sessions()
                     .unwrap_or(AgentType::Claude)
             });
-        let current_model = self
-            .state
-            .workspace_progress_dialog_state
-            .config
-            .as_ref()
-            .map(|c| c.model_id.clone());
-        let defaults = DefaultModelSelection {
-            agent_type: Some(provider),
-            model_id: current_model.clone(),
-        };
+        let models = conduit_agent::ModelRegistry::models_for(provider);
+        let items: Vec<(String, String)> = models
+            .iter()
+            .map(|m| (m.id.clone(), m.display_name.clone()))
+            .collect();
         self.state
-            .model_selector_state
-            .set_allowed_providers(Some(vec![provider]));
-        self.state.model_selector_state.show_with_title(
-            current_model,
-            defaults,
-            "Select Model".to_string(),
-        );
-        self.state.model_picker_context = ModelPickerContext::WorkspaceReadyConfig;
-        self.state.input_mode = InputMode::SelectingModel;
+            .workspace_progress_dialog_state
+            .open_model_picker(items);
     }
 
     pub(crate) fn open_workspace_ready_adversarial_model_selector(&mut self) {

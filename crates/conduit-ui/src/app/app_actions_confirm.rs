@@ -105,16 +105,6 @@ impl App {
                         return Ok(());
                     }
 
-                    if self.state.model_picker_context == ModelPickerContext::WorkspaceReadyConfig {
-                        self.state
-                            .workspace_progress_dialog_state
-                            .update_model(model_id);
-                        self.state.model_selector_state.hide();
-                        self.state.model_picker_context = ModelPickerContext::SessionSelection;
-                        self.state.input_mode = InputMode::CreatingWorkspace;
-                        return Ok(());
-                    }
-
                     if self.state.model_picker_context
                         == ModelPickerContext::WorkspaceReadyAdversarialConfig
                     {
@@ -211,21 +201,6 @@ impl App {
                 self.create_tab_with_agent(agent_type);
             }
             InputMode::SelectingProviders => {
-                if self.state.model_picker_context == ModelPickerContext::WorkspaceReadyConfig {
-                    // Pick the highlighted provider (single selection for workspace config).
-                    if let Some(item) = self.state.provider_selector_state.dialog.selected_item() {
-                        let provider = conduit_agent::AgentType::parse(&item.id.clone());
-                        let default_model = self.config().default_model_for(provider);
-                        self.state
-                            .workspace_progress_dialog_state
-                            .update_provider(provider, default_model);
-                    }
-                    self.state.provider_selector_state.hide();
-                    self.state.model_picker_context = ModelPickerContext::SessionSelection;
-                    self.state.input_mode = InputMode::CreatingWorkspace;
-                    return Ok(());
-                }
-
                 if !self.state.provider_selector_state.validate_non_empty() {
                     return Ok(());
                 }
