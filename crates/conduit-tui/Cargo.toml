@@ -1,0 +1,21 @@
+[package]
+name = "conduit-tui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Experimental transport-neutral Conduit TUI scaffold built with Ratatui"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "conduit-tui"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+crossterm = { workspace = true }
+ratatui = { workspace = true }

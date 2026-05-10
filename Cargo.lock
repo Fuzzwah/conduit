@@ -895,6 +895,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "conduit-tui"
+version = "0.5.3"
+dependencies = [
+ "anyhow",
+ "crossterm 0.28.1",
+ "ratatui",
+]
+
+[[package]]
 name = "conduit-types"
 version = "0.5.3"
 dependencies = [
