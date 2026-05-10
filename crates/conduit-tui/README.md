@@ -1,6 +1,6 @@
 # conduit-tui
 
-`conduit-tui` is an additive, TUI-only scaffold that treats `/home/runner/work/conduit/conduit/crates/conduit-ui` as the behavioral reference while intentionally avoiding any dependency on the existing web UI.
+`conduit-tui` is an additive, TUI-only scaffold that treats `crates/conduit-ui` as the behavioral reference while intentionally avoiding any dependency on the existing web UI.
 
 ## Architecture
 

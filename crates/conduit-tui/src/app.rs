@@ -19,6 +19,8 @@ use crate::{
     ui,
 };
 
+const README_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/README.md");
+
 struct TerminalSession;
 
 impl TerminalSession {
@@ -114,10 +116,9 @@ impl App {
                 self.state.tabs.open_session(default_provider());
             }
             (KeyCode::Char('o'), KeyModifiers::CONTROL) => {
-                self.state.tabs.open_file(
-                    "/home/runner/work/conduit/conduit/crates/conduit-tui/README.md",
-                    include_str!("../README.md"),
-                );
+                self.state
+                    .tabs
+                    .open_file(README_PATH, include_str!("../README.md"));
             }
             (KeyCode::Char('4'), KeyModifiers::CONTROL) => {
                 if let Some(session) = self.state.tabs.active_session_mut() {
@@ -186,10 +187,9 @@ impl App {
                 self.state.tabs.open_session(default_provider());
             }
             "Open file tab" => {
-                self.state.tabs.open_file(
-                    "/home/runner/work/conduit/conduit/crates/conduit-tui/README.md",
-                    include_str!("../README.md"),
-                );
+                self.state
+                    .tabs
+                    .open_file(README_PATH, include_str!("../README.md"));
             }
             "Toggle raw events" => self.state.toggle_view_mode(),
             "Toggle sidebar focus" => self.state.toggle_focus(),

@@ -144,9 +144,6 @@ impl AgentSession {
             RuntimeEvent::AssistantMessageDelta { chunk } => {
                 if let Some(last) = self.messages.last_mut() {
                     if last.role == MessageRole::Assistant {
-                        if !last.text.is_empty() {
-                            last.text.push(' ');
-                        }
                         last.text.push_str(&chunk);
                     } else {
                         self.messages.push(ChatMessage {
@@ -245,6 +242,7 @@ mod tests {
     #[test]
     fn assistant_deltas_are_coalesced() {
         let mut session = AgentSession::demo(1, "Demo", default_provider());
+        session.messages.clear();
         session.apply_runtime_event(RuntimeEvent::AssistantMessageDelta {
             chunk: "one".to_string(),
         });
@@ -254,10 +252,7 @@ mod tests {
 
         let last = session.messages.last().expect("message exists");
         assert_eq!(last.role, MessageRole::Assistant);
-        assert_eq!(
-            last.text,
-            "Welcome to the clean-room Ratatui scaffold. one two"
-        );
+        assert_eq!(last.text, "onetwo");
     }
 
     #[test]
