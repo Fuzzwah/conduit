@@ -180,13 +180,6 @@ impl App {
                                 f.buffer_mut(),
                                 &self.state.base_dir_dialog_state,
                             );
-                        } else if self.state.provider_selector_state.is_visible() {
-                            let selector = ProviderSelector::new();
-                            selector.render(
-                                right_area,
-                                f.buffer_mut(),
-                                &self.state.provider_selector_state.dialog,
-                            );
                         } else if self.state.project_picker_state.is_visible() {
                             let picker = ProjectPicker::new();
                             picker.render(
@@ -207,14 +200,6 @@ impl App {
                                 right_area,
                                 f.buffer_mut(),
                                 &self.state.session_import_state,
-                            );
-                        } else if self.state.model_selector_state.is_visible() {
-                            self.state.model_selector_state.update_viewport(right_area);
-                            let selector = ModelSelector::new();
-                            selector.render(
-                                right_area,
-                                f.buffer_mut(),
-                                &self.state.model_selector_state,
                             );
                         } else if self.state.reasoning_selector_state.is_visible() {
                             let selector = ReasoningSelector::new();
@@ -370,6 +355,27 @@ impl App {
                             use ratatui::widgets::Widget;
                             RemoteSyncDialog::new(&self.state.remote_sync_dialog_state)
                                 .render(right_area, f.buffer_mut());
+                        }
+
+                        // Draw provider/model selectors after workspace progress dialog so they
+                        // appear on top when opened from the workspace ready config panel.
+                        if self.state.provider_selector_state.is_visible() {
+                            let selector = ProviderSelector::new();
+                            selector.render(
+                                right_area,
+                                f.buffer_mut(),
+                                &self.state.provider_selector_state.dialog,
+                            );
+                        }
+
+                        if self.state.model_selector_state.is_visible() {
+                            self.state.model_selector_state.update_viewport(right_area);
+                            let selector = ModelSelector::new();
+                            selector.render(
+                                right_area,
+                                f.buffer_mut(),
+                                &self.state.model_selector_state,
+                            );
                         }
 
                         // Draw footer for empty state (sidebar-aware)
