@@ -72,19 +72,10 @@ pub struct QueuedPrompt {
     pub label: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ComposerState {
     pub buffer: String,
     pub shell_mode: bool,
-}
-
-impl Default for ComposerState {
-    fn default() -> Self {
-        Self {
-            buffer: String::new(),
-            shell_mode: false,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -263,7 +254,10 @@ mod tests {
 
         let last = session.messages.last().expect("message exists");
         assert_eq!(last.role, MessageRole::Assistant);
-        assert_eq!(last.text, "Welcome to the clean-room Ratatui scaffold. one two");
+        assert_eq!(
+            last.text,
+            "Welcome to the clean-room Ratatui scaffold. one two"
+        );
     }
 
     #[test]

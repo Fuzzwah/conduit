@@ -2,9 +2,15 @@ use std::collections::VecDeque;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RuntimeEvent {
-    SessionStarted { title: String },
-    AssistantMessageDelta { chunk: String },
-    ReasoningDelta { chunk: String },
+    SessionStarted {
+        title: String,
+    },
+    AssistantMessageDelta {
+        chunk: String,
+    },
+    ReasoningDelta {
+        chunk: String,
+    },
     ToolStarted {
         tool_id: u64,
         tool_name: String,
@@ -25,7 +31,9 @@ pub enum RuntimeEvent {
         total: u32,
         message: String,
     },
-    Error { message: String },
+    Error {
+        message: String,
+    },
     SessionEnded,
 }
 
@@ -174,9 +182,19 @@ mod tests {
         transport.submit_prompt(7, "hello world", 10);
 
         let events = transport.drain_ready(20);
-        assert!(matches!(events.first().map(|e| &e.event), Some(RuntimeEvent::SessionStarted { .. })));
-        assert!(matches!(events.last().map(|e| &e.event), Some(RuntimeEvent::SessionEnded)));
-        assert!(events.iter().any(|event| matches!(event.event, RuntimeEvent::ToolStarted { .. })));
-        assert!(events.iter().any(|event| matches!(event.event, RuntimeEvent::ToolCompleted { .. })));
+        assert!(matches!(
+            events.first().map(|e| &e.event),
+            Some(RuntimeEvent::SessionStarted { .. })
+        ));
+        assert!(matches!(
+            events.last().map(|e| &e.event),
+            Some(RuntimeEvent::SessionEnded)
+        ));
+        assert!(events
+            .iter()
+            .any(|event| matches!(event.event, RuntimeEvent::ToolStarted { .. })));
+        assert!(events
+            .iter()
+            .any(|event| matches!(event.event, RuntimeEvent::ToolCompleted { .. })));
     }
 }

@@ -49,6 +49,12 @@ pub struct App {
     transport: MockTransport,
 }
 
+impl Default for App {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl App {
     pub fn new() -> Self {
         Self {
@@ -57,7 +63,10 @@ impl App {
         }
     }
 
-    pub fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<()> {
+    pub fn run(
+        &mut self,
+        terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
+    ) -> Result<()> {
         while !self.state.should_quit {
             terminal.draw(|frame| ui::render(frame, &mut self.state))?;
             self.poll_runtime();
@@ -96,7 +105,9 @@ impl App {
 
         match (key.code, key.modifiers) {
             (KeyCode::Char('q'), KeyModifiers::CONTROL) => self.state.should_quit = true,
-            (KeyCode::Char('p'), KeyModifiers::CONTROL) => self.state.command_palette.visible = true,
+            (KeyCode::Char('p'), KeyModifiers::CONTROL) => {
+                self.state.command_palette.visible = true
+            }
             (KeyCode::Char('g'), KeyModifiers::CONTROL) => self.state.toggle_view_mode(),
             (KeyCode::Char('b'), KeyModifiers::CONTROL) => self.state.toggle_focus(),
             (KeyCode::Char('n'), KeyModifiers::CONTROL) => {
@@ -125,7 +136,8 @@ impl App {
         match key.code {
             KeyCode::Esc => self.state.command_palette.visible = false,
             KeyCode::Up => {
-                self.state.command_palette.selected = self.state.command_palette.selected.saturating_sub(1)
+                self.state.command_palette.selected =
+                    self.state.command_palette.selected.saturating_sub(1)
             }
             KeyCode::Down => {
                 let max = self
@@ -134,7 +146,13 @@ impl App {
                     .filtered_commands()
                     .len()
                     .saturating_sub(1);
-                self.state.command_palette.selected = self.state.command_palette.selected.min(max).saturating_add(1).min(max);
+                self.state.command_palette.selected = self
+                    .state
+                    .command_palette
+                    .selected
+                    .min(max)
+                    .saturating_add(1)
+                    .min(max);
             }
             KeyCode::Backspace => {
                 self.state.command_palette.query.pop();
@@ -152,7 +170,9 @@ impl App {
                     self.execute_palette_command(command);
                 }
             }
-            KeyCode::Char(c) if key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT => {
+            KeyCode::Char(c)
+                if key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT =>
+            {
                 self.state.command_palette.query.push(c);
                 self.state.command_palette.selected = 0;
             }
@@ -187,8 +207,12 @@ impl App {
     fn handle_context_key(&mut self, key: KeyEvent) {
         match self.state.focus {
             FocusArea::Sidebar => match key.code {
-                KeyCode::Down => self.state.selected_sidebar = self.state.selected_sidebar.saturating_add(1),
-                KeyCode::Up => self.state.selected_sidebar = self.state.selected_sidebar.saturating_sub(1),
+                KeyCode::Down => {
+                    self.state.selected_sidebar = self.state.selected_sidebar.saturating_add(1)
+                }
+                KeyCode::Up => {
+                    self.state.selected_sidebar = self.state.selected_sidebar.saturating_sub(1)
+                }
                 KeyCode::Enter => self.open_sidebar_selection(),
                 _ => {}
             },
@@ -202,7 +226,8 @@ impl App {
                             let prompt = std::mem::take(&mut session.composer.buffer);
                             if !prompt.trim().is_empty() {
                                 session.push_user_prompt(prompt.clone());
-                                self.transport.submit_prompt(session.id, &prompt, self.state.tick);
+                                self.transport
+                                    .submit_prompt(session.id, &prompt, self.state.tick);
                             }
                         }
                         KeyCode::Backspace => {

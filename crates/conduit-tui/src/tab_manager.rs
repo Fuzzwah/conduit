@@ -9,6 +9,7 @@ pub struct FileViewerTab {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::large_enum_variant)]
 pub enum Tab {
     Session(AgentSession),
     File(FileViewerTab),
@@ -33,7 +34,11 @@ pub struct TabManager {
 impl TabManager {
     pub fn new(provider: ProviderProfile) -> Self {
         Self {
-            tabs: vec![Tab::Session(AgentSession::demo(1, "Workspace: clean-room", provider))],
+            tabs: vec![Tab::Session(AgentSession::demo(
+                1,
+                "Workspace: clean-room",
+                provider,
+            ))],
             active: 0,
             next_session_id: 2,
         }
@@ -45,6 +50,10 @@ impl TabManager {
 
     pub fn len(&self) -> usize {
         self.tabs.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.tabs.is_empty()
     }
 
     pub fn active(&self) -> usize {

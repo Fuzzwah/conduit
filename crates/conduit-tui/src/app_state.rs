@@ -1,6 +1,6 @@
 use ratatui::layout::Rect;
 
-use crate::domain::{demo_repositories, default_provider, Repository};
+use crate::domain::{default_provider, demo_repositories, Repository};
 use crate::tab_manager::TabManager;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -63,25 +63,13 @@ pub struct ModalState {
     pub body: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct LayoutRegions {
     pub sidebar: Rect,
     pub tabs: Rect,
     pub body: Rect,
     pub composer: Rect,
     pub status: Rect,
-}
-
-impl Default for LayoutRegions {
-    fn default() -> Self {
-        Self {
-            sidebar: Rect::default(),
-            tabs: Rect::default(),
-            body: Rect::default(),
-            composer: Rect::default(),
-            status: Rect::default(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -97,6 +85,12 @@ pub struct AppState {
     pub modal: Option<ModalState>,
     pub layout: LayoutRegions,
     pub tabs: TabManager,
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AppState {

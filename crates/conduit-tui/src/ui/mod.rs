@@ -73,7 +73,10 @@ fn render_tab_bar(frame: &mut Frame<'_>, state: &AppState) {
                 Style::default().fg(Color::Gray)
             };
             [
-                Span::styled(format!(" {} ", index + 1), Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    format!(" {} ", index + 1),
+                    Style::default().fg(Color::DarkGray),
+                ),
                 Span::styled(format!("{title}  "), style),
             ]
         })
@@ -98,7 +101,10 @@ fn render_sidebar(frame: &mut Frame<'_>, state: &AppState, area: Rect) {
         for workspace in &repo.workspaces {
             let line = format!(
                 "  {}  ↑{} ↓{}  {}",
-                workspace.branch, workspace.status.ahead, workspace.status.behind, workspace.status.pr_state
+                workspace.branch,
+                workspace.status.ahead,
+                workspace.status.behind,
+                workspace.status.pr_state
             );
             items.push(ListItem::new(line));
             if state.selected_sidebar == cursor {
@@ -122,7 +128,11 @@ fn render_sidebar(frame: &mut Frame<'_>, state: &AppState, area: Rect) {
         });
     let list = List::new(items)
         .block(block)
-        .highlight_style(Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD))
+        .highlight_style(
+            Style::default()
+                .bg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD),
+        )
         .highlight_symbol("→ ");
     let mut list_state = ratatui::widgets::ListState::default().with_selected(Some(selected));
     frame.render_stateful_widget(list, area, &mut list_state);
@@ -136,7 +146,11 @@ fn render_body(frame: &mut Frame<'_>, state: &AppState, area: Rect) {
         },
         Some(Tab::File(file)) => {
             let widget = Paragraph::new(file.content.as_str())
-                .block(Block::default().title(file.path.as_str()).borders(Borders::ALL))
+                .block(
+                    Block::default()
+                        .title(file.path.as_str())
+                        .borders(Borders::ALL),
+                )
                 .wrap(Wrap { trim: false });
             frame.render_widget(widget, area);
         }
@@ -157,7 +171,10 @@ fn render_chat(frame: &mut Frame<'_>, session: &AgentSession, area: Rect) {
                 MessageRole::Error => Style::default().fg(Color::Red),
             };
             [
-                Line::from(Span::styled(role_label(message.role), style.add_modifier(Modifier::BOLD))),
+                Line::from(Span::styled(
+                    role_label(message.role),
+                    style.add_modifier(Modifier::BOLD),
+                )),
                 Line::from(Span::styled(message.text.clone(), style)),
                 Line::default(),
             ]
@@ -205,9 +222,7 @@ fn render_composer(frame: &mut Frame<'_>, state: &AppState, area: Rect) {
         } else {
             Style::default().fg(Color::DarkGray)
         });
-    let paragraph = Paragraph::new(text)
-        .block(block)
-        .wrap(Wrap { trim: false });
+    let paragraph = Paragraph::new(text).block(block).wrap(Wrap { trim: false });
     frame.render_widget(paragraph, area);
 }
 
@@ -254,7 +269,9 @@ fn render_command_palette(frame: &mut Frame<'_>, state: &CommandPaletteState) {
         .margin(1)
         .split(area);
     frame.render_widget(
-        Block::default().title(" Command palette ").borders(Borders::ALL),
+        Block::default()
+            .title(" Command palette ")
+            .borders(Borders::ALL),
         area,
     );
     frame.render_widget(
