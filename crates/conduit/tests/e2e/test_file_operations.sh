@@ -184,7 +184,7 @@ press "$sock" "Escape"
 wait_idle "$sock" 500 5000 > /dev/null
 
 assert_not_contains "$sock" "FILE TAB MARKER" "File viewer content gone after Escape"
-assert_not_contains "$sock" "README.md" "File viewer tab gone after Escape"
+assert_not_contains "$sock" "[2]" "File viewer tab gone after Escape"
 assert_contains "$sock" "kind-mist" "Workspace tab still present after closing file tab"
 
 log_pass "File operations: open, Tab/Alt+2 switching, and Escape close work correctly"
