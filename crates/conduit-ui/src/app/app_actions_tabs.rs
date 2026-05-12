@@ -67,10 +67,11 @@ impl App {
                         self.sync_theme_to_active_tab();
                     }
                 } else if self.config().ui.sidebar_in_tab_cycle
+                    && !self.state.tab_manager.active_is_file()
                     && self.state.tab_manager.active_index()
                         == self.state.tab_manager.len().saturating_sub(1)
                 {
-                    // On last tab with sidebar in cycle — wrap to sidebar
+                    // On last non-file tab with sidebar in cycle — wrap to sidebar
                     self.state.sidebar_state.show();
                     self.state.sidebar_state.set_focused(true);
                     self.state.input_mode = InputMode::SidebarNavigation;
@@ -105,9 +106,10 @@ impl App {
                         self.sync_theme_to_active_tab();
                     }
                 } else if self.config().ui.sidebar_in_tab_cycle
+                    && !self.state.tab_manager.active_is_file()
                     && self.state.tab_manager.active_index() == 0
                 {
-                    // On first tab with sidebar in cycle — wrap to sidebar
+                    // On first non-file tab with sidebar in cycle — wrap to sidebar
                     self.state.sidebar_state.show();
                     self.state.sidebar_state.set_focused(true);
                     self.state.input_mode = InputMode::SidebarNavigation;
