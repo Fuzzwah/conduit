@@ -415,10 +415,10 @@ impl App {
             .update_available_agents(&tools);
 
         progress("Loading projects");
-        app.refresh_sidebar_data();
 
         progress("Restoring sessions");
         app.restore_session_state();
+        app.refresh_sidebar_data();
         app.sync_theme_to_active_tab();
 
         // Honour always_show_sidebar: force visible regardless of saved state
