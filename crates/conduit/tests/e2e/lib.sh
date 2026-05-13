@@ -255,7 +255,7 @@ assert_contains() {
 
     local screen=$(get_screen "$sock")
 
-    if echo "$screen" | grep -q "$expected"; then
+    if echo "$screen" | grep -qF "$expected"; then
         log_pass "$description"
         return 0
     else
@@ -280,7 +280,7 @@ assert_not_contains() {
 
     local screen=$(get_screen "$sock")
 
-    if echo "$screen" | grep -q "$unexpected"; then
+    if echo "$screen" | grep -qF "$unexpected"; then
         log_fail "$description"
         log_error "Did not expect to find: $unexpected"
         log_error "Screen content:"
