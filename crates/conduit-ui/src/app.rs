@@ -5118,6 +5118,13 @@ impl App {
                     self.state.input_mode = InputMode::Normal;
                 }
             }
+            // Sidebar navigation mode persists across tab switches because the _ arm
+            // below is a no-op. If the active tab is a file viewer, the sidebar focus
+            // is stale — clear it so Esc dispatches CloseTab instead of ExitSidebarMode.
+            InputMode::SidebarNavigation if self.state.tab_manager.active_is_file() => {
+                self.state.input_mode = InputMode::FileViewer;
+                self.state.sidebar_state.set_focused(false);
+            }
             _ => {}
         }
     }

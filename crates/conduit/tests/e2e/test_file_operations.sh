@@ -179,12 +179,12 @@ wait_idle "$sock" 300 3000 > /dev/null
 
 assert_contains "$sock" "FILE TAB MARKER" "File viewer content visible after Alt+2"
 
-# Close file viewer tab with Alt+Shift+W (global CloseTab — works in any context)
-alt "$sock" "W"
+# Close file viewer tab with Escape (CloseTab in FileViewer context)
+press "$sock" "Escape"
 wait_idle "$sock" 500 5000 > /dev/null
 
-assert_not_contains "$sock" "FILE TAB MARKER" "File viewer content gone after Alt+Shift+W"
-assert_not_contains "$sock" "[2]" "File viewer tab gone after Alt+Shift+W"
+assert_not_contains "$sock" "FILE TAB MARKER" "File viewer content gone after Escape"
+assert_not_contains "$sock" '\[2\]' "File viewer tab gone after Escape"
 assert_contains "$sock" "kind-mist" "Workspace tab still present after closing file tab"
 
-log_pass "File operations: open, Tab/Alt+2 switching, and Alt+Shift+W close work correctly"
+log_pass "File operations: open, Tab/Alt+2 switching, and Escape close work correctly"
