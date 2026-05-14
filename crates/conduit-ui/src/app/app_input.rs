@@ -1724,8 +1724,20 @@ impl App {
                 self.state.scp_command_dialog_state.confirm_upload();
             }
             KeyCode::Esc => {
+                let new_files = match &self.state.scp_command_dialog_state.phase {
+                    ScpCommandPhase::UploadConfirmed { new_files } if !new_files.is_empty() => {
+                        Some(new_files.clone())
+                    }
+                    _ => None,
+                };
                 self.state.scp_command_dialog_state.hide();
                 self.state.input_mode = InputMode::Normal;
+                if let Some(files) = new_files {
+                    let file_list = files.join(", ");
+                    let message =
+                        format!("I've uploaded the following file(s) to the project: {file_list}");
+                    return self.submit_prompt(message, Vec::new(), Vec::new());
+                }
             }
             _ => {}
         }
