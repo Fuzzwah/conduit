@@ -211,9 +211,9 @@ impl<'a> GlobalFooter<'a> {
             ("j/k".to_string(), "scroll"),
             ("g/G".to_string(), "top/bottom"),
             ("C-d/u".to_string(), "page"),
+            ("y".to_string(), "copy"),
             ("M-tab/M-S-tab".to_string(), "next/prev tab"),
             ("q".to_string(), "close"),
-            ("esc".to_string(), "close"),
         ]
     }
 

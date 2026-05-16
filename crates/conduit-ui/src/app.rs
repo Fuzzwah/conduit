@@ -2067,7 +2067,8 @@ impl App {
             | Action::CopyWorkspacePath
             | Action::CopySelection
             | Action::CopyCodeBlock
-            | Action::CopyCodeBlockPrev => {
+            | Action::CopyCodeBlockPrev
+            | Action::CopyFileContents => {
                 self.handle_global_action(action, &mut effects);
             }
             Action::OpenPr => {

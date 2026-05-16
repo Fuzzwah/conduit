@@ -350,6 +350,16 @@ impl App {
                     }
                 }
             }
+            Action::CopyFileContents => {
+                if let Some(file_session) = self.state.tab_manager.active_file_viewer() {
+                    let content = file_session.content().to_string();
+                    effects.push(Effect::CopyToClipboard(content));
+                    self.state.set_timed_footer_message(
+                        "Copied file contents to clipboard".to_string(),
+                        Duration::from_secs(3),
+                    );
+                }
+            }
             _ => {}
         }
     }

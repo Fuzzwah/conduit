@@ -593,6 +593,7 @@ pub fn parse_action(name: &str) -> Option<Action> {
         "copy_workspace_path" => Some(Action::CopyWorkspacePath),
         "copy_code_block" => Some(Action::CopyCodeBlock),
         "copy_code_block_prev" => Some(Action::CopyCodeBlockPrev),
+        "copy_file_contents" => Some(Action::CopyFileContents),
         "rename_project" => Some(Action::RenameProject),
         "add_file_to_project" => Some(Action::AddFileToProject),
         "upload_file_to_project" => Some(Action::UploadFileToProject),
@@ -641,6 +642,7 @@ pub fn action_to_name(action: &Action) -> Option<&'static str> {
         Action::CopySelection => Some("copy_selection"),
         Action::CopyCodeBlock => Some("copy_code_block"),
         Action::CopyCodeBlockPrev => Some("copy_code_block_prev"),
+        Action::CopyFileContents => Some("copy_file_contents"),
         // Tab management
         Action::CloseTab => Some("close_tab"),
         Action::NextTab => Some("next_tab"),

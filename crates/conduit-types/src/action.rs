@@ -58,6 +58,8 @@ pub enum Action {
     CopyCodeBlock,
     /// Cycle backwards (toward newer blocks) through code blocks for clipboard copy
     CopyCodeBlockPrev,
+    /// Copy the entire file contents to clipboard (file viewer only)
+    CopyFileContents,
 
     // ========== Tab Management ==========
     /// Close current tab
@@ -294,6 +296,7 @@ impl Action {
             Action::CopySelection => "Copy selection",
             Action::CopyCodeBlock => "Copy code block",
             Action::CopyCodeBlockPrev => "Copy code block (previous)",
+            Action::CopyFileContents => "Copy file contents",
 
             // Tab management
             Action::CloseTab => "Close tab",
@@ -466,6 +469,7 @@ impl Action {
                 | Action::CopySelection
                 | Action::CopyCodeBlock
                 | Action::CopyCodeBlockPrev
+                | Action::CopyFileContents
                 // Tab management
                 | Action::CloseTab
                 | Action::NextTab
