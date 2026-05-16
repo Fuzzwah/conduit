@@ -315,6 +315,7 @@ pub fn default_keybindings() -> KeybindingConfig {
         Action::CloseTab,
     );
     bind(file_viewer, "q", Action::CloseTab);
+    bind(file_viewer, "y", Action::CopyFileContents);
 
     // ========== Queue Editing Mode ==========
     let queue = config.context.entry(KeyContext::QueueEditing).or_default();
