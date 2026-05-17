@@ -203,7 +203,7 @@ impl AgentSession {
         };
         session
             .chat_view
-            .set_agent_label(agent_type.short_name().to_string());
+            .set_agent_label(compute_agent_label(agent_type, &session.model));
         session.update_status();
         session
     }
@@ -307,9 +307,9 @@ impl AgentSession {
         }
         if agent_changed {
             self.reasoning_effort = None;
-            self.chat_view
-                .set_agent_label(agent_type.short_name().to_string());
         }
+        self.chat_view
+            .set_agent_label(compute_agent_label(agent_type, &self.model));
         self.last_mode_prompt = None;
 
         if !self.capabilities.supports_plan_mode {
@@ -565,6 +565,18 @@ impl AgentSession {
     pub fn set_reasoning_effort(&mut self, effort: Option<ReasoningEffort>) {
         self.reasoning_effort = effort;
     }
+}
+
+/// Compute the agent label shown above assistant messages in the chat view.
+/// Uses the model's display name when available (e.g. "DeepSeek 4 Flash"),
+/// falling back to the agent type short name (e.g. "Claude").
+fn compute_agent_label(agent_type: AgentType, model: &Option<String>) -> String {
+    if let Some(ref model_id) = model {
+        if let Some(model_info) = ModelRegistry::find_model(agent_type, model_id) {
+            return model_info.display_name;
+        }
+    }
+    agent_type.short_name().to_string()
 }
 
 #[cfg(test)]
