@@ -464,11 +464,7 @@ impl Widget for WorkspaceProgressDialog<'_> {
             if self.state.has_active_picker() {
                 vec![("↑↓", "Navigate"), ("Enter", "Select"), ("Esc", "Cancel")]
             } else {
-                vec![
-                    ("↑↓", "Navigate"),
-                    ("Enter", "Continue"),
-                    ("Esc", "Continue"),
-                ]
+                vec![("↑↓", "Navigate"), ("Enter", "Select"), ("Esc", "Continue")]
             }
         } else if self.state.complete {
             vec![("Enter", "Continue"), ("Esc", "Continue")]
@@ -939,7 +935,7 @@ impl Widget for WorkspaceProgressDialog<'_> {
                         } else {
                             Style::default()
                                 .fg(Color::Black)
-                                .bg(Color::Green)
+                                .bg(Color::DarkGray)
                                 .add_modifier(Modifier::BOLD)
                         };
                         let button = Span::styled(" Continue ", button_style);
