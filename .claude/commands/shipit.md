@@ -30,12 +30,8 @@ Use this command when the current branch is ready for finalization and you want 
    - commit the current changes
    - push the branch to the remote
    - create a pull request targeting the default branch
-   - immediately begin monitoring the PR's check runs:
-     - poll with `gh pr checks <PR-URL> --repo Fuzzwah/conduit --watch` and capture its output; this command blocks until all checks complete
-     - if `--watch` is unavailable or times out, fall back to polling every 30 seconds with `gh pr checks <PR-URL> --repo Fuzzwah/conduit` until all checks reach a terminal state (pass/fail/cancelled) or 15 minutes have elapsed
-     - keep the user informed as checks start, noting that monitoring is in progress
-   - once all checks are terminal, report a summary table: check name, status (✓ / ✗ / skipped), and duration
-   - call out any failures with the failing job name and a link to its logs via `gh run view <run-id> --log-failed`
+   - monitor PR checks using `gh pr checks <number> --repo <owner/repo> --watch` (this polls until all checks complete and exits cleanly — do NOT hand-roll an until/sleep loop)
+   - report the status of each check and call out any failures or blockers
 
 7. After reporting PR status, ask the user whether to merge into the default branch.
    - never merge without explicit approval

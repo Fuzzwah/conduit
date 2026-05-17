@@ -536,8 +536,12 @@ impl DiscoveryRegistry {
             .slash_entries
             .values()
             .chain(self.dollar_entries.values())
-            .filter_map(|entries| entries.iter().min_by_key(|entry| sort_key(entry)))
-            .filter(|entry| provider_matches_source(active_provider, entry.source()))
+            .filter_map(|entries| {
+                entries
+                    .iter()
+                    .filter(|entry| provider_matches_source(active_provider, entry.source()))
+                    .min_by_key(|entry| sort_key(entry))
+            })
         {
             let key = format!("{}:{}", entry.trigger_char(), entry.name());
             if seen.insert(key) {
@@ -1128,5 +1132,106 @@ mod tests {
             panic!("expected provider prompt, got {result:?}");
         };
         assert_eq!(prompt.agent_text, "/compact");
+    }
+
+    #[test]
+    fn discovers_pi_prompts_as_slash_commands() {
+        let root = TempDir::new().unwrap();
+        let prompts_dir = root.path().join(".pi/prompts");
+        fs::create_dir_all(&prompts_dir).unwrap();
+        fs::write(
+            prompts_dir.join("opsx-explore.md"),
+            "---\ndescription: \"Enter explore mode\"\n---\nExplore mode content\n",
+        )
+        .unwrap();
+        fs::write(
+            prompts_dir.join("opsx-apply.md"),
+            "---\ndescription: \"Implement tasks from an OpenSpec change\"\n---\nApply content\n",
+        )
+        .unwrap();
+
+        let entries = CommandResolver::menu_entries(root.path(), AgentType::Pi);
+        assert!(
+            entries.iter().any(|e| e.label == "/opsx-explore"),
+            "expected /opsx-explore in menu entries: {:#?}",
+            entries
+        );
+        assert!(
+            entries.iter().any(|e| e.label == "/opsx-apply"),
+            "expected /opsx-apply in menu entries: {:#?}",
+            entries
+        );
+    }
+
+    #[test]
+    fn discovers_pi_skills_as_slash_commands() {
+        let root = TempDir::new().unwrap();
+        let skill_dir = root.path().join(".pi/skills/openspec-explore");
+        fs::create_dir_all(&skill_dir).unwrap();
+        fs::write(
+            skill_dir.join("SKILL.md"),
+            "# openspec-explore\nEnter explore mode\n",
+        )
+        .unwrap();
+
+        let entries = CommandResolver::menu_entries(root.path(), AgentType::Pi);
+        assert!(
+            entries.iter().any(|e| e.label == "/openspec-explore"),
+            "expected /openspec-explore in menu entries: {:#?}",
+            entries
+        );
+    }
+
+    #[test]
+    fn pi_entries_do_not_appear_for_non_pi_providers() {
+        let root = TempDir::new().unwrap();
+        let prompts_dir = root.path().join(".pi/prompts");
+        fs::create_dir_all(&prompts_dir).unwrap();
+        fs::write(
+            prompts_dir.join("opsx-explore.md"),
+            "---\ndescription: \"Enter explore mode\"\n---\nExplore mode content\n",
+        )
+        .unwrap();
+
+        for provider in [
+            AgentType::Claude,
+            AgentType::Codex,
+            AgentType::Gemini,
+            AgentType::Opencode,
+        ] {
+            let entries = CommandResolver::menu_entries(root.path(), provider);
+            assert!(
+                !entries.iter().any(|e| e.label == "/opsx-explore"),
+                "/opsx-explore should NOT appear for {provider:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn real_pi_prompts_are_discoverable() {
+        // Smoke test: verify the actual project's .pi/prompts are discoverable
+        let project_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(|p| p.parent())
+            .expect("workspace root");
+        let pi_prompts = project_dir.join(".pi/prompts");
+        if !pi_prompts.exists() {
+            eprintln!("Skipping: no .pi/prompts at {}", pi_prompts.display());
+            return;
+        }
+
+        let entries = CommandResolver::menu_entries(project_dir, AgentType::Pi);
+        let pi_labels: Vec<_> = entries
+            .iter()
+            .filter(|e| e.source_badge.starts_with("Pi"))
+            .map(|e| e.label.clone())
+            .collect();
+
+        assert!(
+            !pi_labels.is_empty(),
+            "Expected at least one Pi command from .pi/prompts/\nProject dir: {}\nAll entries: {:#?}",
+            project_dir.display(),
+            entries
+        );
     }
 }
