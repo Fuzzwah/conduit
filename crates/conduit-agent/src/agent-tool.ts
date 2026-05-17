@@ -65,7 +65,7 @@ async function runSubagent(
 		args.push("--model", model);
 	}
 	if (task && task.trim().length > 0) {
-		args.push(task);
+		args.push("--", task);
 	}
 
 	const result: SubagentResult = {
@@ -220,7 +220,7 @@ export default function (pi: ExtensionAPI) {
 				};
 			}
 
-			const task = typeof params.task === "string" ? params.task : undefined;
+			const task = params.task;
 			const skillDir = path.join(os.homedir(), ".pi", "agent", "skills");
 
 			// Read the model from the skill file's frontmatter (templated at startup
