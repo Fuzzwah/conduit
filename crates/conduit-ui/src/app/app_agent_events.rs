@@ -294,8 +294,30 @@ impl App {
                     if tool.tool_name == "Agent" && session.orchestration_enabled {
                         let subagent = tool.arguments.get("subagent_type").and_then(|v| v.as_str());
                         let delegation = match subagent {
-                            Some("conduit-explore") => Some(("Explore", "claude-haiku-4-5")),
-                            Some("conduit-review") => Some(("Review", "claude-haiku-4-5")),
+                            Some("conduit-explore") => {
+                                let model = fallback_subagent_model(
+                                    session.agent_type,
+                                    session.adversarial_review_model.as_deref(),
+                                    "claude-haiku-4-5",
+                                );
+                                Some(("Explore", model))
+                            }
+                            Some("conduit-review") => {
+                                let model = fallback_subagent_model(
+                                    session.agent_type,
+                                    session.adversarial_review_model.as_deref(),
+                                    "claude-haiku-4-5",
+                                );
+                                Some(("Review", model))
+                            }
+                            Some("conduit-adversarial-review") => {
+                                let model = fallback_subagent_model(
+                                    session.agent_type,
+                                    session.adversarial_review_model.as_deref(),
+                                    "claude-sonnet-4-6",
+                                );
+                                Some(("Adversarial Review", model))
+                            }
                             _ => None,
                         };
                         if let Some((label, model)) = delegation {
@@ -1611,11 +1633,16 @@ impl App {
         if let Some(effort) = reasoning_effort {
             config = config.with_reasoning_effort(effort);
         }
-        if agent_type == AgentType::Claude {
-            config = config.with_orchestration(orchestration_enabled);
+        if orchestration_enabled {
+            config = config.with_orchestration(true);
             if adversarial_review_enabled {
-                let model =
-                    adversarial_review_model.unwrap_or_else(|| "claude-sonnet-4-6".to_string());
+                let model = adversarial_review_model.unwrap_or_else(|| {
+                    if agent_type == AgentType::Claude {
+                        "claude-sonnet-4-6".to_string()
+                    } else {
+                        "gemini-2.5-flash".to_string()
+                    }
+                });
                 config = config.with_adversarial_review(
                     conduit_agent::orchestration::AdversarialReviewConfig {
                         enabled: true,
@@ -1689,5 +1716,29 @@ impl App {
         }
 
         Ok(effects)
+    }
+}
+
+// ============================================================================
+// Sub-agent model helpers
+// ============================================================================
+
+/// Determine the display model for a sub-agent delegation badge.
+/// Uses the explicitly configured model when available, otherwise falls back
+/// to a provider-appropriate default.
+fn fallback_subagent_model(
+    agent_type: AgentType,
+    configured: Option<&str>,
+    claude_default: &str,
+) -> String {
+    if let Some(model) = configured {
+        if !model.is_empty() {
+            return model.to_string();
+        }
+    }
+    match agent_type {
+        AgentType::Claude => claude_default.to_string(),
+        AgentType::Pi => "gemini-2.5-flash".to_string(),
+        _ => claude_default.to_string(),
     }
 }
