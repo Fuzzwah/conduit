@@ -21,20 +21,21 @@
 
 ## 4. Update the Pi runner for orchestration
 
-- [ ] 4.1 In `crates/conduit-agent/src/pi.rs`, update `build_command()` to accept the extension path and skill paths:
+- [x] 4.1 In `crates/conduit-agent/src/pi.rs`, update `build_command()` to accept the extension path and skill paths:
   - Write the extension file to `~/.conduit/pi-agent-extensions/agent-tool.ts`
   - Add `--extension <path>` for the extension
   - Add `--skill <path>` for each orchestration skill directory
   - Add `--append-system-prompt <text>` for orchestration instructions
-- [ ] 4.2 In `crates/conduit-agent/src/pi.rs`, update `start()` to call `ensure_pi_orchestration_skills()` when `config.orchestration_enabled` is true
-- [ ] 4.3 Inject orchestration instructions via `--append-system-prompt` when orchestration is enabled
+- [x] 4.2 In `crates/conduit-agent/src/pi.rs`, update `start()` to call `ensure_pi_orchestration_skills()` when `config.orchestration_enabled` is true
+- [x] 4.3 Inject orchestration instructions via `--append-system-prompt` when orchestration is enabled
 
 ## 5. Update agent event handling for Pi delegation
 
-- [ ] 5.1 In `crates/conduit-ui/src/app/app_agent_events.rs`, extend the sub-agent delegation detection (currently at line ~293) to also handle `Agent` tool calls from Pi sessions (same tool name, same subagent_type values)
+- [x] 5.1 In `crates/conduit-ui/src/app/app_agent_events.rs`, extend the sub-agent delegation detection (currently at line ~293) to also handle `Agent` tool calls from Pi sessions (same tool name, same subagent_type values)
+- [x] 5.2 In `crates/conduit-ui/src/app/app_agent_events.rs`, replace the hardcoded model (`"claude-haiku-4-5"`) in the delegation display with the actual configured model from the session's `adversarial_review_model` field (or a new per-skill model lookup). For Claude sessions, fall back to `"claude-haiku-4-5"` when no model is explicitly configured. For Pi sessions, fall back to `"gemini-2.5-flash"` when no model is explicitly configured.
 
 ## 6. Tests
 
-- [ ] 6.1 Add/update tests in `crates/conduit-agent/src/models.rs` if any static model list assertions change
-- [ ] 6.2 Verify existing capabilities tests in `crates/conduit-ui/src/session.rs` still pass
-- [ ] 6.3 Verify the workspace_progress_dialog rendering tests handle Pi correctly
+- [x] 6.1 Add/update tests in `crates/conduit-agent/src/models.rs` if any static model list assertions change
+- [x] 6.2 Verify existing capabilities tests in `crates/conduit-ui/src/session.rs` still pass
+- [x] 6.3 Verify the workspace_progress_dialog rendering tests handle Pi correctly

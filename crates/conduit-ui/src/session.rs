@@ -266,8 +266,7 @@ impl AgentSession {
             self.delegated_agent.as_ref().map(|d| d.model.clone()),
         );
 
-        // Show orchestration badge only for Claude sessions
-        let orch_display = if self.agent_type == AgentType::Claude {
+        let orch_display = if matches!(self.agent_type, AgentType::Claude | AgentType::Pi) {
             Some(self.orchestration_enabled)
         } else {
             None

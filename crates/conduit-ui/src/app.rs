@@ -5512,11 +5512,9 @@ impl App {
                     session.agent_type = cfg.provider;
                     session.model = Some(cfg.model_id);
                     session.agent_mode = cfg.mode;
-                    if cfg.provider == AgentType::Claude {
-                        session.orchestration_enabled = cfg.orchestration_enabled;
-                        session.adversarial_review_enabled = cfg.adversarial_review_enabled;
-                        session.adversarial_review_model = cfg.adversarial_review_model.clone();
-                    }
+                    session.orchestration_enabled = cfg.orchestration_enabled;
+                    session.adversarial_review_enabled = cfg.adversarial_review_enabled;
+                    session.adversarial_review_model = cfg.adversarial_review_model.clone();
                     session.update_status();
                 }
             }
@@ -5583,7 +5581,7 @@ impl App {
             .as_ref()
             .map(|c| c.adversarial_review_model.clone());
         let defaults = DefaultModelSelection {
-            agent_type: Some(AgentType::Claude),
+            agent_type: Some(provider),
             model_id: current_model.clone(),
         };
         self.state

@@ -126,7 +126,7 @@ impl WorkspaceReadyConfigState {
     }
 
     pub fn is_orchestration_applicable(&self) -> bool {
-        self.provider == AgentType::Claude
+        matches!(self.provider, AgentType::Claude | AgentType::Pi)
     }
 
     pub fn is_plan_mode_applicable(&self) -> bool {

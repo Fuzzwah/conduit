@@ -110,7 +110,7 @@ impl ProviderArtifactSource {
             ProviderArtifactSource::Claude => 2,
             ProviderArtifactSource::Opencode => 3,
             ProviderArtifactSource::Gemini => 4,
-            ProviderArtifactSource::Pi => 5,
+            ProviderArtifactSource::Pi => 1,
         }
     }
 }
@@ -1125,16 +1125,6 @@ mod tests {
     }
 
     #[test]
-    fn compact_builtin_resolves_passthrough_for_claude() {
-        let root = TempDir::new().unwrap();
-        let result = CommandResolver::resolve("/compact", root.path(), AgentType::Claude);
-        let ResolveResult::ProviderPrompt(prompt) = result else {
-            panic!("expected provider prompt, got {result:?}");
-        };
-        assert_eq!(prompt.agent_text, "/compact");
-    }
-
-    #[test]
     fn discovers_pi_prompts_as_slash_commands() {
         let root = TempDir::new().unwrap();
         let prompts_dir = root.path().join(".pi/prompts");
@@ -1208,18 +1198,51 @@ mod tests {
     }
 
     #[test]
+    fn provider_specific_entry_is_kept_when_lower_priority_provider_has_same_name() {
+        let root = TempDir::new().unwrap();
+
+        let conduit_commands = root.path().join(".conduit/commands");
+        fs::create_dir_all(&conduit_commands).unwrap();
+        fs::write(
+            conduit_commands.join("opsx-explore.md"),
+            "---\ndescription: \"Conduit explore\"\n---\nConduit content\n",
+        )
+        .unwrap();
+
+        let pi_prompts = root.path().join(".pi/prompts");
+        fs::create_dir_all(&pi_prompts).unwrap();
+        fs::write(
+            pi_prompts.join("opsx-explore.md"),
+            "---\ndescription: \"Pi explore\"\n---\nPi content\n",
+        )
+        .unwrap();
+
+        let entries = CommandResolver::menu_entries(root.path(), AgentType::Pi);
+        let opsx = entries
+            .iter()
+            .find(|entry| entry.label == "/opsx-explore")
+            .expect("expected /opsx-explore for Pi provider");
+        assert_eq!(opsx.source_badge, "Pi command");
+        assert_eq!(opsx.description, "Pi explore");
+    }
+
+    #[test]
+    fn compact_builtin_resolves_passthrough_for_claude() {
+        let root = TempDir::new().unwrap();
+        let result = CommandResolver::resolve("/compact", root.path(), AgentType::Claude);
+        let ResolveResult::ProviderPrompt(prompt) = result else {
+            panic!("expected provider prompt, got {result:?}");
+        };
+        assert_eq!(prompt.agent_text, "/compact");
+    }
+
+    #[test]
     fn real_pi_prompts_are_discoverable() {
         // Smoke test: verify the actual project's .pi/prompts are discoverable
         let project_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .and_then(|p| p.parent())
             .expect("workspace root");
-        let pi_prompts = project_dir.join(".pi/prompts");
-        if !pi_prompts.exists() {
-            eprintln!("Skipping: no .pi/prompts at {}", pi_prompts.display());
-            return;
-        }
-
         let entries = CommandResolver::menu_entries(project_dir, AgentType::Pi);
         let pi_labels: Vec<_> = entries
             .iter()
