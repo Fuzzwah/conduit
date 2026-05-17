@@ -114,6 +114,16 @@ gh pr create \
 rm -f "$tmp_body"
 ```
 
+## Monitoring PR Checks
+
+After creating a PR, monitor CI with:
+
+```bash
+gh pr checks <number> --repo Fuzzwah/conduit --watch
+```
+
+This polls until all checks complete and exits cleanly. Do **not** hand-roll an `until`/`sleep` loop — it will misfire.
+
 ## CI Checks
 
 PRs must pass: `cargo check --workspace` → `cargo fmt --check` → `cargo clippy --workspace --all-targets -- -D warnings` → `cargo test --workspace`.
