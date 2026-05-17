@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::fs;
+use std::io;
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;
@@ -25,6 +27,50 @@ struct PiRpcCommand {
     id: Option<String>,
     payload: Value,
     response_tx: Option<oneshot::Sender<Value>>,
+}
+
+// ---------------------------------------------------------------------------
+// Extension & orchestration helpers
+// ---------------------------------------------------------------------------
+
+/// Base directory for the Pi agent extension file.
+fn pi_extension_base_dir() -> Option<PathBuf> {
+    dirs::home_dir().map(|h| h.join(".conduit").join("pi-agent-extensions"))
+}
+
+/// Embedded TypeScript source for the Agent tool extension.
+const AGENT_EXTENSION_SOURCE: &str = include_str!("agent-tool.ts");
+
+/// Write the Agent tool extension file to disk and return its path.
+fn write_agent_extension() -> Result<PathBuf, io::Error> {
+    let base = pi_extension_base_dir().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::NotFound,
+            "could not determine home directory",
+        )
+    })?;
+    fs::create_dir_all(&base)?;
+    let path = base.join("agent-tool.ts");
+    fs::write(&path, AGENT_EXTENSION_SOURCE)?;
+    Ok(path)
+}
+
+/// Pi skill directory base (where conduit-* skills are written).
+fn pi_skills_base_dir() -> Option<PathBuf> {
+    dirs::home_dir().map(|h| h.join(".pi").join("agent").join("skills"))
+}
+
+/// Paths to the three orchestration skill directories.
+fn pi_skill_dirs() -> Vec<PathBuf> {
+    let base = match pi_skills_base_dir() {
+        Some(b) => b,
+        None => return vec![],
+    };
+    vec![
+        base.join("conduit-explore"),
+        base.join("conduit-review"),
+        base.join("conduit-adversarial-review"),
+    ]
 }
 
 pub struct PiRunner {
@@ -370,8 +416,34 @@ impl AgentRunner for PiRunner {
     }
 
     async fn start(&self, config: AgentStartConfig) -> Result<AgentHandle, AgentError> {
+        if config.orchestration_enabled {
+            // Write Pi-native skill files
+            if let Err(err) = crate::orchestration::ensure_pi_orchestration_skills(
+                config.adversarial_review.clone(),
+            ) {
+                tracing::warn!(error = %err, "Failed to write Pi orchestration skills");
+            }
+        }
+
         let mut cmd = self.build_command(&config);
         conduit_util::process::configure_command_process_group(&mut cmd);
+
+        if config.orchestration_enabled {
+            // Write and load the Agent tool extension
+            if let Ok(ext_path) = write_agent_extension() {
+                cmd.arg("--extension").arg(ext_path);
+            }
+            // Add skill directories
+            for skill_dir in pi_skill_dirs() {
+                if skill_dir.exists() {
+                    cmd.arg("--skill").arg(skill_dir);
+                }
+            }
+            // Inject orchestration instructions into system prompt
+            cmd.arg("--append-system-prompt")
+                .arg(crate::orchestration::orchestration_instructions());
+        }
+
         let mut child = cmd.spawn().map_err(|_| AgentError::ProcessSpawnFailed)?;
         let pid = child.id().ok_or(AgentError::ProcessSpawnFailed)?;
         let stdin = child.stdin.take().ok_or(AgentError::ProcessSpawnFailed)?;

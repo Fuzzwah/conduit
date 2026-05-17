@@ -110,7 +110,7 @@ impl ProviderArtifactSource {
             ProviderArtifactSource::Claude => 2,
             ProviderArtifactSource::Opencode => 3,
             ProviderArtifactSource::Gemini => 4,
-            ProviderArtifactSource::Pi => 5,
+            ProviderArtifactSource::Pi => 1,
         }
     }
 }
@@ -536,12 +536,8 @@ impl DiscoveryRegistry {
             .slash_entries
             .values()
             .chain(self.dollar_entries.values())
-            .filter_map(|entries| {
-                entries
-                    .iter()
-                    .filter(|entry| provider_matches_source(active_provider, entry.source()))
-                    .min_by_key(|entry| sort_key(entry))
-            })
+            .filter_map(|entries| entries.iter().min_by_key(|entry| sort_key(entry)))
+            .filter(|entry| provider_matches_source(active_provider, entry.source()))
         {
             let key = format!("{}:{}", entry.trigger_char(), entry.name());
             if seen.insert(key) {
@@ -1125,16 +1121,6 @@ mod tests {
     }
 
     #[test]
-    fn compact_builtin_resolves_passthrough_for_claude() {
-        let root = TempDir::new().unwrap();
-        let result = CommandResolver::resolve("/compact", root.path(), AgentType::Claude);
-        let ResolveResult::ProviderPrompt(prompt) = result else {
-            panic!("expected provider prompt, got {result:?}");
-        };
-        assert_eq!(prompt.agent_text, "/compact");
-    }
-
-    #[test]
     fn discovers_pi_prompts_as_slash_commands() {
         let root = TempDir::new().unwrap();
         let prompts_dir = root.path().join(".pi/prompts");
@@ -1208,18 +1194,22 @@ mod tests {
     }
 
     #[test]
+    fn compact_builtin_resolves_passthrough_for_claude() {
+        let root = TempDir::new().unwrap();
+        let result = CommandResolver::resolve("/compact", root.path(), AgentType::Claude);
+        let ResolveResult::ProviderPrompt(prompt) = result else {
+            panic!("expected provider prompt, got {result:?}");
+        };
+        assert_eq!(prompt.agent_text, "/compact");
+    }
+
+    #[test]
     fn real_pi_prompts_are_discoverable() {
         // Smoke test: verify the actual project's .pi/prompts are discoverable
         let project_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .and_then(|p| p.parent())
             .expect("workspace root");
-        let pi_prompts = project_dir.join(".pi/prompts");
-        if !pi_prompts.exists() {
-            eprintln!("Skipping: no .pi/prompts at {}", pi_prompts.display());
-            return;
-        }
-
         let entries = CommandResolver::menu_entries(project_dir, AgentType::Pi);
         let pi_labels: Vec<_> = entries
             .iter()
