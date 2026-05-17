@@ -720,7 +720,7 @@ dependencies = [
 
 [[package]]
 name = "conduit"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "chrono",
@@ -750,7 +750,7 @@ dependencies = [
 
 [[package]]
 name = "conduit-agent"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "agent-client-protocol",
  "anyhow",
@@ -780,7 +780,7 @@ dependencies = [
 
 [[package]]
 name = "conduit-bin"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "clap",
@@ -794,7 +794,7 @@ dependencies = [
 
 [[package]]
 name = "conduit-config"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "conduit-agent",
  "conduit-git",
@@ -809,7 +809,7 @@ dependencies = [
 
 [[package]]
 name = "conduit-core"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "chrono",
@@ -830,7 +830,7 @@ dependencies = [
 
 [[package]]
 name = "conduit-data"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "chrono",
  "conduit-git",
@@ -848,7 +848,7 @@ dependencies = [
 
 [[package]]
 name = "conduit-git"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "chrono",
  "serde",
@@ -861,7 +861,7 @@ dependencies = [
 
 [[package]]
 name = "conduit-resolver"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "conduit-types",
  "dirs",
@@ -873,7 +873,7 @@ dependencies = [
 
 [[package]]
 name = "conduit-session"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "chrono",
@@ -887,7 +887,7 @@ dependencies = [
 
 [[package]]
 name = "conduit-theme"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "conduit-util",
  "dirs",
@@ -905,7 +905,7 @@ dependencies = [
 
 [[package]]
 name = "conduit-types"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "serde",
  "sha2",
@@ -913,7 +913,7 @@ dependencies = [
 
 [[package]]
 name = "conduit-ui"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
@@ -955,7 +955,7 @@ dependencies = [
 
 [[package]]
 name = "conduit-util"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "dirs",
  "libc",
@@ -970,7 +970,7 @@ dependencies = [
 
 [[package]]
 name = "conduit-web"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "anyhow",
  "axum",

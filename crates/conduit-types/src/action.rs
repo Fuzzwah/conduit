@@ -288,7 +288,7 @@ impl Action {
             Action::ShowOrchestrationSelector => "Toggle orchestration mode",
             Action::ToggleOrchestrationDefault => "Toggle orchestration default",
             Action::ShowThemePicker => "Change theme",
-            Action::ShowProvidersSelector => "Select providers",
+            Action::ShowProvidersSelector => "Select Agent CLIs",
             Action::ToggleMetrics => "Toggle metrics",
             Action::DumpDebugState => "Dump debug state",
             Action::Suspend => "Suspend",

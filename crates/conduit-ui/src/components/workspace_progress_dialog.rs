@@ -70,7 +70,7 @@ impl InlinePickerState {
 /// Which config field an inline picker is editing.
 #[derive(Debug, Clone, PartialEq)]
 pub enum InlinePickerTarget {
-    Provider,
+    AgentCli,
     Model,
     Mode,
     Orchestration,
@@ -295,8 +295,8 @@ impl WorkspaceProgressDialogState {
         if let Some(cfg) = &mut self.config {
             let current_id = cfg.provider.as_str().to_string();
             cfg.active_picker = Some((
-                InlinePickerTarget::Provider,
-                InlinePickerState::new("Select Provider", items, Some(&current_id)),
+                InlinePickerTarget::AgentCli,
+                InlinePickerState::new("Select Agent CLI", items, Some(&current_id)),
             ));
         }
     }
@@ -716,14 +716,14 @@ impl Widget for WorkspaceProgressDialog<'_> {
                         }
                     };
 
-                    // ROW 0: Provider
+                    // ROW 0: Agent CLI
                     {
                         let provider_name = format!("{:?}", cfg.provider);
                         let value_spans = vec![Span::styled(
                             provider_name,
                             Style::default().fg(text_primary()),
                         )];
-                        render_row(buf, ROW_PROVIDER, rows_start_y, "Provider", value_spans);
+                        render_row(buf, ROW_PROVIDER, rows_start_y, "Agent CLI", value_spans);
                     }
 
                     // ROW 1: Model

@@ -216,7 +216,7 @@ impl App {
 
                 self.state.provider_selector_state.hide();
                 self.state.set_timed_footer_message(
-                    "Providers updated".to_string(),
+                    "Agent CLIs updated".to_string(),
                     std::time::Duration::from_secs(3),
                 );
 
