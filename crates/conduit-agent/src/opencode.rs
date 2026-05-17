@@ -1245,7 +1245,13 @@ impl OpencodeRunner {
                                     matches!(part.part_type.as_str(), "text" | "reasoning")
                                 });
                                 let has_error = info.error.is_some();
-                                if has_streamable_parts && !has_error {
+                                let is_completed =
+                                    info.time.as_ref().and_then(|t| t.completed).is_some();
+                                // Don't skip completed messages even with streamable parts:
+                                // the final message-level `message.updated` event carries
+                                // `time.completed` but may not have `time.end` on individual
+                                // parts. Without this check the response is silently dropped.
+                                if has_streamable_parts && !has_error && !is_completed {
                                     continue;
                                 }
                             }
