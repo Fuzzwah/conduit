@@ -246,28 +246,36 @@ impl PiRunner {
                     .map_err(|_| AgentError::ChannelClosed)?;
             }
             "tool_execution_update" => {
-                if value.get("toolName").and_then(Value::as_str) == Some("bash") {
-                    let output = Self::extract_text_content(
-                        value
-                            .get("partialResult")
-                            .and_then(|result| result.get("content")),
-                    );
-                    if !output.is_empty() {
-                        event_tx
-                            .send(AgentEvent::CommandOutput(CommandOutputEvent {
-                                command: value
+                // Per RPC protocol docs, ALL tools emit execution updates with
+                // partialResult.content in the same format. Don't restrict to bash only.
+                let tool_name = value
+                    .get("toolName")
+                    .and_then(Value::as_str)
+                    .unwrap_or("tool");
+                let output = Self::extract_text_content(
+                    value
+                        .get("partialResult")
+                        .and_then(|result| result.get("content")),
+                );
+                if !output.is_empty() {
+                    event_tx
+                        .send(AgentEvent::CommandOutput(CommandOutputEvent {
+                            command: if tool_name == "bash" {
+                                value
                                     .get("args")
                                     .and_then(|args| args.get("command"))
                                     .and_then(Value::as_str)
                                     .unwrap_or_default()
-                                    .to_string(),
-                                output,
-                                exit_code: None,
-                                is_streaming: true,
-                            }))
-                            .await
-                            .map_err(|_| AgentError::ChannelClosed)?;
-                    }
+                                    .to_string()
+                            } else {
+                                tool_name.to_string()
+                            },
+                            output,
+                            exit_code: None,
+                            is_streaming: true,
+                        }))
+                        .await
+                        .map_err(|_| AgentError::ChannelClosed)?;
                 }
             }
             "tool_execution_end" => {
