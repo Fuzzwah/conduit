@@ -154,7 +154,7 @@ export function SettingsDialog({
             )}
             <h2 className="text-lg font-semibold text-text">
               {subEditor === 'providers'
-                ? 'Enabled Providers'
+                ? 'Agent CLIs'
                 : subEditor === 'workspace_defaults'
                   ? 'Workspace Defaults'
                   : subEditor === 'theme'

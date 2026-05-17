@@ -101,8 +101,8 @@ pub async fn get_settings(
         },
         SettingItem {
             id: "enabled_providers".to_string(),
-            title: "Enabled Providers".to_string(),
-            description: "Providers shown in model selection".to_string(),
+            title: "Agent CLIs".to_string(),
+            description: "Agent CLIs available for new sessions".to_string(),
             value: providers_value,
         },
         SettingItem {

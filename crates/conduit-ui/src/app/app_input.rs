@@ -105,7 +105,7 @@ impl App {
                                     .take_picker_selection()
                                 {
                                     match target {
-                                        InlinePickerTarget::Provider => {
+                                        InlinePickerTarget::AgentCli => {
                                             let provider = AgentType::parse(&id);
                                             let default_model =
                                                 self.config().default_model_for(provider);

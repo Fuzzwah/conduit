@@ -57,7 +57,7 @@ impl ConduitCommand {
         match self {
             ConduitCommand::Model => "Select model",
             ConduitCommand::Reasoning => "Set reasoning effort",
-            ConduitCommand::Providers => "Select enabled providers",
+            ConduitCommand::Providers => "Select enabled Agent CLIs",
             ConduitCommand::NewSession => "Start a new session",
             ConduitCommand::Fork => "Fork current session",
             ConduitCommand::Handoff => "Handoff current session",

@@ -51,7 +51,7 @@ impl ProviderSelectorState {
                 MultiSelectItem {
                     id: provider.as_str().to_string(),
                     title: provider.display_name().to_string(),
-                    description: format!("{} provider", provider.display_name()),
+                    description: format!("{} agent", provider.display_name()),
                     checked,
                     disabled: !installed,
                 }
@@ -60,8 +60,8 @@ impl ProviderSelectorState {
 
         let mut state = Self::new();
         state.dialog.configure(
-            "Select Providers",
-            Some("Choose which installed providers to include in model selection.".to_string()),
+            "Select Agent CLIs",
+            Some("Choose which installed Agent CLIs to include in model selection.".to_string()),
             items,
         );
         state
@@ -140,7 +140,7 @@ impl ProviderSelectorState {
 
     pub fn validate_non_empty(&mut self) -> bool {
         if self.selected_providers().is_empty() {
-            self.dialog.validation_error = Some("Select at least one provider.".to_string());
+            self.dialog.validation_error = Some("Select at least one Agent CLI.".to_string());
             return false;
         }
         self.dialog.validation_error = None;

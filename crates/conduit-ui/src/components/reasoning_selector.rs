@@ -31,7 +31,7 @@ impl ReasoningOption {
         Self {
             effort: None,
             label: "Auto",
-            description: "Provider default reasoning behavior",
+            description: "Agent CLI default reasoning behavior",
         }
     }
 }

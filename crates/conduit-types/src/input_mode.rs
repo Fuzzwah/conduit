@@ -22,7 +22,7 @@ pub enum InputMode {
     SelectingOrchestration,
     /// Selecting theme
     SelectingTheme,
-    /// Selecting enabled providers
+    /// Selecting enabled Agent CLIs
     SelectingProviders,
     /// Setting base projects directory
     SettingBaseDir,

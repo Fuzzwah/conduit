@@ -4682,8 +4682,8 @@ impl App {
             },
             SettingsMenuEntry {
                 id: SettingsMenuEntryId::EnabledProviders,
-                title: "Enabled Providers".to_string(),
-                description: "Providers shown in model selection".to_string(),
+                title: "Agent CLIs".to_string(),
+                description: "Agent CLIs available for new sessions".to_string(),
                 value: if enabled_providers.is_empty() {
                     "None".to_string()
                 } else {
