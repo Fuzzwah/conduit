@@ -297,7 +297,7 @@ impl App {
                             Some("conduit-explore") => {
                                 let model = fallback_subagent_model(
                                     session.agent_type,
-                                    session.adversarial_review_model.as_deref(),
+                                    None,
                                     "claude-haiku-4-5",
                                 );
                                 Some(("Explore", model))
@@ -305,7 +305,7 @@ impl App {
                             Some("conduit-review") => {
                                 let model = fallback_subagent_model(
                                     session.agent_type,
-                                    session.adversarial_review_model.as_deref(),
+                                    None,
                                     "claude-haiku-4-5",
                                 );
                                 Some(("Review", model))

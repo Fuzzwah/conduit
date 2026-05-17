@@ -266,8 +266,12 @@ impl AgentSession {
             self.delegated_agent.as_ref().map(|d| d.model.clone()),
         );
 
-        self.status_bar
-            .set_orchestration_enabled(Some(self.orchestration_enabled));
+        let orch_display = if matches!(self.agent_type, AgentType::Claude | AgentType::Pi) {
+            Some(self.orchestration_enabled)
+        } else {
+            None
+        };
+        self.status_bar.set_orchestration_enabled(orch_display);
 
         // Update project info for right side of status bar
         if let Some(working_dir) = &self.working_dir {

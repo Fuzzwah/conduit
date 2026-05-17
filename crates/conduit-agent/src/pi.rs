@@ -430,8 +430,13 @@ impl AgentRunner for PiRunner {
 
         if config.orchestration_enabled {
             // Write and load the Agent tool extension
-            if let Ok(ext_path) = write_agent_extension() {
-                cmd.arg("--extension").arg(ext_path);
+            match write_agent_extension() {
+                Ok(ext_path) => {
+                    cmd.arg("--extension").arg(ext_path);
+                }
+                Err(err) => {
+                    tracing::warn!(error = %err, "Failed to write Pi Agent tool extension");
+                }
             }
             // Add skill directories
             for skill_dir in pi_skill_dirs() {

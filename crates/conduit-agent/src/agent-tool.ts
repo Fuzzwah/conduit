@@ -15,6 +15,7 @@
 
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
@@ -56,14 +57,16 @@ interface SubagentResult {
 async function runSubagent(
 	cwd: string,
 	model: string | null,
-	task: string,
+	task: string | undefined,
 	signal: AbortSignal | undefined,
 ): Promise<SubagentResult> {
 	const args: string[] = ["--mode", "json", "-p", "--no-session"];
 	if (model) {
 		args.push("--model", model);
 	}
-	args.push(task);
+	if (task && task.trim().length > 0) {
+		args.push(task);
+	}
 
 	const result: SubagentResult = {
 		exitCode: 0,
@@ -172,14 +175,23 @@ const ALLOWED_SUBAGENT_TYPES = [
 
 /** Agent tool parameter schema */
 const AgentToolParams = Type.Object({
-	subagent_type: Type.String({
-		description:
-			"Which sub-agent skill to invoke: conduit-explore, conduit-review, or conduit-adversarial-review",
-	}),
+	subagent_type: Type.Union(
+		ALLOWED_SUBAGENT_TYPES.map((value) => Type.Literal(value)),
+		{
+			description:
+				"Which sub-agent skill to invoke: conduit-explore, conduit-review, or conduit-adversarial-review",
+		},
+	),
 	task: Type.Optional(
 		Type.String({ description: "The task to delegate to the sub-agent" }),
 	),
 });
+
+function isAllowedSubagentType(
+	value: string,
+): value is (typeof ALLOWED_SUBAGENT_TYPES)[number] {
+	return (ALLOWED_SUBAGENT_TYPES as readonly string[]).includes(value);
+}
 
 export default function (pi: ExtensionAPI) {
 	pi.registerTool({
@@ -196,7 +208,19 @@ export default function (pi: ExtensionAPI) {
 
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
 			const subagentType = params.subagent_type;
-			const task = params.task || "";
+			if (!isAllowedSubagentType(subagentType)) {
+				return {
+					content: [
+						{
+							type: "text" as const,
+							text: `Unknown sub-agent type: ${subagentType}`,
+						},
+					],
+					isError: true,
+				};
+			}
+
+			const task = typeof params.task === "string" ? params.task : undefined;
 			const skillDir = path.join(os.homedir(), ".pi", "agent", "skills");
 
 			// Read the model from the skill file's frontmatter (templated at startup

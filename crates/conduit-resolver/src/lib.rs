@@ -536,8 +536,12 @@ impl DiscoveryRegistry {
             .slash_entries
             .values()
             .chain(self.dollar_entries.values())
-            .filter_map(|entries| entries.iter().min_by_key(|entry| sort_key(entry)))
-            .filter(|entry| provider_matches_source(active_provider, entry.source()))
+            .filter_map(|entries| {
+                entries
+                    .iter()
+                    .filter(|entry| provider_matches_source(active_provider, entry.source()))
+                    .min_by_key(|entry| sort_key(entry))
+            })
         {
             let key = format!("{}:{}", entry.trigger_char(), entry.name());
             if seen.insert(key) {
@@ -1191,6 +1195,35 @@ mod tests {
                 "/opsx-explore should NOT appear for {provider:?}"
             );
         }
+    }
+
+    #[test]
+    fn provider_specific_entry_is_kept_when_lower_priority_provider_has_same_name() {
+        let root = TempDir::new().unwrap();
+
+        let conduit_commands = root.path().join(".conduit/commands");
+        fs::create_dir_all(&conduit_commands).unwrap();
+        fs::write(
+            conduit_commands.join("opsx-explore.md"),
+            "---\ndescription: \"Conduit explore\"\n---\nConduit content\n",
+        )
+        .unwrap();
+
+        let pi_prompts = root.path().join(".pi/prompts");
+        fs::create_dir_all(&pi_prompts).unwrap();
+        fs::write(
+            pi_prompts.join("opsx-explore.md"),
+            "---\ndescription: \"Pi explore\"\n---\nPi content\n",
+        )
+        .unwrap();
+
+        let entries = CommandResolver::menu_entries(root.path(), AgentType::Pi);
+        let opsx = entries
+            .iter()
+            .find(|entry| entry.label == "/opsx-explore")
+            .expect("expected /opsx-explore for Pi provider");
+        assert_eq!(opsx.source_badge, "Pi command");
+        assert_eq!(opsx.description, "Pi explore");
     }
 
     #[test]
