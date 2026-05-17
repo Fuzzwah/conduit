@@ -76,6 +76,7 @@ impl ConfigService {
                     AgentType::Codex => conduit_util::Tool::Codex,
                     AgentType::Dirac => conduit_util::Tool::Dirac,
                     AgentType::Gemini => conduit_util::Tool::Gemini,
+                    AgentType::DeepseekTui => conduit_util::Tool::DeepseekTui,
                     AgentType::Opencode => conduit_util::Tool::Opencode,
                     AgentType::Copilot => conduit_util::Tool::Copilot,
                     AgentType::Pi => conduit_util::Tool::Pi,

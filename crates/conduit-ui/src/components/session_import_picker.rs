@@ -1,6 +1,6 @@
 //! Session import picker dialog component
 //!
-//! Allows users to import sessions from Claude Code, Codex CLI, Gemini CLI, OpenCode, and Pi.
+//! Allows users to import sessions from Claude Code, Codex CLI, Gemini CLI, DeepSeek TUI, OpenCode, and Pi.
 
 use ratatui::{
     buffer::Buffer,
@@ -44,6 +44,8 @@ pub enum AgentFilter {
     Codex,
     /// Show only Gemini CLI sessions
     Gemini,
+    /// Show only DeepSeek TUI sessions
+    DeepseekTui,
     /// Show only OpenCode sessions
     Opencode,
     /// Show only GitHub Copilot sessions
@@ -59,7 +61,8 @@ impl AgentFilter {
             AgentFilter::All => AgentFilter::Claude,
             AgentFilter::Claude => AgentFilter::Codex,
             AgentFilter::Codex => AgentFilter::Gemini,
-            AgentFilter::Gemini => AgentFilter::Opencode,
+            AgentFilter::Gemini => AgentFilter::DeepseekTui,
+            AgentFilter::DeepseekTui => AgentFilter::Opencode,
             AgentFilter::Opencode => AgentFilter::Copilot,
             AgentFilter::Copilot => AgentFilter::Pi,
             AgentFilter::Pi => AgentFilter::All,
@@ -73,6 +76,7 @@ impl AgentFilter {
             AgentFilter::Claude => "Claude",
             AgentFilter::Codex => "Codex",
             AgentFilter::Gemini => "Gemini",
+            AgentFilter::DeepseekTui => "DeepSeek",
             AgentFilter::Opencode => "OpenCode",
             AgentFilter::Copilot => "Copilot",
             AgentFilter::Pi => "Pi",
@@ -211,6 +215,7 @@ impl SessionImportPickerState {
                     AgentFilter::Claude => matches!(s.agent_type, AgentType::Claude),
                     AgentFilter::Codex => matches!(s.agent_type, AgentType::Codex),
                     AgentFilter::Gemini => matches!(s.agent_type, AgentType::Gemini),
+                    AgentFilter::DeepseekTui => matches!(s.agent_type, AgentType::DeepseekTui),
                     AgentFilter::Opencode => matches!(s.agent_type, AgentType::Opencode),
                     AgentFilter::Copilot => matches!(s.agent_type, AgentType::Copilot),
                     AgentFilter::Pi => matches!(s.agent_type, AgentType::Pi),
@@ -488,6 +493,7 @@ impl SessionImportPicker {
             AgentFilter::Claude,
             AgentFilter::Codex,
             AgentFilter::Gemini,
+            AgentFilter::DeepseekTui,
             AgentFilter::Opencode,
             AgentFilter::Copilot,
             AgentFilter::Pi,
@@ -501,6 +507,7 @@ impl SessionImportPicker {
                 AgentFilter::Claude => agent_claude(),
                 AgentFilter::Codex => agent_codex(),
                 AgentFilter::Gemini => agent_gemini(),
+                AgentFilter::DeepseekTui => agent_pi(),
                 AgentFilter::Opencode => agent_opencode(),
                 AgentFilter::Copilot => agent_copilot(),
                 AgentFilter::Pi => agent_pi(),
@@ -575,6 +582,7 @@ impl SessionImportPicker {
                 AgentType::Codex => "X",
                 AgentType::Dirac => "D",
                 AgentType::Gemini => "G",
+                AgentType::DeepseekTui => "S",
                 AgentType::Opencode => "O",
                 AgentType::Copilot => "P",
                 AgentType::Pi => "π",
@@ -584,6 +592,7 @@ impl SessionImportPicker {
                 AgentType::Codex => agent_codex(),
                 AgentType::Dirac => agent_dirac(),
                 AgentType::Gemini => agent_gemini(),
+                AgentType::DeepseekTui => agent_pi(),
                 AgentType::Opencode => agent_opencode(),
                 AgentType::Copilot => agent_copilot(),
                 AgentType::Pi => agent_pi(),

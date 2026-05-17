@@ -1,5 +1,5 @@
 import type { Session } from '../types';
 
 export function supportsPlanMode(agentType?: Session['agent_type'] | null): boolean {
-  return agentType === 'claude' || agentType === 'codex' || agentType === 'dirac' || agentType === 'gemini';
+  return agentType === 'claude' || agentType === 'codex' || agentType === 'dirac' || agentType === 'gemini' || agentType === 'deepseek-tui';
 }

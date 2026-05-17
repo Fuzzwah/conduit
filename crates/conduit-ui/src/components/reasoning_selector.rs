@@ -212,6 +212,7 @@ impl ReasoningSelectorState {
             }
             AgentType::Dirac
             | AgentType::Gemini
+            | AgentType::DeepseekTui
             | AgentType::Opencode
             | AgentType::Copilot
             | AgentType::Pi => {}
@@ -393,6 +394,7 @@ impl ReasoningSelector {
             Some(AgentType::Codex) => "Codex supports: auto, minimal, low, medium, high, xhigh",
             Some(AgentType::Dirac)
             | Some(AgentType::Gemini)
+            | Some(AgentType::DeepseekTui)
             | Some(AgentType::Opencode)
             | Some(AgentType::Copilot)
             | Some(AgentType::Pi)

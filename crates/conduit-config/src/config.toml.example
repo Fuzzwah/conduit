@@ -47,7 +47,7 @@
 # If omitted, all installed providers are enabled by default.
 #
 # [providers]
-# enabled = ["codex", "claude", "gemini", "opencode"]
+# enabled = ["codex", "claude", "gemini", "deepseek-tui", "opencode"]
 
 # ============================================================================
 # Tool Paths
@@ -148,6 +148,7 @@
 # claude = "/opt/homebrew/bin/claude"
 # codex = "/usr/local/bin/codex"
 # gemini = "/usr/local/bin/gemini"
+# deepseek_tui = "/usr/local/bin/deepseek"
 # opencode = "/usr/local/bin/opencode"
 
 # ============================================================================

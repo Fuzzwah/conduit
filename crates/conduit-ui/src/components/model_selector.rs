@@ -128,6 +128,7 @@ impl ModelSelectorState {
                 AgentType::Codex => ModelRegistry::codex_models(),
                 AgentType::Dirac => ModelRegistry::dirac_models(),
                 AgentType::Gemini => ModelRegistry::gemini_models(),
+                AgentType::DeepseekTui => ModelRegistry::deepseek_tui_models(),
                 AgentType::Opencode => ModelRegistry::opencode_models(),
                 AgentType::Copilot => ModelRegistry::copilot_models(),
                 AgentType::Pi => ModelRegistry::pi_models(),

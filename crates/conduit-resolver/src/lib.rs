@@ -387,6 +387,7 @@ fn render_skill_invocation(
             source_badge: Some(format!("{} skill", source.display_name())),
         },
         AgentType::Gemini
+        | AgentType::DeepseekTui
         | AgentType::Dirac
         | AgentType::Opencode
         | AgentType::Copilot

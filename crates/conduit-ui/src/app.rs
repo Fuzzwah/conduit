@@ -51,8 +51,8 @@ use conduit_agent::{
     load_claude_history_with_debug, load_codex_history_with_debug,
     load_opencode_history_for_dir_with_debug, load_opencode_history_with_debug,
     load_pi_history_with_debug, AgentMode, AgentRunner, AgentType, ClaudeCodeRunner,
-    CodexCliRunner, CopilotRunner, DiracRunner, GeminiCliRunner, HistoryDebugEntry, MessageDisplay,
-    ModelRegistry, OpencodeRunner, PiRunner, SessionId,
+    CodexCliRunner, CopilotRunner, DeepseekTuiRunner, DiracRunner, GeminiCliRunner,
+    HistoryDebugEntry, MessageDisplay, ModelRegistry, OpencodeRunner, PiRunner, SessionId,
 };
 #[cfg(test)]
 use conduit_config::KeyContext;
@@ -268,6 +268,12 @@ impl App {
     #[inline]
     fn gemini_runner(&self) -> &Arc<GeminiCliRunner> {
         self.core.gemini_runner()
+    }
+
+    /// Get the DeepSeek TUI runner.
+    #[inline]
+    fn deepseek_tui_runner(&self) -> &Arc<DeepseekTuiRunner> {
+        self.core.deepseek_tui_runner()
     }
 
     /// Get the Dirac runner.
@@ -746,6 +752,14 @@ impl App {
                         session.chat_view.push(
                             MessageDisplay::System {
                                 content: "Gemini CLI history import isn't supported yet, so previous messages won't be shown.".to_string(),
+                            }
+                            .to_chat_message(),
+                        );
+                    }
+                    AgentType::DeepseekTui => {
+                        session.chat_view.push(
+                            MessageDisplay::System {
+                                content: "DeepSeek TUI history import isn't supported yet, so previous messages won't be shown.".to_string(),
                             }
                             .to_chat_message(),
                         );
@@ -2379,6 +2393,7 @@ impl App {
                         AgentType::Codex => self.codex_runner().clone(),
                         AgentType::Dirac => self.dirac_runner().clone(),
                         AgentType::Gemini => self.gemini_runner().clone(),
+                        AgentType::DeepseekTui => self.deepseek_tui_runner().clone(),
                         AgentType::Opencode => self.opencode_runner().clone(),
                         AgentType::Copilot => self.copilot_runner().clone(),
                         AgentType::Pi => self.pi_runner().clone(),
@@ -4249,6 +4264,14 @@ impl App {
                                 .to_chat_message(),
                             );
                         }
+                        AgentType::DeepseekTui => {
+                            session.chat_view.push(
+                                MessageDisplay::System {
+                                    content: "DeepSeek TUI history import isn't supported yet, so previous messages won't be shown.".to_string(),
+                                }
+                                .to_chat_message(),
+                            );
+                        }
                         AgentType::Opencode => {
                             if let Ok((msgs, debug_entries, file_path)) =
                                 load_opencode_history_with_debug(session_id_str)
@@ -4398,6 +4421,7 @@ impl App {
             AgentType::Codex => conduit_util::Tool::Codex,
             AgentType::Dirac => conduit_util::Tool::Dirac,
             AgentType::Gemini => conduit_util::Tool::Gemini,
+            AgentType::DeepseekTui => conduit_util::Tool::DeepseekTui,
             AgentType::Opencode => conduit_util::Tool::Opencode,
             AgentType::Copilot => conduit_util::Tool::Copilot,
             AgentType::Pi => conduit_util::Tool::Pi,
@@ -6098,6 +6122,16 @@ impl App {
                 session.chat_view.push(
                     MessageDisplay::System {
                         content: "Gemini CLI session import isn't supported yet.".to_string(),
+                    }
+                    .to_chat_message(),
+                );
+            }
+            AgentType::DeepseekTui => {
+                session.resume_session_id = None;
+                session.agent_session_id = None;
+                session.chat_view.push(
+                    MessageDisplay::System {
+                        content: "DeepSeek TUI session import isn't supported yet.".to_string(),
                     }
                     .to_chat_message(),
                 );

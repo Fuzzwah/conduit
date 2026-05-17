@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use conduit_agent::codex::load_codex_models;
+use conduit_agent::deepseek_tui::DeepseekTuiRunner;
 use conduit_agent::gemini::load_gemini_models;
 use conduit_agent::pi::load_pi_models;
 use conduit_agent::{
@@ -48,6 +49,8 @@ pub struct ConduitCore {
     dirac_runner: Arc<DiracRunner>,
     /// Gemini CLI runner
     gemini_runner: Arc<GeminiCliRunner>,
+    /// DeepSeek TUI runner
+    deepseek_tui_runner: Arc<DeepseekTuiRunner>,
     /// OpenCode runner
     opencode_runner: Arc<OpencodeRunner>,
     /// GitHub Copilot runner
@@ -141,6 +144,14 @@ impl ConduitCore {
             None => Arc::new(GeminiCliRunner::new()),
         };
 
+        if tools.is_available(Tool::DeepseekTui) {
+            progress("Initializing DeepSeek TUI");
+        }
+        let deepseek_tui_runner = match tools.get_path(Tool::DeepseekTui) {
+            Some(path) => Arc::new(DeepseekTuiRunner::with_path(path.clone())),
+            None => Arc::new(DeepseekTuiRunner::new()),
+        };
+
         if tools.is_available(Tool::Opencode) {
             progress("Initializing OpenCode");
         }
@@ -229,6 +240,7 @@ impl ConduitCore {
             codex_runner,
             dirac_runner,
             gemini_runner,
+            deepseek_tui_runner,
             opencode_runner,
             copilot_runner,
             pi_runner,
@@ -316,6 +328,11 @@ impl ConduitCore {
         &self.gemini_runner
     }
 
+    /// Get the DeepSeek TUI runner.
+    pub fn deepseek_tui_runner(&self) -> &Arc<DeepseekTuiRunner> {
+        &self.deepseek_tui_runner
+    }
+
     /// Get the OpenCode runner.
     pub fn opencode_runner(&self) -> &Arc<OpencodeRunner> {
         &self.opencode_runner
@@ -380,6 +397,10 @@ impl ConduitCore {
         self.gemini_runner = match self.tools.get_path(Tool::Gemini) {
             Some(path) => Arc::new(GeminiCliRunner::with_path(path.clone())),
             None => Arc::new(GeminiCliRunner::new()),
+        };
+        self.deepseek_tui_runner = match self.tools.get_path(Tool::DeepseekTui) {
+            Some(path) => Arc::new(DeepseekTuiRunner::with_path(path.clone())),
+            None => Arc::new(DeepseekTuiRunner::new()),
         };
         self.opencode_runner = match self.tools.get_path(Tool::Opencode) {
             Some(path) => Arc::new(OpencodeRunner::with_path(path.clone())),

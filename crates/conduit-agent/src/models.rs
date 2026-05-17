@@ -75,6 +75,8 @@ impl ModelRegistry {
 
     /// Default context window for Gemini models (approximate)
     pub const GEMINI_CONTEXT_WINDOW: i64 = 1_000_000;
+    /// Default context window for DeepSeek TUI models (approximate)
+    pub const DEEPSEEK_TUI_CONTEXT_WINDOW: i64 = 1_000_000;
 
     /// Default context window for OpenCode models (approximate)
     pub const OPENCODE_CONTEXT_WINDOW: i64 = 200_000;
@@ -795,6 +797,37 @@ impl ModelRegistry {
         Self::dirac_models_static()
     }
 
+    /// Get available models for DeepSeek TUI
+    pub fn deepseek_tui_models() -> Vec<ModelInfo> {
+        vec![
+            ModelInfo::new(
+                AgentType::DeepseekTui,
+                "deepseek-v4-flash",
+                "DeepSeek V4 Flash",
+                "deepseek-v4-flash",
+                "DeepSeek flash model",
+                Self::DEEPSEEK_TUI_CONTEXT_WINDOW,
+            )
+            .as_default(),
+            ModelInfo::new(
+                AgentType::DeepseekTui,
+                "deepseek-v4-pro",
+                "DeepSeek V4 Pro",
+                "deepseek-v4-pro",
+                "DeepSeek pro model",
+                Self::DEEPSEEK_TUI_CONTEXT_WINDOW,
+            ),
+            ModelInfo::new(
+                AgentType::DeepseekTui,
+                "auto",
+                "Auto",
+                "auto",
+                "Let DeepSeek TUI auto-select model and thinking",
+                Self::DEEPSEEK_TUI_CONTEXT_WINDOW,
+            ),
+        ]
+    }
+
     fn pi_models_static() -> Vec<ModelInfo> {
         Self::build_pi_models()
     }
@@ -865,6 +898,7 @@ impl ModelRegistry {
         models.extend(Self::codex_models());
         models.extend(Self::dirac_models());
         models.extend(Self::gemini_models());
+        models.extend(Self::deepseek_tui_models());
         models.extend(Self::opencode_models());
         models.extend(Self::copilot_models());
         models.extend(Self::pi_models());
@@ -878,6 +912,7 @@ impl ModelRegistry {
             AgentType::Codex => Self::codex_models(),
             AgentType::Dirac => Self::dirac_models(),
             AgentType::Gemini => Self::gemini_models(),
+            AgentType::DeepseekTui => Self::deepseek_tui_models(),
             AgentType::Opencode => Self::opencode_models(),
             AgentType::Copilot => Self::copilot_models(),
             AgentType::Pi => Self::pi_models(),
@@ -891,6 +926,7 @@ impl ModelRegistry {
             AgentType::Codex => "gpt-5.4".to_string(),
             AgentType::Dirac => "claude-sonnet-4-5-20250929".to_string(),
             AgentType::Gemini => "gemini-2.5-pro".to_string(),
+            AgentType::DeepseekTui => "deepseek-v4-flash".to_string(),
             AgentType::Opencode => Self::OPENCODE_DEFAULT_MODEL_ID.to_string(),
             AgentType::Copilot => "gpt-5.3-codex".to_string(),
             AgentType::Pi => "openrouter/deepseek/deepseek-v4-flash".to_string(),
@@ -932,6 +968,7 @@ impl ModelRegistry {
             AgentType::Codex => "◎",
             AgentType::Dirac => "◉",
             AgentType::Gemini => "◆",
+            AgentType::DeepseekTui => "⬢",
             AgentType::Opencode => "◍",
             AgentType::Copilot => "⊙",
             AgentType::Pi => "◌",
@@ -945,6 +982,7 @@ impl ModelRegistry {
             AgentType::Codex => "Codex",
             AgentType::Dirac => "Dirac",
             AgentType::Gemini => "Gemini",
+            AgentType::DeepseekTui => "DeepSeek TUI",
             AgentType::Opencode => "OpenCode",
             AgentType::Copilot => "GitHub Copilot",
             AgentType::Pi => "Pi",
@@ -965,6 +1003,7 @@ impl ModelRegistry {
             AgentType::Codex => Self::CODEX_CONTEXT_WINDOW,
             AgentType::Dirac => Self::DIRAC_CONTEXT_WINDOW,
             AgentType::Gemini => Self::GEMINI_CONTEXT_WINDOW,
+            AgentType::DeepseekTui => Self::DEEPSEEK_TUI_CONTEXT_WINDOW,
             AgentType::Opencode => Self::OPENCODE_CONTEXT_WINDOW,
             AgentType::Copilot => Self::COPILOT_CONTEXT_WINDOW,
             AgentType::Pi => Self::PI_CONTEXT_WINDOW,
