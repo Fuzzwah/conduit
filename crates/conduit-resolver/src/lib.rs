@@ -88,6 +88,7 @@ pub enum ProviderArtifactSource {
     Claude,
     Gemini,
     Opencode,
+    Pi,
 }
 
 impl ProviderArtifactSource {
@@ -98,6 +99,7 @@ impl ProviderArtifactSource {
             ProviderArtifactSource::Claude => "Claude",
             ProviderArtifactSource::Gemini => "Gemini",
             ProviderArtifactSource::Opencode => "OpenCode",
+            ProviderArtifactSource::Pi => "Pi",
         }
     }
 
@@ -108,6 +110,7 @@ impl ProviderArtifactSource {
             ProviderArtifactSource::Claude => 2,
             ProviderArtifactSource::Opencode => 3,
             ProviderArtifactSource::Gemini => 4,
+            ProviderArtifactSource::Pi => 5,
         }
     }
 }
@@ -349,6 +352,7 @@ fn provider_matches_source(active_provider: AgentType, source: ProviderArtifactS
             | (AgentType::Claude, ProviderArtifactSource::Claude)
             | (AgentType::Gemini, ProviderArtifactSource::Gemini)
             | (AgentType::Opencode, ProviderArtifactSource::Opencode)
+            | (AgentType::Pi, ProviderArtifactSource::Pi)
     )
 }
 
@@ -479,6 +483,7 @@ impl DiscoveryRegistry {
             registry.scan_claude(&base, &mut seen);
             registry.scan_gemini(&base, &mut seen);
             registry.scan_opencode(&base, &mut seen);
+            registry.scan_pi(&base, &mut seen);
         }
 
         registry.inject_claude_builtins();
@@ -630,6 +635,38 @@ impl DiscoveryRegistry {
             {
                 self.insert(ProviderInvocation::PromptCommand {
                     source: ProviderArtifactSource::Gemini,
+                    name,
+                    description,
+                    content: prompt,
+                    path,
+                });
+            }
+        }
+    }
+
+    fn scan_pi(&mut self, base: &Path, seen: &mut HashSet<(ProviderArtifactSource, PathBuf)>) {
+        for path in skill_files(&base.join(".pi/skills")) {
+            if !seen.insert((ProviderArtifactSource::Pi, path.clone())) {
+                continue;
+            }
+            let name = skill_name_from_path(&path);
+            self.insert(ProviderInvocation::Skill {
+                source: ProviderArtifactSource::Pi,
+                description: skill_description(&path),
+                name,
+                path,
+            });
+        }
+
+        for path in markdown_command_files(&base.join(".pi/prompts")) {
+            if !seen.insert((ProviderArtifactSource::Pi, path.clone())) {
+                continue;
+            }
+            if let Some((name, description, prompt)) =
+                load_markdown_command(&path, &base.join(".pi/prompts"))
+            {
+                self.insert(ProviderInvocation::PromptCommand {
+                    source: ProviderArtifactSource::Pi,
                     name,
                     description,
                     content: prompt,
@@ -823,14 +860,33 @@ fn split_frontmatter(path: &Path, content: &str) -> (Option<String>, String) {
         description: Option<String>,
     }
 
+    // Try TOML frontmatter first (used by Claude commands, etc.)
     let description = match toml::from_str::<Frontmatter>(frontmatter) {
-        Ok(frontmatter) => frontmatter.description,
-        Err(error) => {
-            tracing::warn!(path = %path.display(), error = %error, "Invalid TOML syntax");
-            None
+        Ok(frontmatter) if frontmatter.description.is_some() => {
+            return (frontmatter.description, body.to_string())
+        }
+        Ok(_) => None,
+        Err(_) => {
+            // Fallback: try YAML frontmatter (used by Pi prompt templates)
+            extract_yaml_description(frontmatter)
         }
     };
     (description, body.to_string())
+}
+
+/// Extract `description` from simple YAML frontmatter.
+/// Supports `key: value` pairs (no nested structures, no quotes required).
+fn extract_yaml_description(frontmatter: &str) -> Option<String> {
+    for line in frontmatter.lines() {
+        let line = line.trim();
+        if let Some(value) = line.strip_prefix("description:") {
+            let value = value.trim().trim_matches('"').to_string();
+            if !value.is_empty() {
+                return Some(value);
+            }
+        }
+    }
+    None
 }
 
 #[derive(Debug, Deserialize)]
