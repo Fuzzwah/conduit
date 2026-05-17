@@ -152,12 +152,13 @@ pub async fn get_providers(
                 AgentType::Codex => conduit_util::Tool::Codex,
                 AgentType::Dirac => conduit_util::Tool::Dirac,
                 AgentType::Gemini => conduit_util::Tool::Gemini,
+                AgentType::DeepseekTui => conduit_util::Tool::DeepseekTui,
                 AgentType::Opencode => conduit_util::Tool::Opencode,
                 AgentType::Copilot => conduit_util::Tool::Copilot,
                 AgentType::Pi => conduit_util::Tool::Pi,
             };
             ProviderInfo {
-                id: format!("{:?}", agent).to_lowercase(),
+                id: agent.as_str().to_string(),
                 display_name: agent.display_name().to_string(),
                 installed: core.tools().is_available(tool),
                 enabled: enabled.contains(&agent),
@@ -186,6 +187,7 @@ pub async fn set_providers(
             "claude" => Some(AgentType::Claude),
             "dirac" => Some(AgentType::Dirac),
             "gemini" => Some(AgentType::Gemini),
+            "deepseek-tui" | "deepseek_tui" | "deepseek" => Some(AgentType::DeepseekTui),
             "opencode" => Some(AgentType::Opencode),
             "copilot" => Some(AgentType::Copilot),
             "pi" => Some(AgentType::Pi),

@@ -63,6 +63,11 @@ impl AgentSelectorState {
                 name: "Gemini CLI",
                 description: "Google's Gemini coding assistant",
             },
+            AgentType::DeepseekTui => AgentOption {
+                agent_type: AgentType::DeepseekTui,
+                name: "DeepSeek TUI",
+                description: "DeepSeek terminal coding agent",
+            },
             AgentType::Opencode => AgentOption {
                 agent_type: AgentType::Opencode,
                 name: "OpenCode",
@@ -87,6 +92,7 @@ impl AgentSelectorState {
             AgentType::Claude => Tool::Claude,
             AgentType::Dirac => Tool::Dirac,
             AgentType::Gemini => Tool::Gemini,
+            AgentType::DeepseekTui => Tool::DeepseekTui,
             AgentType::Opencode => Tool::Opencode,
             AgentType::Copilot => Tool::Copilot,
             AgentType::Pi => Tool::Pi,
@@ -213,7 +219,7 @@ impl AgentSelector {
         }
 
         // Render dialog frame (instructions on bottom border)
-        let frame = DialogFrame::new("Select Agent", 44, 16).instructions(vec![
+        let frame = DialogFrame::new("Select Agent", 44, 18).instructions(vec![
             ("↑↓", "select"),
             ("Enter", "confirm"),
             ("Esc", "cancel"),
@@ -227,6 +233,7 @@ impl AgentSelector {
             Constraint::Length(2), // Codex option
             Constraint::Length(2), // Claude option
             Constraint::Length(2), // Gemini option
+            Constraint::Length(2), // DeepSeek TUI option
             Constraint::Length(2), // OpenCode option
             Constraint::Length(2), // GitHub Copilot option
             Constraint::Length(2), // Pi option

@@ -1,6 +1,7 @@
 pub mod claude;
 pub mod codex;
 pub mod copilot;
+pub mod deepseek_tui;
 pub mod dirac;
 pub mod display;
 pub mod error;
@@ -20,6 +21,7 @@ pub mod title_generator;
 pub use claude::ClaudeCodeRunner;
 pub use codex::CodexCliRunner;
 pub use copilot::CopilotRunner;
+pub use deepseek_tui::DeepseekTuiRunner;
 pub use dirac::DiracRunner;
 pub use display::MessageDisplay;
 pub use error::AgentError;

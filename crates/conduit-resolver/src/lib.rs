@@ -351,6 +351,7 @@ fn provider_matches_source(active_provider: AgentType, source: ProviderArtifactS
         (AgentType::Codex, ProviderArtifactSource::Codex)
             | (AgentType::Claude, ProviderArtifactSource::Claude)
             | (AgentType::Gemini, ProviderArtifactSource::Gemini)
+            | (AgentType::DeepseekTui, ProviderArtifactSource::Gemini)
             | (AgentType::Opencode, ProviderArtifactSource::Opencode)
             | (AgentType::Pi, ProviderArtifactSource::Pi)
     )
@@ -387,6 +388,7 @@ fn render_skill_invocation(
             source_badge: Some(format!("{} skill", source.display_name())),
         },
         AgentType::Gemini
+        | AgentType::DeepseekTui
         | AgentType::Dirac
         | AgentType::Opencode
         | AgentType::Copilot

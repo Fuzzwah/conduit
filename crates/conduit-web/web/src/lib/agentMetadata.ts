@@ -12,6 +12,8 @@ export function agentDisplayName(agentType: AgentType, options?: { short?: boole
       return short ? 'Codex' : 'Codex CLI';
     case 'gemini':
       return short ? 'Gemini' : 'Gemini CLI';
+    case 'deepseek-tui':
+      return short ? 'DeepSeek' : 'DeepSeek TUI';
     case 'dirac':
       return short ? 'Dirac' : 'Dirac CLI';
     case 'opencode':
@@ -33,6 +35,8 @@ export function agentAccentColor(agentType: AgentType): string {
       return 'bg-teal-400';
     case 'gemini':
       return 'bg-blue-400';
+    case 'deepseek-tui':
+      return 'bg-cyan-400';
     case 'pi':
       return 'bg-purple-400';
   }

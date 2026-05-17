@@ -7,6 +7,7 @@ pub enum AgentType {
     Codex,
     Dirac,
     Gemini,
+    DeepseekTui,
     Opencode,
     Copilot,
     Pi,
@@ -67,12 +68,13 @@ impl AgentMode {
 
 impl AgentType {
     /// Preferred provider priority order used for defaults and UI listing.
-    pub const fn preferred_order() -> [AgentType; 7] {
+    pub const fn preferred_order() -> [AgentType; 8] {
         [
             AgentType::Codex,
             AgentType::Claude,
             AgentType::Dirac,
             AgentType::Gemini,
+            AgentType::DeepseekTui,
             AgentType::Opencode,
             AgentType::Copilot,
             AgentType::Pi,
@@ -86,6 +88,7 @@ impl AgentType {
                 | AgentType::Codex
                 | AgentType::Dirac
                 | AgentType::Gemini
+                | AgentType::DeepseekTui
                 | AgentType::Pi
         )
     }
@@ -96,6 +99,7 @@ impl AgentType {
             AgentType::Codex => "codex",
             AgentType::Dirac => "dirac",
             AgentType::Gemini => "gemini",
+            AgentType::DeepseekTui => "deepseek-tui",
             AgentType::Opencode => "opencode",
             AgentType::Copilot => "copilot",
             AgentType::Pi => "pi",
@@ -107,6 +111,7 @@ impl AgentType {
             "codex" => AgentType::Codex,
             "dirac" => AgentType::Dirac,
             "gemini" => AgentType::Gemini,
+            "deepseek-tui" | "deepseek_tui" | "deepseek" => AgentType::DeepseekTui,
             "opencode" => AgentType::Opencode,
             "copilot" => AgentType::Copilot,
             "pi" => AgentType::Pi,
@@ -121,6 +126,7 @@ impl AgentType {
             AgentType::Codex => "Codex",
             AgentType::Dirac => "Dirac",
             AgentType::Gemini => "Gemini",
+            AgentType::DeepseekTui => "DeepSeek",
             AgentType::Opencode => "OpenCode",
             AgentType::Copilot => "Copilot",
             AgentType::Pi => "Pi",
@@ -133,6 +139,7 @@ impl AgentType {
             AgentType::Codex => "Codex CLI",
             AgentType::Dirac => "Dirac CLI",
             AgentType::Gemini => "Gemini CLI",
+            AgentType::DeepseekTui => "DeepSeek TUI",
             AgentType::Opencode => "OpenCode",
             AgentType::Copilot => "GitHub Copilot",
             AgentType::Pi => "Pi",

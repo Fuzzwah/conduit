@@ -1375,7 +1375,11 @@ impl App {
         // Start agent
         if matches!(
             agent_type,
-            AgentType::Gemini | AgentType::Opencode | AgentType::Copilot | AgentType::Pi
+            AgentType::Gemini
+                | AgentType::DeepseekTui
+                | AgentType::Opencode
+                | AgentType::Copilot
+                | AgentType::Pi
         ) && !images.is_empty()
         {
             if let Some(session) = self.state.tab_manager.session_mut(tab_index) {
@@ -1385,6 +1389,10 @@ impl App {
                     content: match agent_type {
                         AgentType::Gemini => {
                             "Image attachments aren't supported for Gemini in Conduit yet."
+                                .to_string()
+                        }
+                        AgentType::DeepseekTui => {
+                            "Image attachments aren't supported for DeepSeek TUI in Conduit yet."
                                 .to_string()
                         }
                         AgentType::Opencode => {
@@ -1415,6 +1423,7 @@ impl App {
             AgentType::Codex
                 | AgentType::Claude
                 | AgentType::Gemini
+                | AgentType::DeepseekTui
                 | AgentType::Opencode
                 | AgentType::Copilot
                 | AgentType::Pi

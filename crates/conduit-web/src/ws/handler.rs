@@ -174,6 +174,7 @@ impl SessionManager {
             AgentType::Codex => core.codex_runner().clone(),
             AgentType::Dirac => core.dirac_runner().clone(),
             AgentType::Gemini => core.gemini_runner().clone(),
+            AgentType::DeepseekTui => core.deepseek_tui_runner().clone(),
             AgentType::Opencode => core.opencode_runner().clone(),
             AgentType::Copilot => core.copilot_runner().clone(),
             AgentType::Pi => core.pi_runner().clone(),
@@ -512,6 +513,7 @@ impl SessionManager {
             AgentType::Codex
             | AgentType::Dirac
             | AgentType::Gemini
+            | AgentType::DeepseekTui
             | AgentType::Opencode
             | AgentType::Copilot
             | AgentType::Pi => AgentInput::CodexPrompt {
@@ -1223,7 +1225,10 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                             }
                             continue;
                         }
-                        AgentType::Opencode | AgentType::Copilot | AgentType::Pi => {
+                        AgentType::DeepseekTui
+                        | AgentType::Opencode
+                        | AgentType::Copilot
+                        | AgentType::Pi => {
                             if let Err(send_err) = tx
                                 .send(ServerMessage::session_error(
                                     session_id,
@@ -1598,6 +1603,7 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                             continue;
                         }
                         Some(AgentType::Opencode)
+                        | Some(AgentType::DeepseekTui)
                         | Some(AgentType::Copilot)
                         | Some(AgentType::Pi) => {
                             if let Err(send_err) = tx

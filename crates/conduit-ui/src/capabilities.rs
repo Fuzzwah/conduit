@@ -27,6 +27,7 @@ impl AgentCapabilities {
                 AgentType::Claude
                     | AgentType::Dirac
                     | AgentType::Gemini
+                    | AgentType::DeepseekTui
                     | AgentType::Opencode
                     | AgentType::Pi
             ),
@@ -36,7 +37,7 @@ impl AgentCapabilities {
             ),
             supports_native_skill_tool: matches!(
                 agent_type,
-                AgentType::Gemini | AgentType::Opencode | AgentType::Pi
+                AgentType::Gemini | AgentType::DeepseekTui | AgentType::Opencode | AgentType::Pi
             ),
             supports_command_template_expansion: true,
         }
