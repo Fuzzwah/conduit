@@ -253,10 +253,10 @@ impl DeepseekTuiRunner {
 
     fn build_command(&self, config: &AgentStartConfig) -> Command {
         let mut cmd = Command::new(&self.binary_path);
-        cmd.arg("serve").arg("--acp");
         if let Some(model) = &config.model {
             cmd.arg("--model").arg(model);
         }
+        cmd.arg("serve").arg("--acp");
         for arg in &config.additional_args {
             cmd.arg(arg);
         }
@@ -590,5 +590,57 @@ impl AgentRunner for DeepseekTuiRunner {
         } else {
             Self::find_binary()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn get_command_args(cmd: &Command) -> Vec<String> {
+        cmd.as_std()
+            .get_args()
+            .map(|arg| arg.to_string_lossy().to_string())
+            .collect()
+    }
+
+    #[test]
+    fn test_build_command_puts_model_before_serve_subcommand() {
+        let runner = DeepseekTuiRunner::with_path(PathBuf::from("/usr/bin/deepseek"));
+        let config =
+            AgentStartConfig::new("hello", PathBuf::from("/tmp")).with_model("deepseek-v4-flash");
+
+        let cmd = runner.build_command(&config);
+        let args = get_command_args(&cmd);
+
+        assert_eq!(
+            args,
+            vec![
+                "--model".to_string(),
+                "deepseek-v4-flash".to_string(),
+                "serve".to_string(),
+                "--acp".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_build_command_keeps_additional_args_after_serve_subcommand() {
+        let runner = DeepseekTuiRunner::with_path(PathBuf::from("/usr/bin/deepseek"));
+        let mut config = AgentStartConfig::new("hello", PathBuf::from("/tmp"));
+        config.additional_args = vec!["--log-level".to_string(), "debug".to_string()];
+
+        let cmd = runner.build_command(&config);
+        let args = get_command_args(&cmd);
+
+        assert_eq!(
+            args,
+            vec![
+                "serve".to_string(),
+                "--acp".to_string(),
+                "--log-level".to_string(),
+                "debug".to_string(),
+            ]
+        );
     }
 }
