@@ -82,7 +82,11 @@ impl AgentType {
     pub fn supports_plan_mode(&self) -> bool {
         matches!(
             self,
-            AgentType::Claude | AgentType::Codex | AgentType::Dirac | AgentType::Gemini
+            AgentType::Claude
+                | AgentType::Codex
+                | AgentType::Dirac
+                | AgentType::Gemini
+                | AgentType::Pi
         )
     }
 
