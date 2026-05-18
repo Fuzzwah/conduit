@@ -1,23 +1,23 @@
 ## 1. Un-gate orchestration controls for Pi
 
-- [ ] 1.1 In `crates/conduit-ui/src/components/workspace_progress_dialog.rs`, change `is_orchestration_applicable()` to return `true` for `AgentType::Pi` (alongside Claude)
-- [ ] 1.2 In `crates/conduit-ui/src/app/app_agent_events.rs`, remove the `agent_type == AgentType::Claude` guard around orchestration/adversarial config propagation so Pi sessions also pass `orchestration_enabled` and `adversarial_review` config to `AgentStartConfig`
-- [ ] 1.3 In `crates/conduit-ui/src/session.rs`, update the status bar orchestration badge logic to show for Pi sessions (not just Claude)
+^- [x] 1.1 In `crates/conduit-ui/src/components/workspace_progress_dialog.rs`, change `is_orchestration_applicable()` to return `true` for `AgentType::Pi` (alongside Claude)
+^- [x] 1.2 In `crates/conduit-ui/src/app/app_agent_events.rs`, remove the `agent_type == AgentType::Claude` guard around orchestration/adversarial config propagation so Pi sessions also pass `orchestration_enabled` and `adversarial_review` config to `AgentStartConfig`
+^- [x] 1.3 In `crates/conduit-ui/src/session.rs`, update the status bar orchestration badge logic to show for Pi sessions (not just Claude)
 
 ## 2. Create the Pi Agent tool extension
 
-- [ ] 2.1 Design the extension file `crates/conduit-agent/src/agent-tool.ts` that registers an `Agent` tool using `pi.registerTool()`. The tool accepts `subagent_type` (string) and optional `task` (string) parameters.
-- [ ] 2.2 Implement sub-agent spawning in the extension using `createAgentSession()` from `@mariozechner/pi-coding-agent`. The sub-agent model is determined by the skill definition.
-- [ ] 2.3 Add error handling: SDK/model errors, timeout, empty results. Return clear error messages to the calling agent.
-- [ ] 2.4 Ensure the tool result matches the format Claude's `Agent` tool uses (text content block) so Conduit's existing event handling works.
+^- [x] 2.1 Design the extension file `crates/conduit-agent/src/agent-tool.ts` that registers an `Agent` tool using `pi.registerTool()`. The tool accepts `subagent_type` (string) and optional `task` (string) parameters.
+^- [x] 2.2 Implement sub-agent spawning in the extension using `createAgentSession()` from `@mariozechner/pi-coding-agent`. The sub-agent model is determined by the skill definition.
+^- [x] 2.3 Add error handling: SDK/model errors, timeout, empty results. Return clear error messages to the calling agent.
+^- [x] 2.4 Ensure the tool result matches the format Claude's `Agent` tool uses (text content block) so Conduit's existing event handling works.
 
 ## 3. Write Pi-native orchestration skill files
 
-- [ ] 3.1 In `crates/conduit-agent/src/orchestration.rs`, add `ensure_pi_orchestration_skills()` that writes three skill directories under `~/.pi/agent/skills/`:
+^- [x] 3.1 In `crates/conduit-agent/src/orchestration.rs`, add `ensure_pi_orchestration_skills()` that writes three skill directories under `~/.pi/agent/skills/`:
   - `conduit-explore/SKILL.md`: Fast codebase exploration skill
   - `conduit-review/SKILL.md`: Quick diff/code review skill
   - `conduit-adversarial-review/SKILL.md`: Adversarial review skill (with configurable model in frontmatter)
-- [ ] 3.2 Each skill SHALL use the Agent Skills standard frontmatter (`name`, `description`, and a `model` metadata field for the sub-agent model)
+^- [x] 3.2 Each skill SHALL use the Agent Skills standard frontmatter (`name`, `description`, and a `model` metadata field for the sub-agent model)
 
 ## 4. Update the Pi runner for orchestration
 
