@@ -5,10 +5,11 @@ use std::sync::Arc;
 use conduit_agent::codex::load_codex_models;
 use conduit_agent::deepseek_tui::DeepseekTuiRunner;
 use conduit_agent::gemini::load_gemini_models;
+use conduit_agent::omp::load_omp_models;
 use conduit_agent::pi::load_pi_models;
 use conduit_agent::{
     ClaudeCodeRunner, CodexCliRunner, CopilotRunner, GeminiCliRunner, MakiRunner, ModelRegistry,
-    OpencodeRunner, PiRunner,
+    OmpRunner, OpencodeRunner, PiRunner,
 };
 use conduit_config::Config;
 use conduit_data::{
@@ -57,6 +58,8 @@ pub struct ConduitCore {
     pi_runner: Arc<PiRunner>,
     /// Maki runner
     maki_runner: Arc<MakiRunner>,
+    /// OMP runner
+    omp_runner: Arc<OmpRunner>,
     /// Worktree manager
     worktree_manager: WorkspaceRepoManager,
 }
@@ -176,6 +179,14 @@ impl ConduitCore {
             None => Arc::new(MakiRunner::new()),
         };
 
+        if tools.is_available(Tool::Omp) {
+            progress("Initializing Oh My Pi");
+        }
+        let omp_runner = match tools.get_path(Tool::Omp) {
+            Some(path) => Arc::new(OmpRunner::with_path(path.clone())),
+            None => Arc::new(OmpRunner::new()),
+        };
+
         if tools.is_available(Tool::Claude) {
             progress("Discovering Claude Code models");
             let models =
@@ -227,6 +238,16 @@ impl ConduitCore {
             ModelRegistry::clear_pi_models();
         }
 
+        if tools.is_available(Tool::Omp) {
+            progress("Discovering OMP models");
+            let models = load_omp_models(tools.get_path(Tool::Omp).cloned());
+            if !models.is_empty() {
+                ModelRegistry::set_omp_models(models);
+            }
+        } else {
+            ModelRegistry::clear_omp_models();
+        }
+
         Self {
             config,
             tools,
@@ -244,6 +265,7 @@ impl ConduitCore {
             copilot_runner,
             pi_runner,
             maki_runner,
+            omp_runner,
             worktree_manager,
         }
     }
@@ -346,6 +368,11 @@ impl ConduitCore {
     /// Get the Maki runner.
     pub fn maki_runner(&self) -> &Arc<MakiRunner> {
         &self.maki_runner
+    }
+
+    /// Get the OMP runner.
+    pub fn omp_runner(&self) -> &Arc<OmpRunner> {
+        &self.omp_runner
     }
 
     /// Get the worktree manager.

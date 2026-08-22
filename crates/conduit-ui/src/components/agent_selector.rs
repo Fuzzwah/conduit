@@ -83,6 +83,11 @@ impl AgentSelectorState {
                 name: "Maki",
                 description: "Efficient AI coding agent with Lua plugins",
             },
+            AgentType::Omp => AgentOption {
+                agent_type: AgentType::Omp,
+                name: "Oh My Pi",
+                description: "Pi fork with LSP, debugger, subagents, and browser tooling",
+            },
         }
     }
 
@@ -96,6 +101,7 @@ impl AgentSelectorState {
             AgentType::Copilot => Tool::Copilot,
             AgentType::Pi => Tool::Pi,
             AgentType::Maki => Tool::Maki,
+            AgentType::Omp => Tool::Omp,
         }
     }
 

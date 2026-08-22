@@ -132,6 +132,7 @@ impl ModelSelectorState {
                 AgentType::Copilot => ModelRegistry::copilot_models(),
                 AgentType::Pi => ModelRegistry::pi_models(),
                 AgentType::Maki => ModelRegistry::maki_models(),
+                AgentType::Omp => ModelRegistry::omp_models(),
             };
 
             if models.is_empty() {

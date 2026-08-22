@@ -30,6 +30,8 @@ pub enum Tool {
     Pi,
     /// Maki coding agent
     Maki,
+    /// Oh My Pi coding agent
+    Omp,
 }
 
 impl Tool {
@@ -46,6 +48,7 @@ impl Tool {
             Tool::Copilot => "copilot",
             Tool::Pi => "pi",
             Tool::Maki => "maki",
+            Tool::Omp => "omp",
         }
     }
 
@@ -62,6 +65,7 @@ impl Tool {
             Tool::Copilot => "GitHub Copilot",
             Tool::Pi => "Pi",
             Tool::Maki => "Maki",
+            Tool::Omp => "Oh My Pi",
         }
     }
 
@@ -78,6 +82,7 @@ impl Tool {
             Tool::Copilot => "https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli",
             Tool::Pi => "npm install -g @mariozechner/pi-coding-agent\nhttps://github.com/badlogic/pi-mono/tree/main/packages/coding-agent",
             Tool::Maki => "curl -fsSL https://maki.sh/install.sh | sh\nhttps://github.com/tontinton/maki",
+            Tool::Omp => "curl -fsSL https://omp.sh/install | sh\nhttps://github.com/can1357/oh-my-pi",
         }
     }
 
@@ -96,6 +101,9 @@ impl Tool {
                 "Pi is a terminal coding agent with persistent sessions and structured RPC."
             }
             Tool::Maki => "Maki is an efficient AI coding agent extendable by Lua plugins.",
+            Tool::Omp => {
+                "Oh My Pi (omp) is a Pi fork with LSP, debugger, subagents, and browser tooling wired in."
+            }
         }
     }
 
@@ -116,6 +124,7 @@ impl Tool {
                 | Tool::Copilot
                 | Tool::Pi
                 | Tool::Maki
+                | Tool::Omp
         )
     }
 
@@ -132,6 +141,7 @@ impl Tool {
             Tool::Copilot,
             Tool::Pi,
             Tool::Maki,
+            Tool::Omp,
         ]
     }
 }
@@ -187,6 +197,7 @@ pub struct ToolPaths {
     pub copilot: Option<PathBuf>,
     pub pi: Option<PathBuf>,
     pub maki: Option<PathBuf>,
+    pub omp: Option<PathBuf>,
 }
 
 impl ToolPaths {
@@ -203,6 +214,7 @@ impl ToolPaths {
             Tool::Copilot => self.copilot.as_ref(),
             Tool::Pi => self.pi.as_ref(),
             Tool::Maki => self.maki.as_ref(),
+            Tool::Omp => self.omp.as_ref(),
         }
     }
 
@@ -219,6 +231,7 @@ impl ToolPaths {
             Tool::Copilot => self.copilot = Some(path),
             Tool::Pi => self.pi = Some(path),
             Tool::Maki => self.maki = Some(path),
+            Tool::Omp => self.omp = Some(path),
         }
     }
 }
@@ -236,6 +249,7 @@ pub struct ToolAvailability {
     copilot: ToolStatus,
     pi: ToolStatus,
     maki: ToolStatus,
+    omp: ToolStatus,
 }
 
 impl ToolAvailability {
@@ -260,6 +274,7 @@ impl ToolAvailability {
             copilot: Self::detect_tool(Tool::Copilot, configured_paths.copilot.as_ref()),
             pi: Self::detect_tool(Tool::Pi, configured_paths.pi.as_ref()),
             maki: Self::detect_tool(Tool::Maki, configured_paths.maki.as_ref()),
+            omp: Self::detect_tool(Tool::Omp, configured_paths.omp.as_ref()),
         }
     }
 
@@ -327,6 +342,7 @@ impl ToolAvailability {
             Tool::Copilot => &self.copilot,
             Tool::Pi => &self.pi,
             Tool::Maki => &self.maki,
+            Tool::Omp => &self.omp,
         }
     }
 
@@ -372,6 +388,7 @@ impl ToolAvailability {
             || self.is_available(Tool::Copilot)
             || self.is_available(Tool::Pi)
             || self.is_available(Tool::Maki)
+            || self.is_available(Tool::Omp)
     }
 
     /// Get list of available agents
@@ -406,6 +423,7 @@ impl ToolAvailability {
             Tool::Copilot => self.copilot = status,
             Tool::Pi => self.pi = status,
             Tool::Maki => self.maki = status,
+            Tool::Omp => self.omp = status,
         }
 
         is_available

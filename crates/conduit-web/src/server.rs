@@ -96,6 +96,11 @@ async fn list_agents(State(state): State<WebAppState>) -> Json<AgentsResponse> {
                 name: "OpenCode",
                 available: tools.is_available(Tool::Opencode),
             },
+            AgentInfo {
+                id: "omp",
+                name: "Oh My Pi",
+                available: tools.is_available(Tool::Omp),
+            },
         ],
     })
 }
@@ -237,7 +242,7 @@ mod tests {
             .iter()
             .filter_map(|item| item["id"].as_str())
             .collect();
-        assert_eq!(ids, vec!["codex", "claude", "gemini", "opencode"]);
+        assert_eq!(ids, vec!["codex", "claude", "gemini", "opencode", "omp"]);
     }
 
     #[tokio::test]

@@ -392,6 +392,7 @@ fn render_skill_invocation(
         | AgentType::Copilot
         | AgentType::Pi
         | AgentType::Maki
+        | AgentType::Omp
         | AgentType::Claude => {
             let task = if args.is_empty() {
                 "Use it for the user's current request.".to_string()

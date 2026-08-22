@@ -18,7 +18,7 @@ impl ProviderSelectorState {
         }
     }
 
-    fn all_providers() -> [AgentType; 8] {
+    fn all_providers() -> [AgentType; 9] {
         AgentType::preferred_order()
     }
 
@@ -32,6 +32,7 @@ impl ProviderSelectorState {
             AgentType::Copilot => Tool::Copilot,
             AgentType::Pi => Tool::Pi,
             AgentType::Maki => Tool::Maki,
+            AgentType::Omp => Tool::Omp,
         }
     }
 

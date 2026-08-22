@@ -126,9 +126,10 @@ pub async fn create_session(
         "deepseek-tui" | "deepseek_tui" | "deepseek" => AgentType::DeepseekTui,
         "opencode" => AgentType::Opencode,
         "maki" => AgentType::Maki,
+        "omp" => AgentType::Omp,
         _ => {
             return Err(WebError::BadRequest(format!(
-                "Invalid agent type: {}. Must be one of: codex, claude, gemini, deepseek-tui, opencode, maki",
+                "Invalid agent type: {}. Must be one of: codex, claude, gemini, deepseek-tui, opencode, maki, omp",
                 req.agent_type
             )));
         }
@@ -177,8 +178,9 @@ pub async fn update_session(
                 "deepseek-tui" | "deepseek_tui" | "deepseek" => Ok(AgentType::DeepseekTui),
                 "opencode" => Ok(AgentType::Opencode),
                 "maki" => Ok(AgentType::Maki),
+                "omp" => Ok(AgentType::Omp),
                 _ => Err(WebError::BadRequest(format!(
-                    "Invalid agent type: {}. Must be one of: codex, claude, gemini, deepseek-tui, opencode, maki",
+                    "Invalid agent type: {}. Must be one of: codex, claude, gemini, deepseek-tui, opencode, maki, omp",
                     agent_type_str
                 ))),
             },
@@ -238,9 +240,11 @@ fn load_history_for_session(session: &SessionTab) -> Vec<ChatMessage> {
                 tracing::warn!("Failed to load Codex history: {}", e);
                 Vec::new()
             }),
-        AgentType::Gemini | AgentType::DeepseekTui | AgentType::Copilot | AgentType::Maki => {
-            Vec::new()
-        }
+        AgentType::Gemini
+        | AgentType::DeepseekTui
+        | AgentType::Copilot
+        | AgentType::Maki
+        | AgentType::Omp => Vec::new(),
         AgentType::Pi => load_pi_history_with_debug(agent_session_id)
             .map(|(messages, _, _)| messages)
             .unwrap_or_else(|e| {
@@ -407,7 +411,11 @@ pub async fn get_session_events(
                 vec![]
             }
         },
-        AgentType::Gemini | AgentType::DeepseekTui | AgentType::Copilot | AgentType::Maki => {
+        AgentType::Gemini
+        | AgentType::DeepseekTui
+        | AgentType::Copilot
+        | AgentType::Maki
+        | AgentType::Omp => {
             // History loading not supported for this agent
             vec![]
         }

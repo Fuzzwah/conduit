@@ -215,7 +215,8 @@ impl ReasoningSelectorState {
             | AgentType::Opencode
             | AgentType::Copilot
             | AgentType::Pi
-            | AgentType::Maki => {}
+            | AgentType::Maki
+            | AgentType::Omp => {}
         }
         options
     }
@@ -398,6 +399,7 @@ impl ReasoningSelector {
             | Some(AgentType::Copilot)
             | Some(AgentType::Pi)
             | Some(AgentType::Maki)
+            | Some(AgentType::Omp)
             | None => "Reasoning effort is not available for this agent",
         };
         Paragraph::new(hint)
