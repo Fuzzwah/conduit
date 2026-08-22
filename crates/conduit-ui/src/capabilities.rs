@@ -25,7 +25,6 @@ impl AgentCapabilities {
             supports_native_slash_commands: matches!(
                 agent_type,
                 AgentType::Claude
-                    | AgentType::Dirac
                     | AgentType::Gemini
                     | AgentType::DeepseekTui
                     | AgentType::Opencode

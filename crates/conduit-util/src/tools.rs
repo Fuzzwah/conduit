@@ -1,7 +1,7 @@
 //! Tool availability detection and management
 //!
 //! This module provides functionality to detect and track the availability
-//! of external tools required by Conduit (git, gh, claude, codex, dirac, gemini, deepseek, opencode, pi).
+//! of external tools required by Conduit (git, gh, claude, codex, gemini, deepseek, opencode, pi).
 
 use std::path::{Path, PathBuf};
 
@@ -18,8 +18,6 @@ pub enum Tool {
     Claude,
     /// OpenAI Codex CLI agent
     Codex,
-    /// Dirac CLI agent
-    Dirac,
     /// Google Gemini CLI agent
     Gemini,
     /// DeepSeek TUI agent
@@ -42,7 +40,6 @@ impl Tool {
             Tool::Gh => "gh",
             Tool::Claude => "claude",
             Tool::Codex => "codex",
-            Tool::Dirac => "dirac",
             Tool::Gemini => "gemini",
             Tool::DeepseekTui => "deepseek",
             Tool::Opencode => "opencode",
@@ -59,7 +56,6 @@ impl Tool {
             Tool::Gh => "GitHub CLI",
             Tool::Claude => "Claude Code",
             Tool::Codex => "Codex CLI",
-            Tool::Dirac => "Dirac CLI",
             Tool::Gemini => "Gemini CLI",
             Tool::DeepseekTui => "DeepSeek TUI",
             Tool::Opencode => "OpenCode",
@@ -76,7 +72,6 @@ impl Tool {
             Tool::Gh => "brew install gh\nhttps://cli.github.com/",
             Tool::Claude => "npm install -g @anthropic-ai/claude-code\nhttps://docs.anthropic.com/en/docs/claude-code",
             Tool::Codex => "npm install -g @openai/codex\nhttps://github.com/openai/codex-cli",
-            Tool::Dirac => "npm install -g dirac-cli\nhttps://github.com/dirac-run/dirac",
             Tool::Gemini => "npm install -g @google/gemini-cli\nhttps://github.com/google-gemini/gemini-cli",
             Tool::DeepseekTui => "npm install -g deepseek-tui\nhttps://github.com/Hmbown/DeepSeek-TUI",
             Tool::Opencode => "brew install anomalyco/tap/opencode\nhttps://opencode.ai/docs",
@@ -93,7 +88,6 @@ impl Tool {
             Tool::Gh => "GitHub CLI is needed for PR operations (create, view, open in browser).",
             Tool::Claude => "Claude Code is an AI coding assistant from Anthropic.",
             Tool::Codex => "Codex is an AI coding assistant from OpenAI.",
-            Tool::Dirac => "Dirac is an AI coding assistant focused on efficient context curation.",
             Tool::Gemini => "Gemini CLI is an AI coding assistant from Google.",
             Tool::DeepseekTui => "DeepSeek TUI is a terminal coding agent for DeepSeek models.",
             Tool::Opencode => "OpenCode is a multi-provider AI coding assistant.",
@@ -116,7 +110,6 @@ impl Tool {
             self,
             Tool::Claude
                 | Tool::Codex
-                | Tool::Dirac
                 | Tool::Gemini
                 | Tool::DeepseekTui
                 | Tool::Opencode
@@ -133,7 +126,6 @@ impl Tool {
             Tool::Gh,
             Tool::Claude,
             Tool::Codex,
-            Tool::Dirac,
             Tool::Gemini,
             Tool::DeepseekTui,
             Tool::Opencode,
@@ -184,7 +176,6 @@ pub struct ToolPaths {
     pub gh: Option<PathBuf>,
     pub claude: Option<PathBuf>,
     pub codex: Option<PathBuf>,
-    pub dirac: Option<PathBuf>,
     pub gemini: Option<PathBuf>,
     pub deepseek_tui: Option<PathBuf>,
     pub opencode: Option<PathBuf>,
@@ -201,7 +192,6 @@ impl ToolPaths {
             Tool::Gh => self.gh.as_ref(),
             Tool::Claude => self.claude.as_ref(),
             Tool::Codex => self.codex.as_ref(),
-            Tool::Dirac => self.dirac.as_ref(),
             Tool::Gemini => self.gemini.as_ref(),
             Tool::DeepseekTui => self.deepseek_tui.as_ref(),
             Tool::Opencode => self.opencode.as_ref(),
@@ -218,7 +208,6 @@ impl ToolPaths {
             Tool::Gh => self.gh = Some(path),
             Tool::Claude => self.claude = Some(path),
             Tool::Codex => self.codex = Some(path),
-            Tool::Dirac => self.dirac = Some(path),
             Tool::Gemini => self.gemini = Some(path),
             Tool::DeepseekTui => self.deepseek_tui = Some(path),
             Tool::Opencode => self.opencode = Some(path),
@@ -236,7 +225,6 @@ pub struct ToolAvailability {
     gh: ToolStatus,
     claude: ToolStatus,
     codex: ToolStatus,
-    dirac: ToolStatus,
     gemini: ToolStatus,
     deepseek_tui: ToolStatus,
     opencode: ToolStatus,
@@ -258,7 +246,6 @@ impl ToolAvailability {
             gh: Self::detect_tool(Tool::Gh, configured_paths.gh.as_ref()),
             claude: Self::detect_tool(Tool::Claude, configured_paths.claude.as_ref()),
             codex: Self::detect_tool(Tool::Codex, configured_paths.codex.as_ref()),
-            dirac: Self::detect_tool(Tool::Dirac, configured_paths.dirac.as_ref()),
             gemini: Self::detect_tool(Tool::Gemini, configured_paths.gemini.as_ref()),
             deepseek_tui: Self::detect_tool(
                 Tool::DeepseekTui,
@@ -329,7 +316,6 @@ impl ToolAvailability {
             Tool::Gh => &self.gh,
             Tool::Claude => &self.claude,
             Tool::Codex => &self.codex,
-            Tool::Dirac => &self.dirac,
             Tool::Gemini => &self.gemini,
             Tool::DeepseekTui => &self.deepseek_tui,
             Tool::Opencode => &self.opencode,
@@ -370,7 +356,6 @@ impl ToolAvailability {
     pub fn has_any_agent(&self) -> bool {
         self.is_available(Tool::Claude)
             || self.is_available(Tool::Codex)
-            || self.is_available(Tool::Dirac)
             || self.is_available(Tool::Gemini)
             || self.is_available(Tool::DeepseekTui)
             || self.is_available(Tool::Opencode)
@@ -405,7 +390,6 @@ impl ToolAvailability {
             Tool::Gh => self.gh = status,
             Tool::Claude => self.claude = status,
             Tool::Codex => self.codex = status,
-            Tool::Dirac => self.dirac = status,
             Tool::Gemini => self.gemini = status,
             Tool::DeepseekTui => self.deepseek_tui = status,
             Tool::Opencode => self.opencode = status,

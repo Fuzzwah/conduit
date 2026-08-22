@@ -859,7 +859,6 @@ impl Config {
         match value.trim().to_ascii_lowercase().as_str() {
             "claude" => Some(AgentType::Claude),
             "codex" => Some(AgentType::Codex),
-            "dirac" => Some(AgentType::Dirac),
             "gemini" => Some(AgentType::Gemini),
             "deepseek-tui" | "deepseek_tui" | "deepseek" => Some(AgentType::DeepseekTui),
             "opencode" => Some(AgentType::Opencode),
@@ -1071,7 +1070,6 @@ impl Config {
         match provider {
             AgentType::Claude => Tool::Claude,
             AgentType::Codex => Tool::Codex,
-            AgentType::Dirac => Tool::Dirac,
             AgentType::Gemini => Tool::Gemini,
             AgentType::DeepseekTui => Tool::DeepseekTui,
             AgentType::Opencode => Tool::Opencode,

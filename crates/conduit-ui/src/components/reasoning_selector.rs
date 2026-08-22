@@ -210,8 +210,7 @@ impl ReasoningSelectorState {
                     description: "Maximum reasoning budget",
                 });
             }
-            AgentType::Dirac
-            | AgentType::Gemini
+            AgentType::Gemini
             | AgentType::DeepseekTui
             | AgentType::Opencode
             | AgentType::Copilot
@@ -393,8 +392,7 @@ impl ReasoningSelector {
         let hint = match state.agent_type {
             Some(AgentType::Claude) => "Claude supports: auto, low, medium, high",
             Some(AgentType::Codex) => "Codex supports: auto, minimal, low, medium, high, xhigh",
-            Some(AgentType::Dirac)
-            | Some(AgentType::Gemini)
+            Some(AgentType::Gemini)
             | Some(AgentType::DeepseekTui)
             | Some(AgentType::Opencode)
             | Some(AgentType::Copilot)

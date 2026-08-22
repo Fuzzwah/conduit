@@ -92,11 +92,6 @@ async fn list_agents(State(state): State<WebAppState>) -> Json<AgentsResponse> {
                 available: tools.is_available(Tool::Gemini),
             },
             AgentInfo {
-                id: "dirac",
-                name: "Dirac CLI",
-                available: tools.is_available(Tool::Dirac),
-            },
-            AgentInfo {
                 id: "opencode",
                 name: "OpenCode",
                 available: tools.is_available(Tool::Opencode),
@@ -242,7 +237,7 @@ mod tests {
             .iter()
             .filter_map(|item| item["id"].as_str())
             .collect();
-        assert_eq!(ids, vec!["codex", "claude", "gemini", "dirac", "opencode"]);
+        assert_eq!(ids, vec!["codex", "claude", "gemini", "opencode"]);
     }
 
     #[tokio::test]

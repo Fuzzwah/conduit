@@ -7,8 +7,8 @@ use conduit_agent::deepseek_tui::DeepseekTuiRunner;
 use conduit_agent::gemini::load_gemini_models;
 use conduit_agent::pi::load_pi_models;
 use conduit_agent::{
-    ClaudeCodeRunner, CodexCliRunner, CopilotRunner, DiracRunner, GeminiCliRunner, MakiRunner,
-    ModelRegistry, OpencodeRunner, PiRunner,
+    ClaudeCodeRunner, CodexCliRunner, CopilotRunner, GeminiCliRunner, MakiRunner, ModelRegistry,
+    OpencodeRunner, PiRunner,
 };
 use conduit_config::Config;
 use conduit_data::{
@@ -45,8 +45,6 @@ pub struct ConduitCore {
     claude_runner: Arc<ClaudeCodeRunner>,
     /// Codex CLI runner
     codex_runner: Arc<CodexCliRunner>,
-    /// Dirac CLI runner
-    dirac_runner: Arc<DiracRunner>,
     /// Gemini CLI runner
     gemini_runner: Arc<GeminiCliRunner>,
     /// DeepSeek TUI runner
@@ -128,14 +126,6 @@ impl ConduitCore {
         let codex_runner = match tools.get_path(Tool::Codex) {
             Some(path) => Arc::new(CodexCliRunner::with_path(path.clone())),
             None => Arc::new(CodexCliRunner::new()),
-        };
-
-        if tools.is_available(Tool::Dirac) {
-            progress("Initializing Dirac");
-        }
-        let dirac_runner = match tools.get_path(Tool::Dirac) {
-            Some(path) => Arc::new(DiracRunner::with_path(path.clone())),
-            None => Arc::new(DiracRunner::new()),
         };
 
         if tools.is_available(Tool::Gemini) {
@@ -248,7 +238,6 @@ impl ConduitCore {
             fork_seed_store,
             claude_runner,
             codex_runner,
-            dirac_runner,
             gemini_runner,
             deepseek_tui_runner,
             opencode_runner,
@@ -329,11 +318,6 @@ impl ConduitCore {
         &self.codex_runner
     }
 
-    /// Get the Dirac runner.
-    pub fn dirac_runner(&self) -> &Arc<DiracRunner> {
-        &self.dirac_runner
-    }
-
     /// Get the Gemini runner.
     pub fn gemini_runner(&self) -> &Arc<GeminiCliRunner> {
         &self.gemini_runner
@@ -405,10 +389,6 @@ impl ConduitCore {
         self.codex_runner = match self.tools.get_path(Tool::Codex) {
             Some(path) => Arc::new(CodexCliRunner::with_path(path.clone())),
             None => Arc::new(CodexCliRunner::new()),
-        };
-        self.dirac_runner = match self.tools.get_path(Tool::Dirac) {
-            Some(path) => Arc::new(DiracRunner::with_path(path.clone())),
-            None => Arc::new(DiracRunner::new()),
         };
         self.gemini_runner = match self.tools.get_path(Tool::Gemini) {
             Some(path) => Arc::new(GeminiCliRunner::with_path(path.clone())),

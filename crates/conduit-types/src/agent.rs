@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 pub enum AgentType {
     Claude,
     Codex,
-    Dirac,
     Gemini,
     DeepseekTui,
     Opencode,
@@ -69,11 +68,10 @@ impl AgentMode {
 
 impl AgentType {
     /// Preferred provider priority order used for defaults and UI listing.
-    pub const fn preferred_order() -> [AgentType; 9] {
+    pub const fn preferred_order() -> [AgentType; 8] {
         [
             AgentType::Codex,
             AgentType::Claude,
-            AgentType::Dirac,
             AgentType::Gemini,
             AgentType::DeepseekTui,
             AgentType::Opencode,
@@ -88,7 +86,6 @@ impl AgentType {
             self,
             AgentType::Claude
                 | AgentType::Codex
-                | AgentType::Dirac
                 | AgentType::Gemini
                 | AgentType::DeepseekTui
                 | AgentType::Pi
@@ -99,7 +96,6 @@ impl AgentType {
         match self {
             AgentType::Claude => "claude",
             AgentType::Codex => "codex",
-            AgentType::Dirac => "dirac",
             AgentType::Gemini => "gemini",
             AgentType::DeepseekTui => "deepseek-tui",
             AgentType::Opencode => "opencode",
@@ -112,7 +108,6 @@ impl AgentType {
     pub fn parse(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "codex" => AgentType::Codex,
-            "dirac" => AgentType::Dirac,
             "gemini" => AgentType::Gemini,
             "deepseek-tui" | "deepseek_tui" | "deepseek" => AgentType::DeepseekTui,
             "opencode" => AgentType::Opencode,
@@ -128,7 +123,6 @@ impl AgentType {
         match self {
             AgentType::Claude => "Claude",
             AgentType::Codex => "Codex",
-            AgentType::Dirac => "Dirac",
             AgentType::Gemini => "Gemini",
             AgentType::DeepseekTui => "DeepSeek",
             AgentType::Opencode => "OpenCode",
@@ -142,7 +136,6 @@ impl AgentType {
         match self {
             AgentType::Claude => "Claude Code",
             AgentType::Codex => "Codex CLI",
-            AgentType::Dirac => "Dirac CLI",
             AgentType::Gemini => "Gemini CLI",
             AgentType::DeepseekTui => "DeepSeek TUI",
             AgentType::Opencode => "OpenCode",

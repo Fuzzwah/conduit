@@ -85,8 +85,6 @@ impl ModelRegistry {
     pub const COPILOT_CONTEXT_WINDOW: i64 = 128_000;
     /// Default context window for Pi when model metadata is unknown
     pub const PI_CONTEXT_WINDOW: i64 = 200_000;
-    /// Default context window for Dirac when model metadata is unknown
-    pub const DIRAC_CONTEXT_WINDOW: i64 = 200_000;
     /// Default context window for Maki when model metadata is unknown
     pub const MAKI_CONTEXT_WINDOW: i64 = 200_000;
 
@@ -408,11 +406,6 @@ impl ModelRegistry {
         PI_MODELS.get_or_init(|| RwLock::new(Vec::new()))
     }
 
-    fn dirac_store() -> &'static RwLock<Vec<ModelInfo>> {
-        static DIRAC_MODELS: OnceLock<RwLock<Vec<ModelInfo>>> = OnceLock::new();
-        DIRAC_MODELS.get_or_init(|| RwLock::new(Vec::new()))
-    }
-
     pub fn set_pi_models(entries: Vec<PiModelEntry>) {
         let models: Vec<ModelInfo> = entries
             .into_iter()
@@ -447,17 +440,6 @@ impl ModelRegistry {
             Ok(guard) => guard,
             Err(err) => {
                 error!(error = %err, "pi_store poisoned in clear_pi_models");
-                err.into_inner()
-            }
-        };
-        store.clear();
-    }
-
-    pub fn clear_dirac_models() {
-        let mut store = match Self::dirac_store().write() {
-            Ok(guard) => guard,
-            Err(err) => {
-                error!(error = %err, "dirac_store poisoned in clear_dirac_models");
                 err.into_inner()
             }
         };
@@ -784,21 +766,6 @@ impl ModelRegistry {
         Self::pi_models_static()
     }
 
-    /// Get available models for Dirac
-    pub fn dirac_models() -> Vec<ModelInfo> {
-        let dynamic = match Self::dirac_store().read() {
-            Ok(guard) => guard.clone(),
-            Err(err) => {
-                error!(error = %err, "dirac_store poisoned in dirac_models");
-                Vec::new()
-            }
-        };
-        if !dynamic.is_empty() {
-            return dynamic;
-        }
-        Self::dirac_models_static()
-    }
-
     /// Get available models for DeepSeek TUI
     pub fn deepseek_tui_models() -> Vec<ModelInfo> {
         vec![
@@ -864,36 +831,6 @@ impl ModelRegistry {
         ]
     }
 
-    fn dirac_models_static() -> Vec<ModelInfo> {
-        vec![
-            ModelInfo::new(
-                AgentType::Dirac,
-                "claude-sonnet-4-5-20250929",
-                "Claude Sonnet 4.5",
-                "claude-sonnet-4-5-20250929",
-                "Anthropic model via Dirac",
-                Self::CLAUDE_CONTEXT_WINDOW,
-            )
-            .as_default(),
-            ModelInfo::new(
-                AgentType::Dirac,
-                "gemini-3-flash-preview",
-                "Gemini 3 Flash Preview",
-                "gemini-3-flash-preview",
-                "Google model via Dirac",
-                Self::GEMINI_CONTEXT_WINDOW,
-            ),
-            ModelInfo::new(
-                AgentType::Dirac,
-                "gpt-4o",
-                "GPT-4o",
-                "gpt-4o",
-                "OpenAI model via Dirac",
-                Self::COPILOT_CONTEXT_WINDOW,
-            ),
-        ]
-    }
-
     /// Get available models for Maki
     pub fn maki_models() -> Vec<ModelInfo> {
         Self::maki_models_static()
@@ -949,7 +886,6 @@ impl ModelRegistry {
     pub fn all_models() -> Vec<ModelInfo> {
         let mut models = Self::claude_models();
         models.extend(Self::codex_models());
-        models.extend(Self::dirac_models());
         models.extend(Self::gemini_models());
         models.extend(Self::deepseek_tui_models());
         models.extend(Self::opencode_models());
@@ -964,7 +900,6 @@ impl ModelRegistry {
         match agent_type {
             AgentType::Claude => Self::claude_models(),
             AgentType::Codex => Self::codex_models(),
-            AgentType::Dirac => Self::dirac_models(),
             AgentType::Gemini => Self::gemini_models(),
             AgentType::DeepseekTui => Self::deepseek_tui_models(),
             AgentType::Opencode => Self::opencode_models(),
@@ -979,7 +914,6 @@ impl ModelRegistry {
         match agent_type {
             AgentType::Claude => "opus".to_string(),
             AgentType::Codex => "gpt-5.4".to_string(),
-            AgentType::Dirac => "claude-sonnet-4-5-20250929".to_string(),
             AgentType::Gemini => "gemini-2.5-pro".to_string(),
             AgentType::DeepseekTui => "deepseek-v4-flash".to_string(),
             AgentType::Opencode => Self::OPENCODE_DEFAULT_MODEL_ID.to_string(),
@@ -1022,7 +956,6 @@ impl ModelRegistry {
         match agent_type {
             AgentType::Claude => "✻",
             AgentType::Codex => "◎",
-            AgentType::Dirac => "◉",
             AgentType::Gemini => "◆",
             AgentType::DeepseekTui => "⬢",
             AgentType::Opencode => "◍",
@@ -1037,7 +970,6 @@ impl ModelRegistry {
         match agent_type {
             AgentType::Claude => "Claude Code",
             AgentType::Codex => "Codex",
-            AgentType::Dirac => "Dirac",
             AgentType::Gemini => "Gemini",
             AgentType::DeepseekTui => "DeepSeek TUI",
             AgentType::Opencode => "OpenCode",
@@ -1059,7 +991,6 @@ impl ModelRegistry {
         match agent_type {
             AgentType::Claude => Self::CLAUDE_CONTEXT_WINDOW,
             AgentType::Codex => Self::CODEX_CONTEXT_WINDOW,
-            AgentType::Dirac => Self::DIRAC_CONTEXT_WINDOW,
             AgentType::Gemini => Self::GEMINI_CONTEXT_WINDOW,
             AgentType::DeepseekTui => Self::DEEPSEEK_TUI_CONTEXT_WINDOW,
             AgentType::Opencode => Self::OPENCODE_CONTEXT_WINDOW,

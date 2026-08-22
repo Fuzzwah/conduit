@@ -132,7 +132,6 @@ pub use theme::{
     agent_codex,
     agent_copilot,
     agent_deepseek_tui,
-    agent_dirac,
     agent_gemini,
     agent_maki,
     agent_opencode,

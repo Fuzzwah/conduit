@@ -172,7 +172,6 @@ impl SessionManager {
         let runner: Arc<dyn AgentRunner> = match agent_type {
             AgentType::Claude => core.claude_runner().clone(),
             AgentType::Codex => core.codex_runner().clone(),
-            AgentType::Dirac => core.dirac_runner().clone(),
             AgentType::Gemini => core.gemini_runner().clone(),
             AgentType::DeepseekTui => core.deepseek_tui_runner().clone(),
             AgentType::Opencode => core.opencode_runner().clone(),
@@ -204,10 +203,7 @@ impl SessionManager {
             config = config.with_skill(skill);
         }
 
-        if matches!(
-            agent_type,
-            AgentType::Dirac | AgentType::Opencode | AgentType::Pi
-        ) {
+        if matches!(agent_type, AgentType::Opencode | AgentType::Pi) {
             match SessionService::get_session(&core, session_id) {
                 Ok(session_tab) => {
                     if let Some(agent_session_id) = session_tab.agent_session_id {
@@ -512,7 +508,6 @@ impl SessionManager {
         let agent_input = match agent_type {
             AgentType::Claude => AgentInput::ClaudeJsonl(input),
             AgentType::Codex
-            | AgentType::Dirac
             | AgentType::Gemini
             | AgentType::DeepseekTui
             | AgentType::Opencode
@@ -1193,23 +1188,6 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                             }
                             Vec::new()
                         }
-                        AgentType::Dirac => match decode_image_attachments(&images) {
-                            Ok(paths) => paths,
-                            Err(error) => {
-                                if let Err(send_err) = tx
-                                    .send(ServerMessage::session_error(session_id, error))
-                                    .await
-                                {
-                                    tracing::debug!(
-                                        %session_id,
-                                        error = ?send_err,
-                                        "Failed to send session error"
-                                    );
-                                    break 'ws_loop;
-                                }
-                                continue;
-                            }
-                        },
                         AgentType::Gemini => {
                             if let Err(send_err) = tx
                                 .send(ServerMessage::session_error(
@@ -1547,25 +1525,23 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                     Vec::new()
                 } else {
                     match agent_type {
-                        Some(AgentType::Codex) | Some(AgentType::Dirac) => {
-                            match decode_image_attachments(&images) {
-                                Ok(paths) => paths,
-                                Err(error) => {
-                                    if let Err(send_err) = tx
-                                        .send(ServerMessage::session_error(session_id, error))
-                                        .await
-                                    {
-                                        tracing::debug!(
-                                            %session_id,
-                                            error = ?send_err,
-                                            "Failed to send session error"
-                                        );
-                                        break 'ws_loop;
-                                    }
-                                    continue;
+                        Some(AgentType::Codex) => match decode_image_attachments(&images) {
+                            Ok(paths) => paths,
+                            Err(error) => {
+                                if let Err(send_err) = tx
+                                    .send(ServerMessage::session_error(session_id, error))
+                                    .await
+                                {
+                                    tracing::debug!(
+                                        %session_id,
+                                        error = ?send_err,
+                                        "Failed to send session error"
+                                    );
+                                    break 'ws_loop;
                                 }
+                                continue;
                             }
-                        }
+                        },
                         Some(AgentType::Claude) => {
                             match build_claude_prompt_jsonl(&resolved_input_text, &images) {
                                 Ok(payload) => {
