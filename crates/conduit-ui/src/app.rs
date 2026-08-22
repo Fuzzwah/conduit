@@ -5433,6 +5433,58 @@ impl App {
     }
 
     /// Close the workspace creation progress dialog and open the created workspace (if successful).
+    pub(crate) fn cancel_workspace_creation(&mut self) -> Vec<Effect> {
+        self.state.workspace_progress_dialog_state.hide();
+        self.state.input_mode = InputMode::Normal;
+
+        if let Some(workspace_id) = self.state.pending_created_workspace_id.take() {
+            let workspace_path;
+            let branch;
+            let repo_id;
+            if let Some(workspace_dao) = self.workspace_dao() {
+                if let Ok(Some(workspace)) = workspace_dao.get_by_id(workspace_id) {
+                    workspace_path = workspace.path.clone();
+                    branch = workspace.branch.clone();
+                    repo_id = workspace.repository_id;
+                    let _ = workspace_dao.delete(workspace_id);
+                } else {
+                    return Vec::new();
+                }
+            } else {
+                return Vec::new();
+            }
+
+            let base_path = self
+                .repo_dao()
+                .and_then(|dao| dao.get_by_id(repo_id).ok().flatten())
+                .and_then(|repo| repo.base_path);
+
+            if let Some(base_path) = base_path {
+                let worktree_manager = self.worktree_manager().clone();
+                let settings = self.config().workspaces;
+                if let Err(e) = worktree_manager.remove_workspace(
+                    settings.default_mode,
+                    &base_path,
+                    &workspace_path,
+                ) {
+                    tracing::warn!("Failed to clean up workspace: {e}");
+                }
+                if let Err(e) = worktree_manager.delete_branch(
+                    settings.default_mode,
+                    &base_path,
+                    &workspace_path,
+                    &branch,
+                ) {
+                    tracing::warn!("Failed to delete branch: {e}");
+                }
+            }
+
+            self.refresh_sidebar_data();
+        }
+
+        Vec::new()
+    }
+
     pub(crate) fn close_workspace_progress_dialog(&mut self) -> Vec<Effect> {
         // Extract config choices before hiding (hide() drops the config).
         let session_config = self
