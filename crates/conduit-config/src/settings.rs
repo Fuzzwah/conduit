@@ -1088,7 +1088,7 @@ impl Config {
 
         let configured = &self.enabled_providers;
         all.into_iter()
-            .filter(|provider| tools.is_available(Self::tool_for_provider(*provider)))
+            .filter(|provider| tools.is_installed(Self::tool_for_provider(*provider)))
             .filter(|provider| {
                 configured
                     .as_ref()

@@ -205,14 +205,17 @@ impl App {
                             }
                         }
                         KeyCode::Esc => {
-                            return Ok(self.close_workspace_progress_dialog());
+                            return Ok(self.cancel_workspace_creation());
                         }
                         _ => {}
                     }
                 } else {
-                    // Error state — Enter/Esc both dismiss.
-                    if matches!(key.code, KeyCode::Enter | KeyCode::Esc) {
+                    // Error state — Enter opens workspace, Esc cancels.
+                    if key.code == KeyCode::Enter {
                         return Ok(self.close_workspace_progress_dialog());
+                    }
+                    if key.code == KeyCode::Esc {
+                        return Ok(self.cancel_workspace_creation());
                     }
                 }
             }
