@@ -91,50 +91,6 @@ mod app_scroll;
 mod app_selection;
 mod app_submit_action;
 
-#[cfg(target_os = "macos")]
-const PROC_PIDTBSDINFO: libc::c_int = 3;
-
-#[cfg(target_os = "macos")]
-const MAXCOMLEN: usize = 16;
-
-#[cfg(target_os = "macos")]
-#[repr(C)]
-struct ProcBsdInfo {
-    pbi_flags: u32,
-    pbi_status: u32,
-    pbi_xstatus: u32,
-    pbi_pid: u32,
-    pbi_ppid: u32,
-    pbi_uid: libc::uid_t,
-    pbi_gid: libc::gid_t,
-    pbi_ruid: libc::uid_t,
-    pbi_rgid: libc::gid_t,
-    pbi_svuid: libc::uid_t,
-    pbi_svgid: libc::gid_t,
-    rfu_1: u32,
-    pbi_comm: [u8; MAXCOMLEN],
-    pbi_name: [u8; 2 * MAXCOMLEN],
-    pbi_nfiles: u32,
-    pbi_pgid: u32,
-    pbi_pjobc: u32,
-    e_tdev: u32,
-    e_tpgid: u32,
-    pbi_nice: i32,
-    pbi_start_tvsec: u64,
-    pbi_start_tvusec: u64,
-}
-
-#[cfg(target_os = "macos")]
-extern "C" {
-    fn proc_pidinfo(
-        pid: libc::c_int,
-        flavor: libc::c_int,
-        arg: u64,
-        buffer: *mut libc::c_void,
-        buffersize: libc::c_int,
-    ) -> libc::c_int;
-}
-
 /// Timeout for double-press detection (ms)
 const DOUBLE_PRESS_TIMEOUT_MS: u64 = 500;
 /// Timeout for shell command execution.

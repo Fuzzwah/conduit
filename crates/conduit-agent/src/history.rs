@@ -1061,7 +1061,8 @@ fn convert_claude_entry(entry: &Value) -> Option<ChatMessage> {
             // Content can be a string or array of content blocks
             let text = if let Some(text) = content.as_str() {
                 text.to_string()
-            } else if let Some(blocks) = content.as_array() {
+            } else {
+                let blocks = content.as_array()?;
                 // Extract text from content blocks
                 blocks
                     .iter()
@@ -1079,8 +1080,6 @@ fn convert_claude_entry(entry: &Value) -> Option<ChatMessage> {
                     })
                     .collect::<Vec<_>>()
                     .join("\n")
-            } else {
-                return None;
             };
 
             if text.is_empty() {
