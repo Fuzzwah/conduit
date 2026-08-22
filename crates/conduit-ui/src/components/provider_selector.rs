@@ -22,7 +22,7 @@ impl ProviderSelectorState {
         AgentType::preferred_order()
     }
 
-    fn provider_tool(provider: AgentType) -> Tool {
+    pub fn provider_tool(provider: AgentType) -> Tool {
         match provider {
             AgentType::Claude => Tool::Claude,
             AgentType::Codex => Tool::Codex,

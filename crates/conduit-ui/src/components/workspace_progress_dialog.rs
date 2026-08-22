@@ -462,9 +462,9 @@ impl Widget for WorkspaceProgressDialog<'_> {
 
         let instructions = if self.state.config.is_some() {
             if self.state.has_active_picker() {
-                vec![("↑↓", "Navigate"), ("Enter", "Select"), ("Esc", "Cancel")]
+                vec![("↑↓", "Navigate"), ("Enter", "Select"), ("Esc", "Back")]
             } else {
-                vec![("↑↓", "Navigate"), ("Enter", "Select"), ("Esc", "Continue")]
+                vec![("↑↓", "Navigate"), ("Enter", "Open"), ("Esc", "Cancel")]
             }
         } else if self.state.complete {
             vec![("Enter", "Continue"), ("Esc", "Continue")]
