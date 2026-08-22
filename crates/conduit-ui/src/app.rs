@@ -5564,10 +5564,18 @@ impl App {
 
     pub(crate) fn open_workspace_ready_provider_selector(&mut self) {
         self.redetect_tools();
-        let providers = self.config().effective_enabled_providers(self.tools());
-        let items: Vec<(String, String)> = providers
+        let tools = self.tools().clone();
+        let items: Vec<(String, String)> = AgentType::preferred_order()
             .iter()
-            .map(|p| (p.as_str().to_string(), p.display_name().to_string()))
+            .map(|p| {
+                let tool = crate::components::ProviderSelectorState::provider_tool(*p);
+                let label = if tools.is_installed(tool) {
+                    p.display_name().to_string()
+                } else {
+                    format!("{} (not installed)", p.display_name())
+                };
+                (p.as_str().to_string(), label)
+            })
             .collect();
         self.state
             .workspace_progress_dialog_state
