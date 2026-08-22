@@ -89,6 +89,7 @@ impl ModelRegistry {
     pub const MAKI_CONTEXT_WINDOW: i64 = 200_000;
 
     const OPENCODE_DEFAULT_MODEL_ID: &'static str = "default";
+    const MAKI_DEFAULT_MODEL_ID: &'static str = "default";
 
     fn opencode_store() -> &'static RwLock<Vec<ModelInfo>> {
         static OPENCODE_MODELS: OnceLock<RwLock<Vec<ModelInfo>>> = OnceLock::new();
@@ -840,13 +841,21 @@ impl ModelRegistry {
         vec![
             ModelInfo::new(
                 AgentType::Maki,
+                Self::MAKI_DEFAULT_MODEL_ID,
+                "Maki Default",
+                Self::MAKI_DEFAULT_MODEL_ID,
+                "Use Maki's default model selection",
+                Self::MAKI_CONTEXT_WINDOW,
+            )
+            .as_default(),
+            ModelInfo::new(
+                AgentType::Maki,
                 "claude-sonnet-4-6",
                 "Claude Sonnet 4.6",
                 "claude-sonnet-4-6",
                 "Anthropic Claude Sonnet 4.6 via Maki",
                 Self::CLAUDE_CONTEXT_WINDOW,
-            )
-            .as_default(),
+            ),
             ModelInfo::new(
                 AgentType::Maki,
                 "claude-opus-4-7",
@@ -919,7 +928,7 @@ impl ModelRegistry {
             AgentType::Opencode => Self::OPENCODE_DEFAULT_MODEL_ID.to_string(),
             AgentType::Copilot => "gpt-5.3-codex".to_string(),
             AgentType::Pi => "openrouter/deepseek/deepseek-v4-flash".to_string(),
-            AgentType::Maki => "claude-sonnet-4-6".to_string(),
+            AgentType::Maki => Self::MAKI_DEFAULT_MODEL_ID.to_string(),
         }
     }
 
