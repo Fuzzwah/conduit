@@ -8,6 +8,7 @@ pub mod error;
 pub mod events;
 pub mod gemini;
 pub mod history;
+pub mod maki;
 pub mod mock;
 pub mod models;
 pub mod opencode;
@@ -32,6 +33,7 @@ pub use history::{
     load_opencode_history_for_dir_with_debug, load_opencode_history_with_debug,
     load_pi_history_with_debug, HistoryDebugEntry, HistoryError,
 };
+pub use maki::MakiRunner;
 pub use mock::{MockAgentRunner, MockConfig, MockEventBuilder, MockStartError};
 pub use models::{ModelInfo, ModelRegistry};
 pub use opencode::OpencodeRunner;

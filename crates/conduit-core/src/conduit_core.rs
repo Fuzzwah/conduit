@@ -7,8 +7,8 @@ use conduit_agent::deepseek_tui::DeepseekTuiRunner;
 use conduit_agent::gemini::load_gemini_models;
 use conduit_agent::pi::load_pi_models;
 use conduit_agent::{
-    ClaudeCodeRunner, CodexCliRunner, CopilotRunner, DiracRunner, GeminiCliRunner, ModelRegistry,
-    OpencodeRunner, PiRunner,
+    ClaudeCodeRunner, CodexCliRunner, CopilotRunner, DiracRunner, GeminiCliRunner, MakiRunner,
+    ModelRegistry, OpencodeRunner, PiRunner,
 };
 use conduit_config::Config;
 use conduit_data::{
@@ -57,6 +57,8 @@ pub struct ConduitCore {
     copilot_runner: Arc<CopilotRunner>,
     /// Pi runner
     pi_runner: Arc<PiRunner>,
+    /// Maki runner
+    maki_runner: Arc<MakiRunner>,
     /// Worktree manager
     worktree_manager: WorkspaceRepoManager,
 }
@@ -176,6 +178,14 @@ impl ConduitCore {
             None => Arc::new(PiRunner::new()),
         };
 
+        if tools.is_available(Tool::Maki) {
+            progress("Initializing Maki");
+        }
+        let maki_runner = match tools.get_path(Tool::Maki) {
+            Some(path) => Arc::new(MakiRunner::with_path(path.clone())),
+            None => Arc::new(MakiRunner::new()),
+        };
+
         if tools.is_available(Tool::Claude) {
             progress("Discovering Claude Code models");
             let models =
@@ -244,6 +254,7 @@ impl ConduitCore {
             opencode_runner,
             copilot_runner,
             pi_runner,
+            maki_runner,
             worktree_manager,
         }
     }
@@ -348,6 +359,11 @@ impl ConduitCore {
         &self.pi_runner
     }
 
+    /// Get the Maki runner.
+    pub fn maki_runner(&self) -> &Arc<MakiRunner> {
+        &self.maki_runner
+    }
+
     /// Get the worktree manager.
     pub fn worktree_manager(&self) -> &WorkspaceRepoManager {
         &self.worktree_manager
@@ -413,6 +429,10 @@ impl ConduitCore {
         self.pi_runner = match self.tools.get_path(Tool::Pi) {
             Some(path) => Arc::new(PiRunner::with_path(path.clone())),
             None => Arc::new(PiRunner::new()),
+        };
+        self.maki_runner = match self.tools.get_path(Tool::Maki) {
+            Some(path) => Arc::new(MakiRunner::with_path(path.clone())),
+            None => Arc::new(MakiRunner::new()),
         };
 
         if self.tools.is_available(Tool::Claude) {

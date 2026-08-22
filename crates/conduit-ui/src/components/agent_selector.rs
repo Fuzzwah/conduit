@@ -83,6 +83,11 @@ impl AgentSelectorState {
                 name: "Pi",
                 description: "Pi coding agent with resumable sessions",
             },
+            AgentType::Maki => AgentOption {
+                agent_type: AgentType::Maki,
+                name: "Maki",
+                description: "Efficient AI coding agent with Lua plugins",
+            },
         }
     }
 
@@ -96,6 +101,7 @@ impl AgentSelectorState {
             AgentType::Opencode => Tool::Opencode,
             AgentType::Copilot => Tool::Copilot,
             AgentType::Pi => Tool::Pi,
+            AgentType::Maki => Tool::Maki,
         }
     }
 

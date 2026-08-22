@@ -111,6 +111,9 @@ pub fn catppuccin_mocha() -> Theme {
         agent_claude: sky,
         agent_codex: mauve,
         agent_opencode: blue,
+        agent_deepseek_tui: sky,
+        agent_maki: mauve,
+        agent_pi: blue,
 
         pr_open_bg: green,
         pr_merged_bg: mauve,
@@ -194,6 +197,9 @@ pub fn catppuccin_latte() -> Theme {
         agent_claude: sky,
         agent_codex: mauve,
         agent_opencode: blue,
+        agent_deepseek_tui: sky,
+        agent_maki: mauve,
+        agent_pi: blue,
 
         pr_open_bg: green,
         pr_merged_bg: mauve,
@@ -275,6 +281,9 @@ pub fn tokyo_night() -> Theme {
         agent_claude: cyan,
         agent_codex: magenta,
         agent_opencode: blue,
+        agent_deepseek_tui: cyan,
+        agent_maki: magenta,
+        agent_pi: blue,
 
         pr_open_bg: green,
         pr_merged_bg: magenta,
@@ -350,6 +359,9 @@ pub fn dracula() -> Theme {
         agent_claude: cyan,
         agent_codex: pink,
         agent_opencode: purple,
+        agent_deepseek_tui: cyan,
+        agent_maki: pink,
+        agent_pi: purple,
 
         pr_open_bg: green,
         pr_merged_bg: purple,
@@ -430,6 +442,9 @@ pub fn catppuccin_frappe() -> Theme {
         agent_claude: sky,
         agent_codex: mauve,
         agent_opencode: blue,
+        agent_deepseek_tui: sky,
+        agent_maki: mauve,
+        agent_pi: blue,
 
         pr_open_bg: green,
         pr_merged_bg: mauve,
@@ -510,6 +525,9 @@ pub fn catppuccin_macchiato() -> Theme {
         agent_claude: sky,
         agent_codex: mauve,
         agent_opencode: blue,
+        agent_deepseek_tui: sky,
+        agent_maki: mauve,
+        agent_pi: blue,
 
         pr_open_bg: green,
         pr_merged_bg: mauve,
@@ -592,6 +610,9 @@ pub fn nord() -> Theme {
         agent_claude: nord7,
         agent_codex: nord15,
         agent_opencode: nord9,
+        agent_deepseek_tui: nord7,
+        agent_maki: nord15,
+        agent_pi: nord9,
 
         pr_open_bg: nord14,
         pr_merged_bg: nord15,
@@ -670,6 +691,9 @@ pub fn tokyo_night_moon() -> Theme {
         agent_claude: cyan,
         agent_codex: magenta,
         agent_opencode: blue,
+        agent_deepseek_tui: cyan,
+        agent_maki: magenta,
+        agent_pi: blue,
 
         pr_open_bg: green,
         pr_merged_bg: magenta,
@@ -749,6 +773,9 @@ pub fn tokyo_night_storm() -> Theme {
         agent_claude: cyan,
         agent_codex: magenta,
         agent_opencode: blue,
+        agent_deepseek_tui: cyan,
+        agent_maki: magenta,
+        agent_pi: blue,
 
         pr_open_bg: green,
         pr_merged_bg: magenta,
@@ -824,6 +851,9 @@ pub fn tokyo_night_day() -> Theme {
         agent_claude: cyan,
         agent_codex: magenta,
         agent_opencode: blue,
+        agent_deepseek_tui: cyan,
+        agent_maki: magenta,
+        agent_pi: blue,
 
         pr_open_bg: green,
         pr_merged_bg: magenta,
@@ -901,6 +931,9 @@ pub fn rose_pine() -> Theme {
         agent_claude: foam,
         agent_codex: iris,
         agent_opencode: pine,
+        agent_deepseek_tui: foam,
+        agent_maki: iris,
+        agent_pi: pine,
 
         pr_open_bg: Color::Rgb(120, 190, 140),
         pr_merged_bg: iris,
@@ -978,6 +1011,9 @@ pub fn rose_pine_moon() -> Theme {
         agent_claude: foam,
         agent_codex: iris,
         agent_opencode: pine,
+        agent_deepseek_tui: foam,
+        agent_maki: iris,
+        agent_pi: pine,
 
         pr_open_bg: Color::Rgb(120, 190, 140),
         pr_merged_bg: iris,
@@ -1054,6 +1090,9 @@ pub fn rose_pine_dawn() -> Theme {
         agent_claude: foam,
         agent_codex: iris,
         agent_opencode: pine,
+        agent_deepseek_tui: foam,
+        agent_maki: iris,
+        agent_pi: pine,
 
         pr_open_bg: Color::Rgb(40, 130, 80),
         pr_merged_bg: iris,
@@ -1130,6 +1169,9 @@ pub fn solarized_dark() -> Theme {
         agent_claude: cyan,
         agent_codex: violet,
         agent_opencode: blue,
+        agent_deepseek_tui: cyan,
+        agent_maki: violet,
+        agent_pi: blue,
 
         pr_open_bg: green,
         pr_merged_bg: violet,
@@ -1207,6 +1249,9 @@ pub fn solarized_light() -> Theme {
         agent_claude: cyan,
         agent_codex: violet,
         agent_opencode: blue,
+        agent_deepseek_tui: cyan,
+        agent_maki: violet,
+        agent_pi: blue,
 
         pr_open_bg: green,
         pr_merged_bg: violet,
@@ -1289,6 +1334,9 @@ pub fn gruvbox_dark() -> Theme {
         agent_claude: aqua,
         agent_codex: purple,
         agent_opencode: blue,
+        agent_deepseek_tui: aqua,
+        agent_maki: purple,
+        agent_pi: blue,
 
         pr_open_bg: green,
         pr_merged_bg: purple,
@@ -1371,6 +1419,9 @@ pub fn gruvbox_light() -> Theme {
         agent_claude: aqua,
         agent_codex: purple,
         agent_opencode: blue,
+        agent_deepseek_tui: aqua,
+        agent_maki: purple,
+        agent_pi: blue,
 
         pr_open_bg: green,
         pr_merged_bg: purple,
@@ -1444,6 +1495,9 @@ pub fn monokai() -> Theme {
         agent_claude: blue,
         agent_codex: purple,
         agent_opencode: green,
+        agent_deepseek_tui: blue,
+        agent_maki: purple,
+        agent_pi: green,
 
         pr_open_bg: green,
         pr_merged_bg: purple,
@@ -1518,6 +1572,9 @@ pub fn monokai_pro() -> Theme {
         agent_claude: blue,
         agent_codex: purple,
         agent_opencode: green,
+        agent_deepseek_tui: blue,
+        agent_maki: purple,
+        agent_pi: green,
 
         pr_open_bg: green,
         pr_merged_bg: purple,
@@ -1592,6 +1649,9 @@ pub fn monokai_vivid() -> Theme {
         agent_claude: blue,
         agent_codex: purple,
         agent_opencode: green,
+        agent_deepseek_tui: blue,
+        agent_maki: purple,
+        agent_pi: green,
 
         pr_open_bg: green,
         pr_merged_bg: purple,
@@ -1666,6 +1726,9 @@ pub fn tomorrow_night() -> Theme {
         agent_claude: aqua,
         agent_codex: purple,
         agent_opencode: blue,
+        agent_deepseek_tui: aqua,
+        agent_maki: purple,
+        agent_pi: blue,
 
         pr_open_bg: green,
         pr_merged_bg: purple,
@@ -1740,6 +1803,9 @@ pub fn tomorrow_night_eighties() -> Theme {
         agent_claude: aqua,
         agent_codex: purple,
         agent_opencode: blue,
+        agent_deepseek_tui: aqua,
+        agent_maki: purple,
+        agent_pi: blue,
 
         pr_open_bg: green,
         pr_merged_bg: purple,
@@ -1814,6 +1880,9 @@ pub fn tomorrow_night_blue() -> Theme {
         agent_claude: aqua,
         agent_codex: purple,
         agent_opencode: blue,
+        agent_deepseek_tui: aqua,
+        agent_maki: purple,
+        agent_pi: blue,
 
         pr_open_bg: green,
         pr_merged_bg: purple,
@@ -1888,6 +1957,9 @@ pub fn tomorrow_night_bright() -> Theme {
         agent_claude: aqua,
         agent_codex: purple,
         agent_opencode: blue,
+        agent_deepseek_tui: aqua,
+        agent_maki: purple,
+        agent_pi: blue,
 
         pr_open_bg: green,
         pr_merged_bg: purple,
@@ -1962,6 +2034,9 @@ pub fn atom_one_dark() -> Theme {
         agent_claude: cyan,
         agent_codex: purple,
         agent_opencode: blue,
+        agent_deepseek_tui: cyan,
+        agent_maki: purple,
+        agent_pi: blue,
 
         pr_open_bg: green,
         pr_merged_bg: purple,
@@ -2036,6 +2111,9 @@ pub fn one_half_dark() -> Theme {
         agent_claude: cyan,
         agent_codex: purple,
         agent_opencode: blue,
+        agent_deepseek_tui: cyan,
+        agent_maki: purple,
+        agent_pi: blue,
 
         pr_open_bg: green,
         pr_merged_bg: purple,
@@ -2111,6 +2189,9 @@ pub fn github_dark() -> Theme {
         agent_claude: Color::Rgb(88, 196, 220),
         agent_codex: done,
         agent_opencode: accent,
+        agent_deepseek_tui: Color::Rgb(88, 196, 220),
+        agent_maki: done,
+        agent_pi: accent,
 
         pr_open_bg: success,
         pr_merged_bg: done,
@@ -2186,6 +2267,9 @@ pub fn github_light() -> Theme {
         agent_claude: Color::Rgb(15, 148, 175),
         agent_codex: done,
         agent_opencode: accent,
+        agent_deepseek_tui: Color::Rgb(15, 148, 175),
+        agent_maki: done,
+        agent_pi: accent,
 
         pr_open_bg: success,
         pr_merged_bg: done,
@@ -2259,6 +2343,9 @@ pub fn jetbrains_darcula() -> Theme {
         agent_claude: Color::Rgb(80, 180, 180),
         agent_codex: constant,
         agent_opencode: number,
+        agent_deepseek_tui: Color::Rgb(80, 180, 180),
+        agent_maki: constant,
+        agent_pi: number,
 
         pr_open_bg: string,
         pr_merged_bg: constant,
@@ -2333,6 +2420,9 @@ pub fn vscode_dark() -> Theme {
         agent_claude: type_color,
         agent_codex: variable,
         agent_opencode: keyword,
+        agent_deepseek_tui: type_color,
+        agent_maki: variable,
+        agent_pi: keyword,
 
         pr_open_bg: Color::Rgb(70, 180, 80),
         pr_merged_bg: Color::Rgb(130, 80, 200),
@@ -2407,6 +2497,9 @@ pub fn vscode_dark_modern() -> Theme {
         agent_claude: type_color,
         agent_codex: variable,
         agent_opencode: keyword,
+        agent_deepseek_tui: type_color,
+        agent_maki: variable,
+        agent_pi: keyword,
 
         pr_open_bg: Color::Rgb(70, 180, 80),
         pr_merged_bg: Color::Rgb(130, 80, 200),
@@ -2480,6 +2573,9 @@ pub fn shades_of_purple() -> Theme {
         agent_claude: cyan,
         agent_codex: comment,
         agent_opencode: Color::Rgb(100, 160, 255),
+        agent_deepseek_tui: cyan,
+        agent_maki: comment,
+        agent_pi: Color::Rgb(100, 160, 255),
 
         pr_open_bg: green,
         pr_merged_bg: comment,
@@ -2556,6 +2652,9 @@ pub fn night_owl() -> Theme {
         agent_claude: teal,
         agent_codex: purple,
         agent_opencode: blue,
+        agent_deepseek_tui: teal,
+        agent_maki: purple,
+        agent_pi: blue,
 
         pr_open_bg: green,
         pr_merged_bg: purple,
@@ -2634,6 +2733,9 @@ pub fn night_fox() -> Theme {
         agent_claude: coral,
         agent_codex: rust,
         agent_opencode: orange,
+        agent_deepseek_tui: coral,
+        agent_maki: rust,
+        agent_pi: orange,
 
         pr_open_bg: amber,
         pr_merged_bg: coral,
@@ -2708,6 +2810,9 @@ pub fn synthwave() -> Theme {
         agent_claude: cyan,
         agent_codex: purple,
         agent_opencode: pink,
+        agent_deepseek_tui: cyan,
+        agent_maki: purple,
+        agent_pi: pink,
 
         pr_open_bg: green,
         pr_merged_bg: purple,

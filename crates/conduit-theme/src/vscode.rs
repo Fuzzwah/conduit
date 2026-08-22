@@ -374,6 +374,12 @@ impl<'a> VsCodeMapper<'a> {
             .get("terminal.ansiBlue")
             .unwrap_or_else(|| shift_hue(agent_codex, -60.0));
 
+        let agent_deepseek_tui = shift_hue(agent_claude, 180.0);
+
+        let agent_maki = shift_hue(agent_codex, 60.0);
+
+        let agent_pi = shift_hue(agent_opencode, 120.0);
+
         // =====================================================================
         // PR State Colors
         // =====================================================================
@@ -499,6 +505,9 @@ impl<'a> VsCodeMapper<'a> {
             agent_claude,
             agent_codex,
             agent_opencode,
+            agent_deepseek_tui,
+            agent_maki,
+            agent_pi,
 
             // PR State
             pr_open_bg,

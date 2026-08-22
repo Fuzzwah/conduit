@@ -8,9 +8,9 @@ interface ModelSelectorDialogProps {
   isOpen: boolean;
   onClose: () => void;
   currentModel: string | null;
-  agentType: 'claude' | 'codex' | 'dirac' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi';
-  onSelect: (modelId: string, newAgentType: 'claude' | 'codex' | 'dirac' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi') => void;
-  onSetDefault: (modelId: string, newAgentType: 'claude' | 'codex' | 'dirac' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi') => void;
+  agentType: 'claude' | 'codex' | 'dirac' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi' | 'maki';
+  onSelect: (modelId: string, newAgentType: 'claude' | 'codex' | 'dirac' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi' | 'maki') => void;
+  onSetDefault: (modelId: string, newAgentType: 'claude' | 'codex' | 'dirac' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi' | 'maki') => void;
   isUpdating?: boolean;
   isSettingDefault?: boolean;
 }
@@ -56,10 +56,10 @@ export function ModelSelectorDialog({
 
   // Flatten models for keyboard navigation
   const flatModels = useMemo(() => {
-    const models: { model: ModelInfo; groupAgentType: 'claude' | 'codex' | 'dirac' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi' }[] = [];
+    const models: { model: ModelInfo; groupAgentType: 'claude' | 'codex' | 'dirac' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi' | 'maki' }[] = [];
     filteredGroups.forEach((group) => {
       group.models.forEach((model) => {
-        models.push({ model, groupAgentType: group.agent_type as 'claude' | 'codex' | 'dirac' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi' });
+        models.push({ model, groupAgentType: group.agent_type as 'claude' | 'codex' | 'dirac' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi' | 'maki' });
       });
     });
     return models;
@@ -118,12 +118,12 @@ export function ModelSelectorDialog({
     }
   };
 
-  const handleSelect = (modelId: string, modelAgentType: 'claude' | 'codex' | 'dirac' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi') => {
+  const handleSelect = (modelId: string, modelAgentType: 'claude' | 'codex' | 'dirac' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi' | 'maki') => {
     if (isBusy) return;
     onSelect(modelId, modelAgentType);
   };
 
-  const handleSetDefault = (modelId: string, modelAgentType: 'claude' | 'codex' | 'dirac' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi') => {
+  const handleSetDefault = (modelId: string, modelAgentType: 'claude' | 'codex' | 'dirac' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi' | 'maki') => {
     if (isBusy) return;
     onSetDefault(modelId, modelAgentType);
   };
@@ -197,7 +197,7 @@ export function ModelSelectorDialog({
                     const isSelected = model.id === currentModel && model.agent_type === agentType;
                     const isHighlighted = currentFlatIndex === selectedIndex;
                     const flatIndex = currentFlatIndex;
-                    const groupAgentType = group.agent_type as 'claude' | 'codex' | 'dirac' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi';
+                    const groupAgentType = group.agent_type as 'claude' | 'codex' | 'dirac' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi' | 'maki';
                     currentFlatIndex++;
 
                     return (

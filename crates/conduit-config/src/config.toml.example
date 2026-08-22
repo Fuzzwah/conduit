@@ -47,7 +47,7 @@
 # If omitted, all installed providers are enabled by default.
 #
 # [providers]
-# enabled = ["codex", "claude", "gemini", "deepseek-tui", "opencode"]
+# enabled = ["codex", "claude", "gemini", "deepseek-tui", "opencode", "maki"]
 
 # ============================================================================
 # Tool Paths
@@ -150,6 +150,7 @@
 # gemini = "/usr/local/bin/gemini"
 # deepseek_tui = "/usr/local/bin/deepseek"
 # opencode = "/usr/local/bin/opencode"
+# maki = "/usr/local/bin/maki"
 
 # ============================================================================
 # Keybindings

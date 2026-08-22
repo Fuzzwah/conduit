@@ -11,6 +11,7 @@ pub enum AgentType {
     Opencode,
     Copilot,
     Pi,
+    Maki,
 }
 
 /// Agent mode (Build vs Plan)
@@ -68,7 +69,7 @@ impl AgentMode {
 
 impl AgentType {
     /// Preferred provider priority order used for defaults and UI listing.
-    pub const fn preferred_order() -> [AgentType; 8] {
+    pub const fn preferred_order() -> [AgentType; 9] {
         [
             AgentType::Codex,
             AgentType::Claude,
@@ -78,6 +79,7 @@ impl AgentType {
             AgentType::Opencode,
             AgentType::Copilot,
             AgentType::Pi,
+            AgentType::Maki,
         ]
     }
 
@@ -103,6 +105,7 @@ impl AgentType {
             AgentType::Opencode => "opencode",
             AgentType::Copilot => "copilot",
             AgentType::Pi => "pi",
+            AgentType::Maki => "maki",
         }
     }
 
@@ -115,6 +118,7 @@ impl AgentType {
             "opencode" => AgentType::Opencode,
             "copilot" => AgentType::Copilot,
             "pi" => AgentType::Pi,
+            "maki" => AgentType::Maki,
             _ => AgentType::Claude,
         }
     }
@@ -130,6 +134,7 @@ impl AgentType {
             AgentType::Opencode => "OpenCode",
             AgentType::Copilot => "Copilot",
             AgentType::Pi => "Pi",
+            AgentType::Maki => "Maki",
         }
     }
 
@@ -143,6 +148,7 @@ impl AgentType {
             AgentType::Opencode => "OpenCode",
             AgentType::Copilot => "GitHub Copilot",
             AgentType::Pi => "Pi",
+            AgentType::Maki => "Maki",
         }
     }
 }

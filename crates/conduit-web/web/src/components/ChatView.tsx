@@ -1185,10 +1185,10 @@ export function ChatView({
   const currentAttachments = session ? attachmentsBySession[session.id] ?? [] : [];
   const canStop = isProcessing || isAwaitingResponse;
 
-  const handleModelSelect = useCallback((modelId: string, newAgentType: 'claude' | 'codex' | 'dirac' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi') => {
+  const handleModelSelect = useCallback((modelId: string, newAgentType: 'claude' | 'codex' | 'dirac' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi' | 'maki') => {
     if (!session) return;
     // Only include agent_type in the request if it's different from current
-    const data: { model: string; agent_type?: 'claude' | 'codex' | 'dirac' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi' } = { model: modelId };
+    const data: { model: string; agent_type?: 'claude' | 'codex' | 'dirac' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi' | 'maki' } = { model: modelId };
     if (newAgentType !== session.agent_type) {
       data.agent_type = newAgentType;
     }
@@ -1207,7 +1207,7 @@ export function ChatView({
   }, [session, updateSessionMutation, onNotify]);
 
   const handleSetDefaultModel = useCallback(
-    (modelId: string, newAgentType: 'claude' | 'codex' | 'dirac' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi') => {
+    (modelId: string, newAgentType: 'claude' | 'codex' | 'dirac' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi' | 'maki') => {
       setDefaultModelMutation.mutate({ agent_type: newAgentType, model_id: modelId });
     },
     [setDefaultModelMutation]

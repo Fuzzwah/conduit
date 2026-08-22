@@ -64,7 +64,7 @@ pub struct Theme {
     pub accent_error: Color,
 
     // =========================================================================
-    // Agent Colors (2 colors)
+    // Agent Colors (6 colors)
     // =========================================================================
     /// Claude agent color
     pub agent_claude: Color,
@@ -72,6 +72,12 @@ pub struct Theme {
     pub agent_codex: Color,
     /// OpenCode agent color
     pub agent_opencode: Color,
+    /// DeepSeek TUI agent color
+    pub agent_deepseek_tui: Color,
+    /// Maki agent color
+    pub agent_maki: Color,
+    /// Pi agent color
+    pub agent_pi: Color,
 
     // =========================================================================
     // PR State Colors (5 colors)
@@ -184,6 +190,9 @@ impl Theme {
             agent_claude: Color::Rgb(130, 180, 220),
             agent_codex: Color::Rgb(180, 140, 200),
             agent_opencode: Color::Rgb(120, 200, 190),
+            agent_deepseek_tui: Color::Rgb(220, 160, 80),
+            agent_maki: Color::Rgb(100, 210, 140),
+            agent_pi: Color::Rgb(230, 180, 80),
 
             // PR State Colors
             pr_open_bg: Color::Rgb(35, 134, 54),
@@ -255,6 +264,9 @@ impl Theme {
             agent_claude: Color::Rgb(50, 130, 180),
             agent_codex: Color::Rgb(130, 80, 160),
             agent_opencode: Color::Rgb(70, 160, 170),
+            agent_deepseek_tui: Color::Rgb(180, 110, 40),
+            agent_maki: Color::Rgb(50, 150, 90),
+            agent_pi: Color::Rgb(190, 130, 40),
 
             // PR State Colors (same as dark - good contrast)
             pr_open_bg: Color::Rgb(35, 134, 54),

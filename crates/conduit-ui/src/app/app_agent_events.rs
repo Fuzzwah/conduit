@@ -1402,6 +1402,7 @@ impl App {
                 | AgentType::Opencode
                 | AgentType::Copilot
                 | AgentType::Pi
+                | AgentType::Maki
         ) && !images.is_empty()
         {
             if let Some(session) = self.state.tab_manager.session_mut(tab_index) {
@@ -1428,6 +1429,10 @@ impl App {
                         AgentType::Pi => {
                             "Image attachments aren't supported for Pi in Conduit yet.".to_string()
                         }
+                        AgentType::Maki => {
+                            "Image attachments aren't supported for Maki in Conduit yet."
+                                .to_string()
+                        }
                         _ => "Image attachments aren't supported for this agent.".to_string(),
                     },
                 };
@@ -1449,6 +1454,7 @@ impl App {
                 | AgentType::Opencode
                 | AgentType::Copilot
                 | AgentType::Pi
+                | AgentType::Maki
         ) {
             agent_prompt = Self::strip_image_placeholders(agent_prompt, &image_placeholders);
         }

@@ -865,6 +865,7 @@ impl Config {
             "opencode" => Some(AgentType::Opencode),
             "copilot" => Some(AgentType::Copilot),
             "pi" => Some(AgentType::Pi),
+            "maki" => Some(AgentType::Maki),
             _ => None,
         }
     }
@@ -1076,6 +1077,7 @@ impl Config {
             AgentType::Opencode => Tool::Opencode,
             AgentType::Copilot => Tool::Copilot,
             AgentType::Pi => Tool::Pi,
+            AgentType::Maki => Tool::Maki,
         }
     }
 

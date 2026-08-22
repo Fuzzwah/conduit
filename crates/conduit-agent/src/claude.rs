@@ -123,9 +123,9 @@ impl ClaudeCodeRunner {
         cmd
     }
 
-    /// Convert Claude-specific event to unified AgentEvent(s)
+    /// Convert Claude-compatible event to unified AgentEvent(s)
     /// Returns a Vec because Assistant events can contain both text and tool_use blocks
-    fn convert_event(raw: ClaudeRawEvent) -> Vec<AgentEvent> {
+    pub fn convert_event(raw: ClaudeRawEvent) -> Vec<AgentEvent> {
         tracing::debug!("Claude raw event: {:?}", raw);
         match raw {
             ClaudeRawEvent::System(sys) => {

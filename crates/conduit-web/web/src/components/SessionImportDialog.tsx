@@ -4,7 +4,7 @@ import { useExternalSessions, useImportExternalSession } from '../hooks';
 import type { ExternalSession, Session } from '../types';
 import { cn } from '../lib/cn';
 
-type AgentFilter = 'all' | 'claude' | 'codex' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi';
+type AgentFilter = 'all' | 'claude' | 'codex' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi' | 'maki';
 
 interface SessionImportDialogProps {
   isOpen: boolean;
@@ -18,8 +18,9 @@ const FILTER_LABELS: Record<AgentFilter, string> = {
   codex: 'Codex',
   gemini: 'Gemini',
   'deepseek-tui': 'DeepSeek TUI',
-  opencode: 'OpenCode',
+opencode: 'OpenCode',
   pi: 'Pi',
+  maki: 'Maki',
 };
 
 export function SessionImportDialog({ isOpen, onClose, onImported }: SessionImportDialogProps) {

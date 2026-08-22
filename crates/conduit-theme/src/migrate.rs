@@ -214,6 +214,12 @@ fn generate_toml(
         "opencode = \"{}\"\n",
         color_value(theme.agent_opencode)
     ));
+    output.push_str(&format!(
+        "deepseek_tui = \"{}\"\n",
+        color_value(theme.agent_deepseek_tui)
+    ));
+    output.push_str(&format!("maki = \"{}\"\n", color_value(theme.agent_maki)));
+    output.push_str(&format!("pi = \"{}\"\n", color_value(theme.agent_pi)));
     output.push('\n');
 
     // PR section
@@ -346,6 +352,9 @@ fn extract_palette(theme: &Theme) -> HashMap<String, String> {
         theme.agent_claude,
         theme.agent_codex,
         theme.agent_opencode,
+        theme.agent_deepseek_tui,
+        theme.agent_maki,
+        theme.agent_pi,
         theme.pr_open_bg,
         theme.pr_merged_bg,
         theme.pr_closed_bg,

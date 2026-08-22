@@ -87,6 +87,8 @@ impl ModelRegistry {
     pub const PI_CONTEXT_WINDOW: i64 = 200_000;
     /// Default context window for Dirac when model metadata is unknown
     pub const DIRAC_CONTEXT_WINDOW: i64 = 200_000;
+    /// Default context window for Maki when model metadata is unknown
+    pub const MAKI_CONTEXT_WINDOW: i64 = 200_000;
 
     const OPENCODE_DEFAULT_MODEL_ID: &'static str = "default";
 
@@ -892,6 +894,57 @@ impl ModelRegistry {
         ]
     }
 
+    /// Get available models for Maki
+    pub fn maki_models() -> Vec<ModelInfo> {
+        Self::maki_models_static()
+    }
+
+    fn maki_models_static() -> Vec<ModelInfo> {
+        vec![
+            ModelInfo::new(
+                AgentType::Maki,
+                "claude-sonnet-4-6",
+                "Claude Sonnet 4.6",
+                "claude-sonnet-4-6",
+                "Anthropic Claude Sonnet 4.6 via Maki",
+                Self::CLAUDE_CONTEXT_WINDOW,
+            )
+            .as_default(),
+            ModelInfo::new(
+                AgentType::Maki,
+                "claude-opus-4-7",
+                "Claude Opus 4.7",
+                "claude-opus-4-7",
+                "Anthropic Claude Opus 4.7 via Maki",
+                Self::CLAUDE_CONTEXT_WINDOW,
+            ),
+            ModelInfo::new(
+                AgentType::Maki,
+                "deepseek/deepseek-v4-flash",
+                "DeepSeek V4 Flash",
+                "deepseek-v4-flash",
+                "DeepSeek model via OpenRouter/Maki",
+                Self::DEEPSEEK_TUI_CONTEXT_WINDOW,
+            ),
+            ModelInfo::new(
+                AgentType::Maki,
+                "gemini-2.5-pro",
+                "Gemini 2.5 Pro",
+                "gemini-2.5-pro",
+                "Google Gemini 2.5 Pro via Maki",
+                Self::GEMINI_CONTEXT_WINDOW,
+            ),
+            ModelInfo::new(
+                AgentType::Maki,
+                "gpt-5.4",
+                "GPT-5.4",
+                "gpt-5.4",
+                "OpenAI GPT-5.4 via Maki",
+                Self::CODEX_CONTEXT_WINDOW,
+            ),
+        ]
+    }
+
     /// Get all models grouped by agent type
     pub fn all_models() -> Vec<ModelInfo> {
         let mut models = Self::claude_models();
@@ -902,6 +955,7 @@ impl ModelRegistry {
         models.extend(Self::opencode_models());
         models.extend(Self::copilot_models());
         models.extend(Self::pi_models());
+        models.extend(Self::maki_models());
         models
     }
 
@@ -916,6 +970,7 @@ impl ModelRegistry {
             AgentType::Opencode => Self::opencode_models(),
             AgentType::Copilot => Self::copilot_models(),
             AgentType::Pi => Self::pi_models(),
+            AgentType::Maki => Self::maki_models(),
         }
     }
 
@@ -930,6 +985,7 @@ impl ModelRegistry {
             AgentType::Opencode => Self::OPENCODE_DEFAULT_MODEL_ID.to_string(),
             AgentType::Copilot => "gpt-5.3-codex".to_string(),
             AgentType::Pi => "openrouter/deepseek/deepseek-v4-flash".to_string(),
+            AgentType::Maki => "claude-sonnet-4-6".to_string(),
         }
     }
 
@@ -972,6 +1028,7 @@ impl ModelRegistry {
             AgentType::Opencode => "◍",
             AgentType::Copilot => "⊙",
             AgentType::Pi => "◌",
+            AgentType::Maki => "※",
         }
     }
 
@@ -986,6 +1043,7 @@ impl ModelRegistry {
             AgentType::Opencode => "OpenCode",
             AgentType::Copilot => "GitHub Copilot",
             AgentType::Pi => "Pi",
+            AgentType::Maki => "Maki",
         }
     }
 
@@ -1007,6 +1065,7 @@ impl ModelRegistry {
             AgentType::Opencode => Self::OPENCODE_CONTEXT_WINDOW,
             AgentType::Copilot => Self::COPILOT_CONTEXT_WINDOW,
             AgentType::Pi => Self::PI_CONTEXT_WINDOW,
+            AgentType::Maki => Self::MAKI_CONTEXT_WINDOW,
         }
     }
 }
