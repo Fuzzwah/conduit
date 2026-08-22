@@ -7,6 +7,7 @@ use tracing::error;
 use crate::claude::{load_claude_models, ClaudeModelEntry};
 use crate::codex::CodexModelEntry;
 use crate::gemini::GeminiModelEntry;
+use crate::omp::OmpModelEntry;
 use crate::opencode::load_opencode_models;
 use crate::pi::PiModelEntry;
 use crate::AgentType;
@@ -87,6 +88,8 @@ impl ModelRegistry {
     pub const PI_CONTEXT_WINDOW: i64 = 200_000;
     /// Default context window for Maki when model metadata is unknown
     pub const MAKI_CONTEXT_WINDOW: i64 = 200_000;
+    /// Default context window for OMP when model metadata is unknown
+    pub const OMP_CONTEXT_WINDOW: i64 = 200_000;
 
     const OPENCODE_DEFAULT_MODEL_ID: &'static str = "default";
 
@@ -446,6 +449,50 @@ impl ModelRegistry {
         store.clear();
     }
 
+    fn omp_store() -> &'static RwLock<Vec<ModelInfo>> {
+        static OMP_MODELS: OnceLock<RwLock<Vec<ModelInfo>>> = OnceLock::new();
+        OMP_MODELS.get_or_init(|| RwLock::new(Vec::new()))
+    }
+
+    pub fn set_omp_models(entries: Vec<OmpModelEntry>) {
+        let models: Vec<ModelInfo> = entries
+            .into_iter()
+            .enumerate()
+            .map(|(i, entry)| {
+                let mut info = ModelInfo::new(
+                    AgentType::Omp,
+                    &entry.id,
+                    &entry.display_name,
+                    &entry.id,
+                    "",
+                    Self::OMP_CONTEXT_WINDOW,
+                );
+                if i == 0 {
+                    info = info.as_default();
+                }
+                info
+            })
+            .collect();
+        let mut store = match Self::omp_store().write() {
+            Ok(guard) => guard,
+            Err(err) => {
+                error!(error = %err, "omp_store poisoned in set_omp_models");
+                err.into_inner()
+            }
+        };
+        *store = models;
+    }
+
+    pub fn clear_omp_models() {
+        let mut store = match Self::omp_store().write() {
+            Ok(guard) => guard,
+            Err(err) => {
+                error!(error = %err, "omp_store poisoned in clear_omp_models");
+                err.into_inner()
+            }
+        };
+        store.clear();
+    }
     /// Get available models for Codex CLI
     pub fn codex_models() -> Vec<ModelInfo> {
         let dynamic = match Self::codex_store().read() {
@@ -831,6 +878,62 @@ impl ModelRegistry {
         ]
     }
 
+    /// Get available models for OMP (Oh My Pi)
+    pub fn omp_models() -> Vec<ModelInfo> {
+        let dynamic = match Self::omp_store().read() {
+            Ok(guard) => guard.clone(),
+            Err(err) => {
+                error!(error = %err, "omp_store poisoned in omp_models");
+                Vec::new()
+            }
+        };
+        if !dynamic.is_empty() {
+            return dynamic;
+        }
+        Self::omp_models_static()
+    }
+
+    fn omp_models_static() -> Vec<ModelInfo> {
+        Self::build_omp_models()
+    }
+
+    fn build_omp_models() -> Vec<ModelInfo> {
+        vec![
+            ModelInfo::new(
+                AgentType::Omp,
+                "openrouter/deepseek/deepseek-v4-pro",
+                "deepseek/deepseek-v4-pro",
+                "openrouter/deepseek/deepseek-v4-pro",
+                "DeepSeek model via OpenRouter",
+                Self::OMP_CONTEXT_WINDOW,
+            )
+            .as_default(),
+            ModelInfo::new(
+                AgentType::Omp,
+                "openai/gpt-5.4",
+                "gpt-5.4",
+                "openai/gpt-5.4",
+                "OpenAI GPT-5.4",
+                Self::OMP_CONTEXT_WINDOW,
+            ),
+            ModelInfo::new(
+                AgentType::Omp,
+                "anthropic/claude-sonnet-4-6",
+                "claude-sonnet-4-6",
+                "anthropic/claude-sonnet-4-6",
+                "Anthropic Claude Sonnet 4.6",
+                Self::OMP_CONTEXT_WINDOW,
+            ),
+            ModelInfo::new(
+                AgentType::Omp,
+                "google/gemini-3-flash",
+                "gemini-3-flash",
+                "google/gemini-3-flash",
+                "Google Gemini 3 Flash",
+                Self::OMP_CONTEXT_WINDOW,
+            ),
+        ]
+    }
     /// Get available models for Maki
     pub fn maki_models() -> Vec<ModelInfo> {
         Self::maki_models_static()
@@ -892,6 +995,7 @@ impl ModelRegistry {
         models.extend(Self::copilot_models());
         models.extend(Self::pi_models());
         models.extend(Self::maki_models());
+        models.extend(Self::omp_models());
         models
     }
 
@@ -906,6 +1010,7 @@ impl ModelRegistry {
             AgentType::Copilot => Self::copilot_models(),
             AgentType::Pi => Self::pi_models(),
             AgentType::Maki => Self::maki_models(),
+            AgentType::Omp => Self::omp_models(),
         }
     }
 
@@ -920,6 +1025,7 @@ impl ModelRegistry {
             AgentType::Copilot => "gpt-5.3-codex".to_string(),
             AgentType::Pi => "openrouter/deepseek/deepseek-v4-flash".to_string(),
             AgentType::Maki => "claude-sonnet-4-6".to_string(),
+            AgentType::Omp => "openrouter/deepseek/deepseek-v4-pro".to_string(),
         }
     }
 
@@ -962,6 +1068,7 @@ impl ModelRegistry {
             AgentType::Copilot => "⊙",
             AgentType::Pi => "◌",
             AgentType::Maki => "※",
+            AgentType::Omp => "⌥",
         }
     }
 
@@ -976,6 +1083,7 @@ impl ModelRegistry {
             AgentType::Copilot => "GitHub Copilot",
             AgentType::Pi => "Pi",
             AgentType::Maki => "Maki",
+            AgentType::Omp => "Oh My Pi",
         }
     }
 
@@ -997,6 +1105,7 @@ impl ModelRegistry {
             AgentType::Copilot => Self::COPILOT_CONTEXT_WINDOW,
             AgentType::Pi => Self::PI_CONTEXT_WINDOW,
             AgentType::Maki => Self::MAKI_CONTEXT_WINDOW,
+            AgentType::Omp => Self::OMP_CONTEXT_WINDOW,
         }
     }
 }

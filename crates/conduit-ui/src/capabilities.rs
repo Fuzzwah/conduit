@@ -18,10 +18,10 @@ impl AgentCapabilities {
             supports_plan_mode: agent_type.supports_plan_mode(),
             supports_interactive_input: matches!(
                 agent_type,
-                AgentType::Codex | AgentType::Opencode | AgentType::Pi
+                AgentType::Codex | AgentType::Opencode | AgentType::Pi | AgentType::Omp
             ),
-            supports_steer: matches!(agent_type, AgentType::Pi),
-            supports_follow_up: matches!(agent_type, AgentType::Pi),
+            supports_steer: matches!(agent_type, AgentType::Pi | AgentType::Omp),
+            supports_follow_up: matches!(agent_type, AgentType::Pi | AgentType::Omp),
             supports_native_slash_commands: matches!(
                 agent_type,
                 AgentType::Claude
@@ -29,6 +29,7 @@ impl AgentCapabilities {
                     | AgentType::DeepseekTui
                     | AgentType::Opencode
                     | AgentType::Pi
+                    | AgentType::Omp
             ),
             supports_direct_user_skill_invocation: matches!(
                 agent_type,
@@ -36,7 +37,11 @@ impl AgentCapabilities {
             ),
             supports_native_skill_tool: matches!(
                 agent_type,
-                AgentType::Gemini | AgentType::DeepseekTui | AgentType::Opencode | AgentType::Pi
+                AgentType::Gemini
+                    | AgentType::DeepseekTui
+                    | AgentType::Opencode
+                    | AgentType::Pi
+                    | AgentType::Omp
             ),
             supports_command_template_expansion: true,
         }

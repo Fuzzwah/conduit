@@ -11,6 +11,7 @@ pub enum AgentType {
     Copilot,
     Pi,
     Maki,
+    Omp,
 }
 
 /// Agent mode (Build vs Plan)
@@ -68,7 +69,7 @@ impl AgentMode {
 
 impl AgentType {
     /// Preferred provider priority order used for defaults and UI listing.
-    pub const fn preferred_order() -> [AgentType; 8] {
+    pub const fn preferred_order() -> [AgentType; 9] {
         [
             AgentType::Codex,
             AgentType::Claude,
@@ -78,6 +79,7 @@ impl AgentType {
             AgentType::Copilot,
             AgentType::Pi,
             AgentType::Maki,
+            AgentType::Omp,
         ]
     }
 
@@ -89,6 +91,7 @@ impl AgentType {
                 | AgentType::Gemini
                 | AgentType::DeepseekTui
                 | AgentType::Pi
+                | AgentType::Omp
         )
     }
 
@@ -102,6 +105,7 @@ impl AgentType {
             AgentType::Copilot => "copilot",
             AgentType::Pi => "pi",
             AgentType::Maki => "maki",
+            AgentType::Omp => "omp",
         }
     }
 
@@ -114,6 +118,7 @@ impl AgentType {
             "copilot" => AgentType::Copilot,
             "pi" => AgentType::Pi,
             "maki" => AgentType::Maki,
+            "omp" => AgentType::Omp,
             _ => AgentType::Claude,
         }
     }
@@ -129,6 +134,7 @@ impl AgentType {
             AgentType::Copilot => "Copilot",
             AgentType::Pi => "Pi",
             AgentType::Maki => "Maki",
+            AgentType::Omp => "OMP",
         }
     }
 
@@ -142,6 +148,7 @@ impl AgentType {
             AgentType::Copilot => "GitHub Copilot",
             AgentType::Pi => "Pi",
             AgentType::Maki => "Maki",
+            AgentType::Omp => "Oh My Pi",
         }
     }
 }

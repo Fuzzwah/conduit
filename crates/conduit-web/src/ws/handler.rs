@@ -178,6 +178,7 @@ impl SessionManager {
             AgentType::Copilot => core.copilot_runner().clone(),
             AgentType::Pi => core.pi_runner().clone(),
             AgentType::Maki => core.maki_runner().clone(),
+            AgentType::Omp => core.omp_runner().clone(),
         };
 
         if !runner.is_available() {
@@ -203,7 +204,10 @@ impl SessionManager {
             config = config.with_skill(skill);
         }
 
-        if matches!(agent_type, AgentType::Opencode | AgentType::Pi) {
+        if matches!(
+            agent_type,
+            AgentType::Opencode | AgentType::Pi | AgentType::Omp
+        ) {
             match SessionService::get_session(&core, session_id) {
                 Ok(session_tab) => {
                     if let Some(agent_session_id) = session_tab.agent_session_id {
@@ -513,7 +517,8 @@ impl SessionManager {
             | AgentType::Opencode
             | AgentType::Copilot
             | AgentType::Pi
-            | AgentType::Maki => AgentInput::CodexPrompt {
+            | AgentType::Maki
+            | AgentType::Omp => AgentInput::CodexPrompt {
                 text: input,
                 images,
                 model,
@@ -1209,7 +1214,8 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                         | AgentType::Opencode
                         | AgentType::Copilot
                         | AgentType::Pi
-                        | AgentType::Maki => {
+                        | AgentType::Maki
+                        | AgentType::Omp => {
                             if let Err(send_err) = tx
                                 .send(ServerMessage::session_error(
                                     session_id,
@@ -1585,7 +1591,8 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                         | Some(AgentType::DeepseekTui)
                         | Some(AgentType::Copilot)
                         | Some(AgentType::Pi)
-                        | Some(AgentType::Maki) => {
+                        | Some(AgentType::Maki)
+                        | Some(AgentType::Omp) => {
                             if let Err(send_err) = tx
                                 .send(ServerMessage::session_error(
                                     session_id,

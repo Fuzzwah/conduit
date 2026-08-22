@@ -156,6 +156,7 @@ pub async fn get_providers(
                 AgentType::Copilot => conduit_util::Tool::Copilot,
                 AgentType::Pi => conduit_util::Tool::Pi,
                 AgentType::Maki => conduit_util::Tool::Maki,
+                AgentType::Omp => conduit_util::Tool::Omp,
             };
             ProviderInfo {
                 id: agent.as_str().to_string(),
@@ -191,6 +192,7 @@ pub async fn set_providers(
             "copilot" => Some(AgentType::Copilot),
             "pi" => Some(AgentType::Pi),
             "maki" => Some(AgentType::Maki),
+            "omp" => Some(AgentType::Omp),
             _ => None,
         })
         .collect();

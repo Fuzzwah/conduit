@@ -10,6 +10,7 @@ pub mod history;
 pub mod maki;
 pub mod mock;
 pub mod models;
+pub mod omp;
 pub mod opencode;
 pub mod orchestration;
 pub mod pi;
@@ -34,6 +35,7 @@ pub use history::{
 pub use maki::MakiRunner;
 pub use mock::{MockAgentRunner, MockConfig, MockEventBuilder, MockStartError};
 pub use models::{ModelInfo, ModelRegistry};
+pub use omp::OmpRunner;
 pub use opencode::OpencodeRunner;
 pub use pi::PiRunner;
 pub use runner::{

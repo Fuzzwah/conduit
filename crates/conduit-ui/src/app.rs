@@ -52,7 +52,7 @@ use conduit_agent::{
     load_opencode_history_for_dir_with_debug, load_opencode_history_with_debug,
     load_pi_history_with_debug, AgentMode, AgentRunner, AgentType, ClaudeCodeRunner,
     CodexCliRunner, CopilotRunner, DeepseekTuiRunner, GeminiCliRunner, HistoryDebugEntry,
-    MakiRunner, MessageDisplay, ModelRegistry, OpencodeRunner, PiRunner, SessionId,
+    MakiRunner, MessageDisplay, ModelRegistry, OmpRunner, OpencodeRunner, PiRunner, SessionId,
 };
 #[cfg(test)]
 use conduit_config::KeyContext;
@@ -254,6 +254,12 @@ impl App {
     #[inline]
     fn maki_runner(&self) -> &Arc<MakiRunner> {
         self.core.maki_runner()
+    }
+
+    /// Get the OMP runner.
+    #[inline]
+    fn omp_runner(&self) -> &Arc<OmpRunner> {
+        self.core.omp_runner()
     }
 
     /// Get the worktree manager.
@@ -738,6 +744,14 @@ impl App {
                         session.chat_view.push(
                             MessageDisplay::System {
                                 content: "Maki history import isn't supported yet, so previous messages won't be shown.".to_string(),
+                            }
+                            .to_chat_message(),
+                        );
+                    }
+                    AgentType::Omp => {
+                        session.chat_view.push(
+                            MessageDisplay::System {
+                                content: "Oh My Pi history import isn't supported yet, so previous messages won't be shown.".to_string(),
                             }
                             .to_chat_message(),
                         );
@@ -2353,6 +2367,7 @@ impl App {
                         AgentType::Copilot => self.copilot_runner().clone(),
                         AgentType::Pi => self.pi_runner().clone(),
                         AgentType::Maki => self.maki_runner().clone(),
+                        AgentType::Omp => self.omp_runner().clone(),
                     };
 
                     let event_tx = self.event_tx.clone();
@@ -4250,6 +4265,14 @@ impl App {
                                 .to_chat_message(),
                             );
                         }
+                        AgentType::Omp => {
+                            session.chat_view.push(
+                                MessageDisplay::System {
+                                    content: "Oh My Pi history import isn't supported yet, so previous messages won't be shown.".to_string(),
+                                }
+                                .to_chat_message(),
+                            );
+                        }
                         AgentType::Pi => {
                             if let Ok((msgs, debug_entries, file_path)) =
                                 load_pi_history_with_debug(session_id_str)
@@ -4381,6 +4404,7 @@ impl App {
             AgentType::Copilot => conduit_util::Tool::Copilot,
             AgentType::Pi => conduit_util::Tool::Pi,
             AgentType::Maki => conduit_util::Tool::Maki,
+            AgentType::Omp => conduit_util::Tool::Omp,
         }
     }
 
@@ -6172,6 +6196,16 @@ impl App {
                 session.chat_view.push(
                     MessageDisplay::System {
                         content: "Maki session import isn't supported yet.".to_string(),
+                    }
+                    .to_chat_message(),
+                );
+            }
+            AgentType::Omp => {
+                session.resume_session_id = None;
+                session.agent_session_id = None;
+                session.chat_view.push(
+                    MessageDisplay::System {
+                        content: "Oh My Pi session import isn't supported yet.".to_string(),
                     }
                     .to_chat_message(),
                 );
