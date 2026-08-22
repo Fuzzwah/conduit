@@ -115,7 +115,7 @@ impl AgentSelectorState {
         let mut agents = Vec::new();
 
         for agent_type in AgentType::preferred_order() {
-            if tools.is_available(Self::tool_for(agent_type)) {
+            if tools.is_installed(Self::tool_for(agent_type)) {
                 agents.push(Self::option_for(agent_type));
             }
         }
@@ -138,7 +138,7 @@ impl AgentSelectorState {
         let mut agents = Vec::new();
 
         for agent_type in AgentType::preferred_order() {
-            if tools.is_available(Self::tool_for(agent_type)) {
+            if tools.is_installed(Self::tool_for(agent_type)) {
                 agents.push(Self::option_for(agent_type));
             }
         }
@@ -219,7 +219,7 @@ impl AgentSelector {
         }
 
         // Render dialog frame (instructions on bottom border)
-        let frame = DialogFrame::new("Select Agent", 44, 18).instructions(vec![
+        let frame = DialogFrame::new("Select Agent", 44, 20).instructions(vec![
             ("↑↓", "select"),
             ("Enter", "confirm"),
             ("Esc", "cancel"),
@@ -237,6 +237,7 @@ impl AgentSelector {
             Constraint::Length(2), // OpenCode option
             Constraint::Length(2), // GitHub Copilot option
             Constraint::Length(2), // Pi option
+            Constraint::Length(2), // Maki option
         ])
         .split(inner);
 

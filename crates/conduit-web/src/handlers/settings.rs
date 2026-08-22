@@ -160,7 +160,7 @@ pub async fn get_providers(
             ProviderInfo {
                 id: agent.as_str().to_string(),
                 display_name: agent.display_name().to_string(),
-                installed: core.tools().is_available(tool),
+                installed: core.tools().is_installed(tool),
                 enabled: enabled.contains(&agent),
             }
         })
