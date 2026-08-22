@@ -40,7 +40,7 @@ impl ProviderSelectorState {
         let items = Self::all_providers()
             .into_iter()
             .map(|provider| {
-                let installed = tools.is_available(Self::provider_tool(provider));
+                let installed = tools.is_installed(Self::provider_tool(provider));
                 let checked = if !installed {
                     false
                 } else {

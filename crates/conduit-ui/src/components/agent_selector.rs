@@ -115,7 +115,7 @@ impl AgentSelectorState {
         let mut agents = Vec::new();
 
         for agent_type in AgentType::preferred_order() {
-            if tools.is_available(Self::tool_for(agent_type)) {
+            if tools.is_installed(Self::tool_for(agent_type)) {
                 agents.push(Self::option_for(agent_type));
             }
         }
@@ -138,7 +138,7 @@ impl AgentSelectorState {
         let mut agents = Vec::new();
 
         for agent_type in AgentType::preferred_order() {
-            if tools.is_available(Self::tool_for(agent_type)) {
+            if tools.is_installed(Self::tool_for(agent_type)) {
                 agents.push(Self::option_for(agent_type));
             }
         }

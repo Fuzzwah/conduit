@@ -151,12 +151,17 @@ pub enum ToolStatus {
 }
 
 impl ToolStatus {
-    /// Check if the tool is available
+    /// Check if the tool is available (binary found or available via npx).
     pub fn is_available(&self) -> bool {
         matches!(
             self,
             ToolStatus::Available(_) | ToolStatus::AvailableViaNpx(_)
         )
+    }
+
+    /// Check if the tool binary is actually installed on disk.
+    pub fn is_installed(&self) -> bool {
+        matches!(self, ToolStatus::Available(_))
     }
 
     /// Get the path if available
@@ -328,6 +333,11 @@ impl ToolAvailability {
     /// Check if a tool is available
     pub fn is_available(&self, tool: Tool) -> bool {
         self.status(tool).is_available()
+    }
+
+    /// Check if a tool binary is actually installed (excludes npx fallback).
+    pub fn is_installed(&self, tool: Tool) -> bool {
+        self.status(tool).is_installed()
     }
 
     /// Get the path to a tool if available
