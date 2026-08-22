@@ -219,7 +219,7 @@ impl AgentSelector {
         }
 
         // Render dialog frame (instructions on bottom border)
-        let frame = DialogFrame::new("Select Agent", 44, 18).instructions(vec![
+        let frame = DialogFrame::new("Select Agent", 44, 20).instructions(vec![
             ("↑↓", "select"),
             ("Enter", "confirm"),
             ("Esc", "cancel"),
@@ -237,6 +237,7 @@ impl AgentSelector {
             Constraint::Length(2), // OpenCode option
             Constraint::Length(2), // GitHub Copilot option
             Constraint::Length(2), // Pi option
+            Constraint::Length(2), // Maki option
         ])
         .split(inner);
 
