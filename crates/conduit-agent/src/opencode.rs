@@ -628,6 +628,7 @@ impl OpencodeRunner {
             .ok_or_else(|| AgentError::BinaryNotFound("opencode".to_string()))?;
 
         let mut cmd = Command::new(binary);
+        cmd.kill_on_drop(true);
         cmd.arg("serve");
         cmd.arg("--hostname").arg("127.0.0.1");
         cmd.arg("--port").arg("0");
