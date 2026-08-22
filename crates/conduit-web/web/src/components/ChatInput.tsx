@@ -22,7 +22,7 @@ interface ChatInputProps {
   notice?: string | null;
   // Session/workspace info for status line
   modelDisplayName?: string | null;
-  agentType?: 'claude' | 'codex' | 'dirac' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi' | 'maki' | null;
+  agentType?: 'claude' | 'codex' | 'gemini' | 'deepseek-tui' | 'opencode' | 'pi' | 'maki' | null;
   agentMode?: string | null;
   gitStats?: { additions: number; deletions: number } | null;
   branch?: string | null;

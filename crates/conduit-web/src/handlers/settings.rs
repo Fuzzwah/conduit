@@ -150,7 +150,6 @@ pub async fn get_providers(
             let tool = match agent {
                 AgentType::Claude => conduit_util::Tool::Claude,
                 AgentType::Codex => conduit_util::Tool::Codex,
-                AgentType::Dirac => conduit_util::Tool::Dirac,
                 AgentType::Gemini => conduit_util::Tool::Gemini,
                 AgentType::DeepseekTui => conduit_util::Tool::DeepseekTui,
                 AgentType::Opencode => conduit_util::Tool::Opencode,
@@ -186,7 +185,6 @@ pub async fn set_providers(
         .filter_map(|s| match s.to_lowercase().as_str() {
             "codex" => Some(AgentType::Codex),
             "claude" => Some(AgentType::Claude),
-            "dirac" => Some(AgentType::Dirac),
             "gemini" => Some(AgentType::Gemini),
             "deepseek-tui" | "deepseek_tui" | "deepseek" => Some(AgentType::DeepseekTui),
             "opencode" => Some(AgentType::Opencode),

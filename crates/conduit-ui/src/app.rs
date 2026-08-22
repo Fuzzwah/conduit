@@ -51,9 +51,8 @@ use conduit_agent::{
     load_claude_history_with_debug, load_codex_history_with_debug,
     load_opencode_history_for_dir_with_debug, load_opencode_history_with_debug,
     load_pi_history_with_debug, AgentMode, AgentRunner, AgentType, ClaudeCodeRunner,
-    CodexCliRunner, CopilotRunner, DeepseekTuiRunner, DiracRunner, GeminiCliRunner,
-    HistoryDebugEntry, MakiRunner, MessageDisplay, ModelRegistry, OpencodeRunner, PiRunner,
-    SessionId,
+    CodexCliRunner, CopilotRunner, DeepseekTuiRunner, GeminiCliRunner, HistoryDebugEntry,
+    MakiRunner, MessageDisplay, ModelRegistry, OpencodeRunner, PiRunner, SessionId,
 };
 #[cfg(test)]
 use conduit_config::KeyContext;
@@ -231,12 +230,6 @@ impl App {
     #[inline]
     fn deepseek_tui_runner(&self) -> &Arc<DeepseekTuiRunner> {
         self.core.deepseek_tui_runner()
-    }
-
-    /// Get the Dirac runner.
-    #[inline]
-    fn dirac_runner(&self) -> &Arc<DiracRunner> {
-        self.core.dirac_runner()
     }
 
     /// Get the OpenCode runner.
@@ -702,14 +695,6 @@ impl App {
                                 session.chat_view.push(msg);
                             }
                         }
-                    }
-                    AgentType::Dirac => {
-                        session.chat_view.push(
-                            MessageDisplay::System {
-                                content: "Dirac history import isn't supported yet, so previous messages won't be shown.".to_string(),
-                            }
-                            .to_chat_message(),
-                        );
                     }
                     AgentType::Gemini => {
                         session.chat_view.push(
@@ -2362,7 +2347,6 @@ impl App {
                     let runner: Arc<dyn AgentRunner> = match agent_type {
                         AgentType::Claude => self.claude_runner().clone(),
                         AgentType::Codex => self.codex_runner().clone(),
-                        AgentType::Dirac => self.dirac_runner().clone(),
                         AgentType::Gemini => self.gemini_runner().clone(),
                         AgentType::DeepseekTui => self.deepseek_tui_runner().clone(),
                         AgentType::Opencode => self.opencode_runner().clone(),
@@ -4220,14 +4204,6 @@ impl App {
                                 }
                             }
                         }
-                        AgentType::Dirac => {
-                            session.chat_view.push(
-                                MessageDisplay::System {
-                                    content: "Dirac history import isn't supported yet, so previous messages won't be shown.".to_string(),
-                                }
-                                .to_chat_message(),
-                            );
-                        }
                         AgentType::Gemini => {
                             session.chat_view.push(
                                 MessageDisplay::System {
@@ -4399,7 +4375,6 @@ impl App {
         match agent_type {
             AgentType::Claude => conduit_util::Tool::Claude,
             AgentType::Codex => conduit_util::Tool::Codex,
-            AgentType::Dirac => conduit_util::Tool::Dirac,
             AgentType::Gemini => conduit_util::Tool::Gemini,
             AgentType::DeepseekTui => conduit_util::Tool::DeepseekTui,
             AgentType::Opencode => conduit_util::Tool::Opencode,
@@ -6086,16 +6061,6 @@ impl App {
                         session.chat_view.push(msg);
                     }
                 }
-            }
-            AgentType::Dirac => {
-                session.resume_session_id = None;
-                session.agent_session_id = None;
-                session.chat_view.push(
-                    MessageDisplay::System {
-                        content: "Dirac session import isn't supported yet.".to_string(),
-                    }
-                    .to_chat_message(),
-                );
             }
             AgentType::Gemini => {
                 session.resume_session_id = None;

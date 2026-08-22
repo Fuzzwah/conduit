@@ -322,10 +322,6 @@ pub fn agent_codex() -> Color {
     current_theme().agent_codex
 }
 #[inline]
-pub fn agent_dirac() -> Color {
-    Color::Rgb(217, 70, 239)
-}
-#[inline]
 pub fn agent_gemini() -> Color {
     current_theme().agent_codex
 }

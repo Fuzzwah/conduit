@@ -74,7 +74,6 @@ impl ConfigService {
                 core.tools().is_available(match provider {
                     AgentType::Claude => conduit_util::Tool::Claude,
                     AgentType::Codex => conduit_util::Tool::Codex,
-                    AgentType::Dirac => conduit_util::Tool::Dirac,
                     AgentType::Gemini => conduit_util::Tool::Gemini,
                     AgentType::DeepseekTui => conduit_util::Tool::DeepseekTui,
                     AgentType::Opencode => conduit_util::Tool::Opencode,

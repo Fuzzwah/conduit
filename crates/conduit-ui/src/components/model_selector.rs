@@ -126,7 +126,6 @@ impl ModelSelectorState {
             let models = match agent_type {
                 AgentType::Claude => ModelRegistry::claude_models(),
                 AgentType::Codex => ModelRegistry::codex_models(),
-                AgentType::Dirac => ModelRegistry::dirac_models(),
                 AgentType::Gemini => ModelRegistry::gemini_models(),
                 AgentType::DeepseekTui => ModelRegistry::deepseek_tui_models(),
                 AgentType::Opencode => ModelRegistry::opencode_models(),

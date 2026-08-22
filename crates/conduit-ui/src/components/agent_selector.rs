@@ -53,11 +53,6 @@ impl AgentSelectorState {
                 name: "Claude Code",
                 description: "Anthropic's coding assistant",
             },
-            AgentType::Dirac => AgentOption {
-                agent_type: AgentType::Dirac,
-                name: "Dirac CLI",
-                description: "Token-efficient coding assistant",
-            },
             AgentType::Gemini => AgentOption {
                 agent_type: AgentType::Gemini,
                 name: "Gemini CLI",
@@ -95,7 +90,6 @@ impl AgentSelectorState {
         match agent_type {
             AgentType::Codex => Tool::Codex,
             AgentType::Claude => Tool::Claude,
-            AgentType::Dirac => Tool::Dirac,
             AgentType::Gemini => Tool::Gemini,
             AgentType::DeepseekTui => Tool::DeepseekTui,
             AgentType::Opencode => Tool::Opencode,

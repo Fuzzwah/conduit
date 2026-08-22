@@ -388,7 +388,6 @@ fn render_skill_invocation(
         },
         AgentType::Gemini
         | AgentType::DeepseekTui
-        | AgentType::Dirac
         | AgentType::Opencode
         | AgentType::Copilot
         | AgentType::Pi
