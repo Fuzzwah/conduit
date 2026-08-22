@@ -10,10 +10,10 @@ use ratatui::{
 };
 
 use super::{
-    agent_claude, agent_codex, agent_copilot, agent_dirac, agent_gemini, agent_opencode, agent_pi,
-    bg_highlight, dialog_bg, dialog_content_area, ensure_contrast_bg, ensure_contrast_fg,
-    render_minimal_scrollbar, selected_bg, text_muted, text_primary, DialogFrame, ScrollbarMetrics,
-    SearchableListState,
+    agent_claude, agent_codex, agent_copilot, agent_deepseek_tui, agent_dirac, agent_gemini,
+    agent_maki, agent_opencode, agent_pi, bg_highlight, dialog_bg, dialog_content_area,
+    ensure_contrast_bg, ensure_contrast_fg, render_minimal_scrollbar, selected_bg, text_muted,
+    text_primary, DialogFrame, ScrollbarMetrics, SearchableListState,
 };
 use conduit_agent::AgentType;
 use conduit_session::ExternalSession;
@@ -52,6 +52,8 @@ pub enum AgentFilter {
     Copilot,
     /// Show only Pi sessions
     Pi,
+    /// Show only Maki sessions
+    Maki,
 }
 
 impl AgentFilter {
@@ -65,7 +67,8 @@ impl AgentFilter {
             AgentFilter::DeepseekTui => AgentFilter::Opencode,
             AgentFilter::Opencode => AgentFilter::Copilot,
             AgentFilter::Copilot => AgentFilter::Pi,
-            AgentFilter::Pi => AgentFilter::All,
+            AgentFilter::Pi => AgentFilter::Maki,
+            AgentFilter::Maki => AgentFilter::All,
         }
     }
 
@@ -80,6 +83,7 @@ impl AgentFilter {
             AgentFilter::Opencode => "OpenCode",
             AgentFilter::Copilot => "Copilot",
             AgentFilter::Pi => "Pi",
+            AgentFilter::Maki => "Maki",
         }
     }
 }
@@ -219,6 +223,7 @@ impl SessionImportPickerState {
                     AgentFilter::Opencode => matches!(s.agent_type, AgentType::Opencode),
                     AgentFilter::Copilot => matches!(s.agent_type, AgentType::Copilot),
                     AgentFilter::Pi => matches!(s.agent_type, AgentType::Pi),
+                    AgentFilter::Maki => matches!(s.agent_type, AgentType::Maki),
                 }
             })
             .filter(|(_, s)| {
@@ -507,10 +512,11 @@ impl SessionImportPicker {
                 AgentFilter::Claude => agent_claude(),
                 AgentFilter::Codex => agent_codex(),
                 AgentFilter::Gemini => agent_gemini(),
-                AgentFilter::DeepseekTui => agent_pi(),
+                AgentFilter::DeepseekTui => agent_deepseek_tui(),
                 AgentFilter::Opencode => agent_opencode(),
                 AgentFilter::Copilot => agent_copilot(),
                 AgentFilter::Pi => agent_pi(),
+                AgentFilter::Maki => agent_maki(),
             };
             let style = if is_selected {
                 let fg = ensure_contrast_fg(base_fg, tab_selected_bg, 4.5);
@@ -586,16 +592,18 @@ impl SessionImportPicker {
                 AgentType::Opencode => "O",
                 AgentType::Copilot => "P",
                 AgentType::Pi => "π",
+                AgentType::Maki => "M",
             };
             let agent_color = match session.agent_type {
                 AgentType::Claude => agent_claude(),
                 AgentType::Codex => agent_codex(),
                 AgentType::Dirac => agent_dirac(),
                 AgentType::Gemini => agent_gemini(),
-                AgentType::DeepseekTui => agent_pi(),
+                AgentType::DeepseekTui => agent_deepseek_tui(),
                 AgentType::Opencode => agent_opencode(),
                 AgentType::Copilot => agent_copilot(),
                 AgentType::Pi => agent_pi(),
+                AgentType::Maki => agent_maki(),
             };
 
             // Calculate widths

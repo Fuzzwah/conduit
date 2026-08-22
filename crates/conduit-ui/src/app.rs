@@ -52,7 +52,8 @@ use conduit_agent::{
     load_opencode_history_for_dir_with_debug, load_opencode_history_with_debug,
     load_pi_history_with_debug, AgentMode, AgentRunner, AgentType, ClaudeCodeRunner,
     CodexCliRunner, CopilotRunner, DeepseekTuiRunner, DiracRunner, GeminiCliRunner,
-    HistoryDebugEntry, MessageDisplay, ModelRegistry, OpencodeRunner, PiRunner, SessionId,
+    HistoryDebugEntry, MakiRunner, MessageDisplay, ModelRegistry, OpencodeRunner, PiRunner,
+    SessionId,
 };
 #[cfg(test)]
 use conduit_config::KeyContext;
@@ -254,6 +255,12 @@ impl App {
     #[inline]
     fn pi_runner(&self) -> &Arc<PiRunner> {
         self.core.pi_runner()
+    }
+
+    /// Get the Maki runner.
+    #[inline]
+    fn maki_runner(&self) -> &Arc<MakiRunner> {
+        self.core.maki_runner()
     }
 
     /// Get the worktree manager.
@@ -738,6 +745,14 @@ impl App {
                         session.chat_view.push(
                             MessageDisplay::System {
                                 content: "GitHub Copilot history import isn't supported yet, so previous messages won't be shown.".to_string(),
+                            }
+                            .to_chat_message(),
+                        );
+                    }
+                    AgentType::Maki => {
+                        session.chat_view.push(
+                            MessageDisplay::System {
+                                content: "Maki history import isn't supported yet, so previous messages won't be shown.".to_string(),
                             }
                             .to_chat_message(),
                         );
@@ -2353,6 +2368,7 @@ impl App {
                         AgentType::Opencode => self.opencode_runner().clone(),
                         AgentType::Copilot => self.copilot_runner().clone(),
                         AgentType::Pi => self.pi_runner().clone(),
+                        AgentType::Maki => self.maki_runner().clone(),
                     };
 
                     let event_tx = self.event_tx.clone();
@@ -4250,6 +4266,14 @@ impl App {
                                 .to_chat_message(),
                             );
                         }
+                        AgentType::Maki => {
+                            session.chat_view.push(
+                                MessageDisplay::System {
+                                    content: "Maki history import isn't supported yet, so previous messages won't be shown.".to_string(),
+                                }
+                                .to_chat_message(),
+                            );
+                        }
                         AgentType::Pi => {
                             if let Ok((msgs, debug_entries, file_path)) =
                                 load_pi_history_with_debug(session_id_str)
@@ -4381,6 +4405,7 @@ impl App {
             AgentType::Opencode => conduit_util::Tool::Opencode,
             AgentType::Copilot => conduit_util::Tool::Copilot,
             AgentType::Pi => conduit_util::Tool::Pi,
+            AgentType::Maki => conduit_util::Tool::Maki,
         }
     }
 
@@ -6112,6 +6137,16 @@ impl App {
                 session.chat_view.push(
                     MessageDisplay::System {
                         content: "GitHub Copilot session import isn't supported yet.".to_string(),
+                    }
+                    .to_chat_message(),
+                );
+            }
+            AgentType::Maki => {
+                session.resume_session_id = None;
+                session.agent_session_id = None;
+                session.chat_view.push(
+                    MessageDisplay::System {
+                        content: "Maki session import isn't supported yet.".to_string(),
                     }
                     .to_chat_message(),
                 );

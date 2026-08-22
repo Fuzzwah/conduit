@@ -80,6 +80,7 @@ impl ConfigService {
                     AgentType::Opencode => conduit_util::Tool::Opencode,
                     AgentType::Copilot => conduit_util::Tool::Copilot,
                     AgentType::Pi => conduit_util::Tool::Pi,
+                    AgentType::Maki => conduit_util::Tool::Maki,
                 })
             })
             .count();

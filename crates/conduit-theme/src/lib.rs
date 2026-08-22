@@ -336,16 +336,23 @@ pub fn agent_opencode() -> Color {
 }
 
 #[inline]
-pub fn agent_copilot() -> Color {
-    // Reuse the Claude color for now; a dedicated theme field can be added later
-    current_theme().agent_claude
+pub fn agent_deepseek_tui() -> Color {
+    current_theme().agent_deepseek_tui
+}
+
+#[inline]
+pub fn agent_maki() -> Color {
+    current_theme().agent_maki
 }
 
 #[inline]
 pub fn agent_pi() -> Color {
-    // Reuse the OpenCode color for now; both are multi-provider agents and a dedicated
-    // theme field can be added later if Pi needs separate branding.
-    current_theme().agent_opencode
+    current_theme().agent_pi
+}
+
+#[inline]
+pub fn agent_copilot() -> Color {
+    current_theme().agent_claude
 }
 
 // PR State Colors

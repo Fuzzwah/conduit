@@ -131,8 +131,10 @@ pub use theme::{
     agent_claude,
     agent_codex,
     agent_copilot,
+    agent_deepseek_tui,
     agent_dirac,
     agent_gemini,
+    agent_maki,
     agent_opencode,
     agent_pi,
     // Background colors (functions)

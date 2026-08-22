@@ -178,6 +178,7 @@ impl SessionManager {
             AgentType::Opencode => core.opencode_runner().clone(),
             AgentType::Copilot => core.copilot_runner().clone(),
             AgentType::Pi => core.pi_runner().clone(),
+            AgentType::Maki => core.maki_runner().clone(),
         };
 
         if !runner.is_available() {
@@ -516,7 +517,8 @@ impl SessionManager {
             | AgentType::DeepseekTui
             | AgentType::Opencode
             | AgentType::Copilot
-            | AgentType::Pi => AgentInput::CodexPrompt {
+            | AgentType::Pi
+            | AgentType::Maki => AgentInput::CodexPrompt {
                 text: input,
                 images,
                 model,
@@ -1228,7 +1230,8 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                         AgentType::DeepseekTui
                         | AgentType::Opencode
                         | AgentType::Copilot
-                        | AgentType::Pi => {
+                        | AgentType::Pi
+                        | AgentType::Maki => {
                             if let Err(send_err) = tx
                                 .send(ServerMessage::session_error(
                                     session_id,
@@ -1605,7 +1608,8 @@ pub async fn handle_websocket(socket: WebSocket, session_manager: Arc<SessionMan
                         Some(AgentType::Opencode)
                         | Some(AgentType::DeepseekTui)
                         | Some(AgentType::Copilot)
-                        | Some(AgentType::Pi) => {
+                        | Some(AgentType::Pi)
+                        | Some(AgentType::Maki) => {
                             if let Err(send_err) = tx
                                 .send(ServerMessage::session_error(
                                     session_id,

@@ -20,6 +20,8 @@ export function agentDisplayName(agentType: AgentType, options?: { short?: boole
       return 'OpenCode';
     case 'pi':
       return 'Pi';
+    case 'maki':
+      return 'Maki';
   }
 }
 
@@ -39,5 +41,7 @@ export function agentAccentColor(agentType: AgentType): string {
       return 'bg-cyan-400';
     case 'pi':
       return 'bg-purple-400';
+    case 'maki':
+      return 'bg-amber-400';
   }
 }

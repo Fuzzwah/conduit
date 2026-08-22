@@ -133,6 +133,9 @@ pub struct TomlAgent {
     pub claude: Option<String>,
     pub codex: Option<String>,
     pub opencode: Option<String>,
+    pub deepseek_tui: Option<String>,
+    pub maki: Option<String>,
+    pub pi: Option<String>,
 }
 
 /// PR state section.
@@ -379,6 +382,9 @@ impl<'a> ThemeBuilder<'a> {
             agent_claude: resolve_color!(agent, claude, agent_claude),
             agent_codex: resolve_color!(agent, codex, agent_codex),
             agent_opencode: resolve_color!(agent, opencode, agent_opencode),
+            agent_deepseek_tui: resolve_color!(agent, deepseek_tui, agent_deepseek_tui),
+            agent_maki: resolve_color!(agent, maki, agent_maki),
+            agent_pi: resolve_color!(agent, pi, agent_pi),
 
             // PR
             pr_open_bg: resolve_color!(pr, open, pr_open_bg),
@@ -570,6 +576,9 @@ impl<'a> ThemeBuilder<'a> {
                 "claude" => s.claude.clone(),
                 "codex" => s.codex.clone(),
                 "opencode" => s.opencode.clone(),
+                "deepseek_tui" => s.deepseek_tui.clone(),
+                "maki" => s.maki.clone(),
+                "pi" => s.pi.clone(),
                 _ => None,
             }),
             "pr" => self.toml.pr.as_ref().and_then(|s| match field {
